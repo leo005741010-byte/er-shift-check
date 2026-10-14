@@ -52,7 +52,7 @@ details.sec>summary .r{margin-left:auto;font-weight:400;font-size:13px;color:var
 .note b{font-weight:700}
 pre.rule{background:#0f2238;color:#e8f0fa;border-radius:8px;padding:10px 12px;font-size:12.5px;overflow:auto;white-space:pre;user-select:all;margin:8px 0 0}
 .tag{display:inline-block;font-size:12px;border-radius:6px;padding:1px 7px;font-weight:700;white-space:nowrap}
-.tag.ok{background:var(--okbg);color:var(--ok)}.tag.no{background:var(--badbg);color:var(--bad)}.tag.w{background:var(--warnbg);color:var(--warn)}.tag.g{background:#eef2f4;color:var(--mut)}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.wn{background:#fff6cc;color:#8a6d00}.tag.no{background:var(--badbg);color:var(--bad)}.tag.w{background:var(--warnbg);color:var(--warn)}.tag.g{background:#eef2f4;color:var(--mut)}
 .foot{text-align:center;color:var(--mut);font-size:12.5px;margin-top:18px;line-height:2}
 .foot .lk{background:none;border:none;color:var(--navy);text-decoration:underline;cursor:pointer;padding:0 2px;font-size:12.5px}
 #toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2d3d;color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;z-index:90;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
@@ -75,7 +75,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .frow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;color:var(--txt)}
 .frow:active{background:#f3f8f9}
 .frow .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:#cfd8dc}
-.frow.ok .dot{background:#2eb872}.frow.bad .dot{background:#f2a541}.frow.part .dot{background:#8fc4cb}
+.frow.ok .dot{background:#2eb872}.frow.wn .dot{background:#2eb872;box-shadow:0 0 0 3px #f6e08a}.frow.wn .fs{color:var(--ok)}.frow.bad .dot{background:#f2a541}.frow.part .dot{background:#8fc4cb}
 .frow .fn{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--navy-dark)}
 .frow .fn small{display:block;font-size:12.5px;font-weight:400;color:var(--mut)}
 .frow .fs{font-size:13px;text-align:right;white-space:nowrap}
@@ -240,6 +240,7 @@ details.oth[open]>summary::before{content:'▾ '}
 .cell{border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font-size:13px;cursor:pointer;white-space:nowrap;color:var(--txt)}
 .cell.ok{background:var(--okbg);border-color:#bfe5cd;color:var(--ok)}
 .cell.bad{background:var(--warnbg);border-color:#f3d9a4;color:var(--warn);font-weight:700}
+.cell.wn{background:#fffbe6;border-color:#f2e2a0;color:#8a6d00}
 .cell.miss{background:var(--badbg);border-color:#f1b9b3;color:var(--bad);cursor:default}
 .cell.wait{color:#a9b7bd;cursor:default}
 .abn{padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
@@ -328,7 +329,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.3.2';
+const VERSION='1.4.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -460,9 +461,11 @@ const DEFAULT_FORMS=[
  items:sec('儀器時間（誤差 ≤ 1 分鐘）',[['k1','電擊器（DFM100）'],['k2','電擊器（XL+）'],['k3','12 導程 EKG'],['k4','超音波'],['k5','留觀區三合一血壓機（1）'],['k6','留觀區三合一血壓機（2）']],'c')}
 ];
 const SOAK_ITEMS=['喉頭鏡葉片'];
-const CHIPS=['上一班未補','已補齊','已更換','已通知補貨','已通知醫工','已送修'];
+const CHIPS=['上一班未補','損壞送修','其他'];   // 打 ✗ 的理由（主任 10/14 指定只要這三個；選「其他」才要打字）
+const OTHER='其他', OTHER_P='其他：';
 const PREV_MISS='上一班未補';   // 接班時發現少了、要請上一班補：記下請誰補，進「待補」清單，補好再按已補齊
-const AUTO_FIX={'已補齊':1,'已更換':1};
+// 處理好了用什麼字：上一班未補→已補齊、損壞送修→已修好、其他→已處理
+const fixWord=n=>n===PREV_MISS?'已補齊':n==='損壞送修'?'已修好':'已處理';
 
 // ---------- 雲端（Firebase REST，匿名登入；與其他急診 App 同一個資料庫） ----------
 const FB_DB='https://tenchener-488d2-default-rtdb.firebaseio.com', NODE='erShiftCheckData', SCHED='erNurseScheduleData';
@@ -625,8 +628,11 @@ function legacyOf(d,f,k){
   return r;
 }
 const special=f=>f.kind==='narc'||f.kind==='temp';
-const openCount=(r,f)=>(f?f.items.map(it=>it.id):Object.keys(r.v)).filter(id=>r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])).length;
-const partBad=(f,r)=>f.items.filter(it=>r.v[it.id]===0).length;
+const isFixed=(r,id)=>!!(r.r&&r.r[id])||!!(r.res&&r.res[id]);
+const xIds=(r,f)=>(f?f.items.map(it=>it.id):Object.keys(r.v)).filter(id=>r.v[id]===0);
+const openCount=(r,f)=>xIds(r,f).filter(id=>!isFixed(r,id)).length;   // 異常（還沒處理）
+const warnCount=(r,f)=>xIds(r,f).filter(id=>isFixed(r,id)).length;    // 警示（打過 ✗、已經處理好）
+const partBad=(f,r)=>openCount(r,f);
 // 一個時段整張單（各位置那幾份合起來）：給月表、列印用
 function slotRec(d,f,k){
   const rs=[], seen=new Set();
@@ -690,7 +696,7 @@ function viewParts(d,s){
 }
 function shiftStat(d,s){
   const L=viewParts(d,s).mine.filter(x=>x.k!=='M'); let done=0,bad=0;
-  L.forEach(({f,k})=>{ const r=recOf(d,f,k); if(r){ done++; if(r.bad) bad++; } });
+  L.forEach(({f,k})=>{ const r=recOf(d,f,k); if(r){ done++; if(openCount(r,f)) bad++; } });
   return {n:L.length,done,bad};
 }
 
@@ -718,7 +724,8 @@ function renderNurse(){
     const r=recOf(d,f,k), dr=drafts[draftKey(d,f,k)];
     let cls='',fs='未點';
     const pd=pendOf(r);
-    if(r){ cls=r.bad?'bad':'ok'; fs=r.bad?`⚠ ${pd?`待補 ${pd}`:`${r.bad} 項異常`}・${esc(r.by)}`:`✓ ${esc(r.by)} ${r._d?dayLabel(r._d).replace(/（.）/,'')+' ':''}${hm(r.at)}`; }
+    if(r){ const ob=r._stub?(r.bad||0):openCount(r,f), wn=r._stub?0:warnCount(r,f);
+      cls=ob?'bad':wn?'wn':'ok'; fs=ob?`⚠ ${pd?`待補 ${pd}`:`${ob} 項異常`}・${esc(r.by)}`:`✓ ${esc(r.by)} ${r._d?dayLabel(r._d).replace(/（.）/,'')+' ':''}${hm(r.at)}${wn?`・警示 ${wn}`:''}`; }
     else if(dr&&Object.keys(dr.v||{}).length+Object.keys(dr.x||{}).length){ cls='part'; fs='點到一半'; }
     const sl=['AM','PM','X'].includes(k)?SLOT[k].lab+'・':'';
     const tg=!hasPos()?'':p?(tag||P==='*'?posTag(p):''):(P&&P!=='*'?'<span class="ptag">共同</span>':'');
@@ -803,7 +810,7 @@ function evalItem(f,it,dr){
 function progressOf(f,dr){
   let ans=0,need=0,miss=[];
   f.items.forEach(it=>{ const v=evalItem(f,it,dr); if(v!=null) ans++; else miss.push(it.id);
-    if(v===0&&!String(dr.n[it.id]||'').trim()) { need++; miss.push(it.id); }
+    if(v===0&&(!String(dr.n[it.id]||'').trim()||(reasonOf(dr.n[it.id])===OTHER&&!String(dr.n[it.id]).slice(OTHER_P.length).trim()))) { need++; miss.push(it.id); }
     else if(v===0&&dr.n[it.id]===PREV_MISS&&!String((dr.w||{})[it.id]||'').trim()) { need++; miss.push(it.id); } });   // 上一班未補：要寫請誰補
   if(f.kind==='narc'&&!String(dr.x._giver||'').trim()) miss.push('_giver');
   return {ans,tot:f.items.length,need,miss};
@@ -831,21 +838,22 @@ function prevChecker(d,f,k,id){
 }
 const pendOf=r=>r?Object.keys(r.w||{}).filter(id=>r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])).length:0;
 const shortOf=(it,a)=>/^\d+$/.test(String(it.q))&&isNum(a)&&+a<+it.q?+it.q-(+a):0;
+const reasonOf=n=>n===PREV_MISS||n==='損壞送修'?n:n&&n.startsWith(OTHER)?OTHER:n?'舊':'';
 function ngBody(f,it,dr,ro){
-  const note=dr.n[it.id]||'', fixed=!!dr.r[it.id]||!!(dr.res&&dr.res[it.id]);
+  const note=dr.n[it.id]||'', fixed=isFixed(dr,it.id), rsn=reasonOf(note);
   if(ro){ const rs=dr.res&&dr.res[it.id];
     const w=dr.w&&dr.w[it.id], sh=shortOf(it,dr.a[it.id]);
-    const canFix=!MANAGE&&w&&!fixed&&dr._path&&me();
-    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}${sh?`（缺 ${sh}）`:''}・`:''}${esc(note)}${w?`・請 ${esc(w)} 補`:''} ${fixed?'<span class="tag ok">已處理</span>':`<span class="tag no">${w?'待補':'待追蹤'}</span>`}${canFix?` <button class="btn mini" data-act="rsdone" data-path="${esc(dr._path)}" data-id="${esc(it.id)}">已補齊</button>`:''}${rs?`<div class="res">${esc(rs.txt||'已處理')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
+    const canFix=!MANAGE&&!fixed&&dr._path&&me();   // 處理好了直接在這裡按（補齊／修好／處理好）
+    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}${sh?`（缺 ${sh}）`:''}・`:''}${esc(note)}${w?`・請 ${esc(w)} 補`:''} ${fixed?'<span class="tag wn">警示・已處理</span>':`<span class="tag no">${w?'待補':'異常'}</span>`}${canFix?` <button class="btn mini" data-act="rsdone" data-path="${esc(dr._path)}" data-id="${esc(it.id)}" data-txt="${fixWord(note)}">${fixWord(note)}</button>`:''}${rs?`<div class="res">${esc(rs.txt||'已處理')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
   const sh=shortOf(it,dr.a[it.id]);
   let who='';
   if(note===PREV_MISS&&fvs){ const pc=prevChecker(fvs.d,f,fvs.k,it.id), ps=prevShift(fvs.d,slotSh(fvs.k)||'D'), cands=[...new Set([pc,...onDuty(ps.d,ps.s)].filter(Boolean))], w=(dr.w||{})[it.id]||'';
     who=`<div class="fix" style="color:var(--txt);flex-wrap:wrap;gap:6px">請誰補：${cands.map(n=>`<button class="chip${w===n?' on':''}" data-act="wsel" data-id="${it.id}" data-n="${esc(n)}">${esc(n)}${n===pc?'（上一班點的）':''}</button>`).join('')}</div>
       <input type="text" class="note" placeholder="請誰補（可直接打名字）" data-in="w" data-id="${it.id}" value="${esc(w)}">`; }
   return `<div class="ngx">${it.t==='n'&&!special(f)?`<div class="fix" style="color:var(--txt)">實際數量 <span class="stp"><button data-act="astp" data-id="${it.id}" data-d="-1">−</button><input type="number" inputmode="numeric" min="0" data-in="a" data-id="${it.id}" value="${esc(dr.a[it.id]==null?'':dr.a[it.id])}"><button data-act="astp" data-id="${it.id}" data-d="1">＋</button></span>${sh?`<b style="color:var(--bad)">缺 ${sh}</b>`:''}</div>`:''}
-    <div class="chips">${CHIPS.map(c=>`<button class="chip${note===c?' on':''}${c===PREV_MISS?' pm':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>${who}
-    ${note===PREV_MISS?'<div class="hint" style="margin:0">會列在首頁的「待補」，補好了在那裡按「已補齊」。</div>':`<input type="text" class="note" placeholder="處理情形（必填）" data-in="n" data-id="${it.id}" value="${esc(note)}">
-    <label class="fix"><input type="checkbox" data-in="r" data-id="${it.id}"${dr.r[it.id]?' checked':''}> 已處理完畢（沒勾＝待追蹤，會出現在護理長的追蹤清單）</label>`}</div>`;
+    <div class="chips">${CHIPS.map(c=>`<button class="chip${rsn===c?' on':''}${c===PREV_MISS?' pm':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>${who}
+    ${rsn===OTHER?`<input type="text" class="note" placeholder="請寫原因（必填）" data-in="o" data-id="${it.id}" value="${esc(note.slice(OTHER_P.length))}">`:''}
+    ${rsn===PREV_MISS?'<div class="hint" style="margin:0">會列在首頁的「待補」，補好了按「已補齊」。</div>':rsn==='損壞送修'?'<div class="hint" style="margin:0">修好了打開這張單按「已修好」，或由護理長在後台標記。</div>':''}</div>`;
 }
 const stp=(id,fld,val,ro,dec)=>ro?`<b style="font-size:18px">${esc(val==null||val===''?'—':val)}</b>`
   :`<span class="stp"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="-1">−</button><input type="number" inputmode="${dec?'decimal':'numeric'}" data-in="x" data-id="${id}" data-fld="${fld}" value="${esc(val==null?'':val)}"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="1">＋</button></span>`;
@@ -884,7 +892,8 @@ function renderForm(top){
   if(rec&&ro){
     const late=rec.at>slotEnd(rec._d||d,k), hist=(rec.h||[]).length;
     const mine=!MANAGE&&!rec._stub&&!rec._legacy&&rec.by===me()&&Date.now()-rec.at<24*3600e3;   // 自己點的、24 小時內：可以自己取消（點錯班、點錯單）
-    h+=`<div class="done${rec.bad?' bad':''}"><b>${rec.bad?`⚠ ${rec.bad} 項異常`:'✓ 已點班'}</b><span>${esc(rec.by)}・${whenLabel(rec.at)}${late?'（補登）':''}${hist?`・改過 ${hist} 次`:''}</span>${MANAGE?'':`<span class="acts">${mine?'<button class="btn mini ghost" data-act="cancelrec">取消這筆</button>':''}<button class="btn mini outline" data-act="edit">修改</button></span>`}</div>`;
+    const ob=rec._stub?(rec.bad||0):openCount(rec,f), wn=rec._stub?0:warnCount(rec,f);
+    h+=`<div class="done${ob?' bad':''}"><b>${ob?`⚠ ${ob} 項異常`:'✓ 已點班'}${wn?`・警示 ${wn}`:''}</b><span>${esc(rec.by)}・${whenLabel(rec.at)}${late?'（補登）':''}${hist?`・改過 ${hist} 次`:''}</span>${MANAGE?'':`<span class="acts">${mine?'<button class="btn mini ghost" data-act="cancelrec">取消這筆</button>':''}<button class="btn mini outline" data-act="edit">修改</button></span>`}</div>`;
     if(!MANAGE&&!mine&&rec.by===me()&&!rec._stub) h+=`<div class="hint">超過 24 小時的點班要取消，請護理長在管理頁刪除。</div>`;
   } else if(rec&&!ro){
     h+=`<div class="note info">修改 ${esc(rec.by)} ${whenLabel(rec.at)} 的點班紀錄；送出後會留下修改紀錄。</div>`;
@@ -925,7 +934,7 @@ async function submitForm(){
   if(p.miss.length){
     fvs.showMiss=p.miss; renderForm();
     const el=$('it-'+p.miss[0]); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
-    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'異常的項目要寫處理情形（上一班未補要選請誰補）':'請填交班者');
+    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
     return;
   }
   // 送出前再看一次雲端：別人剛好也點了同一張，先問再蓋
@@ -1065,44 +1074,44 @@ const firstAt=r=>r.h&&r.h.length?r.h[0].at:r.at;   // 改過的以第一次送�
 function lateMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((firstAt(r)-(parseD(d).getTime()+SLOT_START[k]*3600e3))/60000); return m>60?m:0; }
 function monthStats(mk){
   const D=dim(mk), now=Date.now(), today=ymd(new Date()), days=[], abn=[], byForm={}, late=[], lateSeen=new Set();
-  let due=0,done=0,bad=0,open=0;
+  let due=0,done=0,bad=0,warn=0;
   const last=mk===mkey(today)?+today.slice(8):mk>mkey(today)?0:D;
   for(let i=1;i<=last;i++){
-    const d=`${mk}-${pad(i)}`, pre=!!appStart&&d<appStart, o={i,d,due:0,done:0,bad:0,open:0,miss:0,pre};
+    const d=`${mk}-${pad(i)}`, pre=!!appStart&&d<appStart, o={i,d,due:0,done:0,bad:0,warn:0,miss:0,pre};
     activeForms().forEach(f=>{ slotsOf(f).forEach(k=>{
       if(k==='M') return;
       partsOf(f,k).forEach(pp=>{ const pf=partForm(f,k,pp);   // 分給好幾個位置的單子：每個位置那一份各算一張
         const r=recOf(d,pf,k), isDue=!!r||(!pre&&slotEnd(d,k)<=now);
         const bf=byForm[f.id]||(byForm[f.id]={f,due:0,done:0,bad:0});
         if(isDue){ o.due++; bf.due++; }
-        if(r){ const b=partBad(pf,r); o.done++; bf.done++; o.bad+=b; bf.bad+=b; o.open+=openCount(r,pf);
+        if(r){ const b=partBad(pf,r), wv=warnCount(r,pf); o.done++; bf.done++; o.bad+=b; bf.bad+=b; o.warn+=wv;
           const lm=lateMin(d,k,r); if(lm&&!lateSeen.has(r._path)){ lateSeen.add(r._path); late.push({d,k,f,p:pp,r,min:lm,key:r._path+'|'+firstAt(r)}); }
           pf.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d,k,f,p:pp,it,r,fixed:!!r.r[it.id]||!!(r.res&&r.res[it.id])}); }); }
         else if(isDue) o.miss++;
       });
     }); });
-    days.push(o); due+=o.due; done+=o.done; bad+=o.bad; open+=o.open;
+    days.push(o); due+=o.due; done+=o.done; bad+=o.bad; warn+=o.warn;
   }
   // 每月一次的單子：月底前沒點不算未點
   activeForms().filter(f=>slotsOf(f).includes('M')).forEach(f=>partsOf(f,'M').forEach(pp=>{
     const pf=partForm(f,'M',pp), r=recOf(`${mk}-01`,pf,'M'), ended=slotEnd(`${mk}-01`,'M')<=now&&!(appStart&&mk<mkey(appStart));
     const bf=byForm[f.id]||(byForm[f.id]={f,due:0,done:0,bad:0});
     if(r||ended){ due++; bf.due++; const o=days[(r?+r._d.slice(8):last)-1]; if(o) o.due++; }
-    if(r){ const b=r._stub?(r.bad||0):partBad(pf,r), oc=openCount(r,pf); done++; bf.done++; bad+=b; bf.bad+=b; open+=oc; const o=days[+r._d.slice(8)-1]; if(o){ o.done++; o.bad+=b; o.open+=oc; }
+    if(r){ const b=r._stub?(r.bad||0):partBad(pf,r), wv=r._stub?0:warnCount(r,pf); done++; bf.done++; bad+=b; bf.bad+=b; warn+=wv; const o=days[+r._d.slice(8)-1]; if(o){ o.done++; o.bad+=b; o.warn+=wv; }
       pf.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d:r._d,k:'M',f,p:pp,it,r,fixed:!!r.r[it.id]||!!(r.res&&r.res[it.id])}); }); }
     else if(ended){ const o=days[last-1]; if(o) o.miss++; }
   }));
   const miss=days.reduce((a,o)=>a+o.miss,0);
   late.sort((a,b)=>firstAt(b.r)-firstAt(a.r));
-  return {mk,days,due,done,bad,open,miss,abn,byForm,last,late};
+  return {mk,days,due,done,bad,warn,miss,abn,byForm,last,late};
 }
 const rate=S=>S.due?S.done/S.due*100:null;
 const TR={
   rate:{t:'點班完成率',unit:'%',isRate:1,day:o=>o.due?o.done/o.due*100:null,cum:(S,i)=>{ let a=0,b=0; for(let j=0;j<=i;j++){ a+=S.days[j].done; b+=S.days[j].due; } return b?a/b*100:null; },mon:rate,
     note:'已點的班次 ÷ 應點的班次。只算已經過完的班（進行中的班還沒點不算未點）。'},
-  bad:{t:'異常項目',unit:'項',day:o=>o.bad,mon:S=>S.bad,note:'點班時打 ✗（或數量、溫度不符）的項目數。'},
+  bad:{t:'異常項目',unit:'項',day:o=>o.bad,mon:S=>S.bad,note:'點班時打 ✗（或數量、溫度不符），而且還沒處理好的項目。處理好（補齊、修好、標記已處理）就改列「警示」。'},
   miss:{t:'未點班次',unit:'班',day:o=>o.miss,mon:S=>S.miss,note:'班已經過完、卻沒有人點的點班單張數。'},
-  open:{t:'待追蹤',unit:'項',day:o=>o.open,mon:S=>S.open,note:'異常裡還沒標「已處理」的項目。'}
+  warn:{t:'警示',unit:'項',day:o=>o.warn,mon:S=>S.warn,note:'點班時打過 ✗、之後已經處理好的項目（補齊、修好、標記已處理）。不算異常，列出來讓後台知道。'}
 };
 const pctVs=(v,pv)=>pv?(v-pv)/Math.abs(pv)*100:null;
 // 異常、未點、待追蹤是越少越好：減少用綠色
@@ -1133,9 +1142,9 @@ function renderManage(){
   h+=`<div class="mhead"><h2>${monLabel(mcur)}</h2><span class="mut">${isCur?`到今天（${dayLabel(ymd(new Date()))}）`:'整月'}</span></div>`;
   h+=`<div class="tiles">
     <button class="tile big" data-act="trend" data-m="rate"><span class="tg">📈</span><div class="l">點班完成率</div><div class="v">${r==null?'—':fmt(r)+'<small>%</small>'}</div><div class="pbar"><span style="width:${r||0}%"></span></div><div class="s">已點 ${S.done}／應點 ${S.due}</div><div class="s">${vsPrev('rate',S,P)}</div></button>
-    <button class="tile big" data-act="trend" data-m="bad"><span class="tg">📈</span><div class="l">異常項目</div><div class="v">${S.bad}<small> 項</small></div><div class="s">其中待追蹤 ${S.open} 項</div><div class="s">${vsPrev('bad',S,P)}</div></button>
+    <button class="tile big" data-act="trend" data-m="bad"><span class="tg">📈</span><div class="l">異常項目</div><div class="v">${S.bad}<small> 項</small></div><div class="s">還沒處理好的</div><div class="s">${vsPrev('bad',S,P)}</div></button>
     <button class="tile" data-act="trend" data-m="miss"><span class="tg">📈</span><div class="l">未點班次</div><div class="v">${S.miss}<small> 張</small></div><div class="s">${vsPrev('miss',S,P)}</div></button>
-    <button class="tile" data-act="trend" data-m="open"><span class="tg">📈</span><div class="l">待追蹤</div><div class="v">${S.open}<small> 項</small></div><div class="s">${vsPrev('open',S,P)}</div></button></div>`;
+    <button class="tile" data-act="trend" data-m="warn"><span class="tg">📈</span><div class="l">警示（已處理）</div><div class="v">${S.warn}<small> 項</small></div><div class="s">${vsPrev('warn',S,P)}</div></button></div>`;
   // 點班分工（哪個位置點哪些項目）
   const una=FORMS.filter(f=>f.on!==false).reduce((a,f)=>a+f.items.filter(it=>!it.p).length,0);
   h+=card('pos','點班分工（哪個位置點）',edDirty?'<span class="tag w">有未儲存的修改</span>':una?`${una} 項還沒分`:'全部分好了',posEditor());
@@ -1143,10 +1152,11 @@ function renderManage(){
   h+=card('forms','點班項目與設定量',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
   // 待追蹤異常
   const opens=S.abn.filter(a=>!a.fixed).sort((a,b)=>a.d<b.d?1:-1), fixed=S.abn.filter(a=>a.fixed).sort((a,b)=>a.d<b.d?1:-1);
-  const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}</span>${a.fixed?'<span class="tag ok">已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
+  const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}</span>${a.fixed?'<span class="tag wn">警示・已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
     <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${a.r.w&&a.r.w[a.it.id]?`・請 ${esc(a.r.w[a.it.id])} 補`:''}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}</div></div>`;
-  h+=card('abn',`異常追蹤`,`待追蹤 ${opens.length}・已處理 ${fixed.length}`,
-    (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有待追蹤的異常</div>')+(fixed.length?`<div class="grp">已處理</div>${fixed.map(abnRow).join('')}`:''));
+  h+=card('abn',`異常與警示`,`異常 ${opens.length}・警示 ${fixed.length}`,
+    `<div class="hint">異常＝打 ✗ 還沒處理好；處理好（補齊、修好、按「標記已處理」）就改列警示，不算異常。</div>`+
+    (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有未處理的異常</div>')+(fixed.length?`<div class="grp">警示（已處理）</div>${fixed.map(abnRow).join('')}`:''));
   // 延遲點班
   const notiOn=lsGet(LS_NOTI,0)&&'Notification' in window&&Notification.permission==='granted';
   h+=card('late','延遲點班（上班超過 1 小時才點）',`${S.late.length} 筆`,
@@ -1157,7 +1167,7 @@ function renderManage(){
   // 每日紀錄與核簽
   const revs=getAt('rev/'+mcur)||{}, nrev=S.days.filter(o=>revs[dkey(o.d)]).length;
   const dayHtml=o=>{ const rv=revs[dkey(o.d)];
-    return `<details class="dayrow"${mOpen['day'+o.d]?' open':''} data-tg="day${o.d}"><summary><span class="d">${dayLabel(o.d)}</span><span>${o.done}／${o.due}</span>${o.miss?`<span class="tag no">未點 ${o.miss}</span>`:''}${o.bad?`<span class="tag w">異常 ${o.bad}</span>`:''}
+    return `<details class="dayrow"${mOpen['day'+o.d]?' open':''} data-tg="day${o.d}"><summary><span class="d">${dayLabel(o.d)}</span><span>${o.done}／${o.due}</span>${o.miss?`<span class="tag no">未點 ${o.miss}</span>`:''}${o.bad?`<span class="tag w">異常 ${o.bad}</span>`:''}${o.warn?`<span class="tag wn">警示 ${o.warn}</span>`:''}
       <span class="r">${rv?`<span class="tag ok">✓ ${esc(rv.by)}</span>`:`<button class="btn mini outline" data-act="review" data-d="${o.d}">核簽</button>`}</span></summary><div class="body">${dayDetail(o.d)}${rv?`<div class="hint" style="margin-top:8px">${esc(rv.by)} ${whenLabel(rv.at)} 核簽　<button class="btn mini ghost" data-act="unreview" data-d="${o.d}">取消核簽</button></div>`:''}</div></details>`; };
   const useDays=S.days.filter(o=>!o.pre||o.done);
   h+=card('days','每日紀錄與核簽',`已核簽 ${nrev}／${useDays.length} 天`,useDays.length?[...useDays].reverse().map(dayHtml).join(''):'<div class="mut">這個月還沒有點班紀錄</div>');
@@ -1191,7 +1201,7 @@ async function showNoti(title,body){
 const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':''} data-tg="${id}"><summary>${title}<span class="r">${right}</span></summary>${body}</details>`;
 function dayDetail(d){
   const cell=(f,k,pp,lab)=>{ const pf=partForm(f,k,pp), r=recOf(d,pf,k), due=slotEnd(d,k)<=Date.now(), L=`${lab}${pp?'·'+esc(pp):''}`;
-    if(r){ const b=partBad(pf,r); return `<button class="cell ${b?'bad':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="${k}" data-p="${esc(pp)}">${L} ${b?'⚠'+b:'✓'} ${esc(r.by)}</button>`; }
+    if(r){ const b=partBad(pf,r), wv=warnCount(r,pf); return `<button class="cell ${b?'bad':wv?'wn':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="${k}" data-p="${esc(pp)}">${L} ${b?'⚠'+b:wv?'！'+wv:'✓'} ${esc(r.by)}</button>`; }
     return `<span class="cell ${due?'miss':'wait'}">${L} ${due?'未點':'—'}</span>`; };
   return activeForms().filter(f=>!slotsOf(f).includes('M')).map(f=>`<div class="frm"><span class="n">${esc(f.name)}</span>${slotsOf(f).map(k=>partsOf(f,k).map(pp=>cell(f,k,pp,slotLab(f,k))).join('')).join('')}</div>`).join('')+
     activeForms().filter(f=>slotsOf(f).includes('M')).map(f=>{ const L=partsOf(f,'M').filter(pp=>{ const r=recOf(d,partForm(f,'M',pp),'M'); return r&&r._d===d; });
@@ -1288,12 +1298,12 @@ function formModel(f0,mk,title){
     for(let i=1;i<=D;i++) ks.forEach(k=>{ const d=`${mk}-${pad(i)}`, r=slotRec(d,f0,k); if(r) f.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d,k,it,r}); }); });
   }
   if(abn.length){
-    out.push({t:'h2',text:`異常紀錄（${abn.length} 項）`});
+    out.push({t:'h2',text:`異常與警示紀錄（${abn.length} 項；已處理的列為警示）`});
     const rows=[{h:1,cells:['日期','班別','項目','實際','處理情形','追蹤','點班者'].map((v,i)=>C(v,{...H,al:[2,4,5].includes(i)?'l':''}))}];
     abn.forEach(a=>{ const rs=a.r.res&&a.r.res[a.it.id], x=a.r.x[a.it.id]||{};
       const act=f.kind==='narc'?`${x.u}/${x.e}`:f.kind==='temp'?`${x.now}（${x.max}/${x.min}）`:isNum(a.r.a[a.it.id])?a.r.a[a.it.id]:'';
       rows.push({cells:[C(dayLabel(a.d)),C(a.k==='M'?'本月':slotLab(f,a.k)),C(a.it.name,{al:'l'}),C(act),C((a.r.n[a.it.id]||'')+(a.r.w&&a.r.w[a.it.id]?`（請${a.r.w[a.it.id]}補）`:''),{al:'l'}),
-        C(rs?`${rs.txt||''}（${rs.by||''}）`:a.r.r[a.it.id]?'已處理':'待追蹤',{al:'l'}),C(a.r.by)]}); });
+        C(rs?`警示：${rs.txt||''}（${rs.by||''}）`:a.r.r[a.it.id]?'警示：已處理':'異常（未處理）',{al:'l'}),C(a.r.by)]}); });
     out.push({t:'tbl',widths:[24,14,70,18,78,48,22],rows});
   }
   return out;
@@ -1413,7 +1423,7 @@ async function showRec(d,fid,k,pp){
     const rs=r.res&&r.res[it.id];
     return `<div class="abn"><div class="h"><b style="color:${v===0?'var(--bad)':'var(--ok)'}">${v===1?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
       ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-path="${esc(r._path)}" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}" data-id="${it.id}">標記已處理</button>`:''}</div>
-      ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
+      ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag wn">警示・已處理</span>':'<span class="tag no">異常</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
   h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
   h+=`<div class="edrow" style="margin-top:14px"><button class="btn ghost mini" data-act="mdel" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}">刪除這筆點班（這一班變回未點）</button></div>${r._legacy?'<div class="hint">這筆是分位置以前點的整張單，刪除會整張一起刪。</div>':''}`;
   openDlg(h);
@@ -1586,15 +1596,17 @@ document.addEventListener('click',async e=>{
   if(a==='secok'&&fvs){ const dr=fvs.dr, v=fvs.f.items.find(it=>it.s===ds.s); fvs.f.items.forEach(it=>{ if(it.s===ds.s&&dr.v[it.id]==null) dr.v[it.id]=1; });
     if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(id=>!fvs.f.items.some(it=>it.id===id&&it.s===ds.s&&dr.v[id]===1));
     renderForm(); saveDraft(); return; }
-  if(a==='chip'&&fvs){ const dr=fvs.dr; dr.n[ds.id]=ds.c; if(!dr.w) dr.w={};
-    if(AUTO_FIX[ds.c]) dr.r[ds.id]=1;
+  if(a==='chip'&&fvs){ const dr=fvs.dr; const keepOther=ds.c===OTHER&&reasonOf(dr.n[ds.id])===OTHER; if(!keepOther) dr.n[ds.id]=ds.c; if(!dr.w) dr.w={};
+    dr.r[ds.id]=0; if(ds.c===OTHER){ if(reasonOf(dr.n[ds.id])!==OTHER) dr.n[ds.id]=OTHER_P; }
     if(ds.c===PREV_MISS){ dr.r[ds.id]=0; if(!dr.w[ds.id]) dr.w[ds.id]=prevChecker(fvs.d,fvs.f,fvs.k,ds.id); } else delete dr.w[ds.id];
-    refreshItem(ds.id); saveDraft(); return; }
+    refreshItem(ds.id); saveDraft();
+    if(ds.c===OTHER){ const inp=document.querySelector(`#it-${ds.id} input[data-in=o]`); if(inp) inp.focus(); }
+    return; }
   if(a==='wsel'&&fvs){ fvs.dr.w[ds.id]=ds.n; refreshItem(ds.id); saveDraft(); return; }
   if(a==='astp'&&fvs){ const dr=fvs.dr, it=fvs.f.items.find(i=>i.id===ds.id), q=/^\d+$/.test(String(it.q))?+it.q:0;
     const cur=isNum(dr.a[ds.id])?+dr.a[ds.id]:q; dr.a[ds.id]=Math.max(0,cur+(+ds.d)); refreshItem(ds.id); saveDraft(); return; }
   if(a==='restock'){ openRestock(); return; }
-  if(a==='rsdone'){ write('PATCH',ds.path+'/res',{[ds.id]:{by:me(),at:Date.now(),txt:'已補齊'}}); afterRestock(); toast('已登錄補齊'); return; }
+  if(a==='rsdone'){ const txt=ds.txt||'已補齊'; write('PATCH',ds.path+'/res',{[ds.id]:{by:me(),at:Date.now(),txt}}); afterRestock(); toast('已登錄'+txt+'，改列警示'); return; }
   if(a==='rsall'){ const L=restockList(), sel=ds.sc==='mine'?L.filter(x=>x.who===me()):L.filter(x=>x.who!==me());
     if(!sel.length||!confirm(`${sel.length} 項全部登錄成「已補齊」？`)) return;
     const now=Date.now(), by={}; sel.forEach(x=>{ (by[x.path]||(by[x.path]={}))[x.id]={by:me(),at:now,txt:'已補齊'}; });
@@ -1678,7 +1690,7 @@ document.addEventListener('input',e=>{
     if(ds.in==='n') dr.n[ds.id]=t.value;
     else if(ds.in==='a'){ dr.a[ds.id]=t.value===''?null:+t.value; const it=fvs.f.items.find(i=>i.id===ds.id), el=$('it-'+ds.id), b=el&&el.querySelector('.ngx .fix b'), sh=shortOf(it,dr.a[ds.id]);
       if(b) b.textContent=sh?`缺 ${sh}`:''; else if(sh&&el){ const st=el.querySelector('.ngx .stp'); if(st) st.insertAdjacentHTML('afterend',`<b style="color:var(--bad)">缺 ${sh}</b>`); } }
-    else if(ds.in==='r') dr.r[ds.id]=t.checked?1:0;
+    else if(ds.in==='o') dr.n[ds.id]=OTHER_P+t.value;
     else if(ds.in==='x'){ const x=dr.x[ds.id]||(dr.x[ds.id]={}); x[ds.fld]=t.type==='checkbox'?(t.checked?1:0):(t.value===''?'':+t.value);
       if(t.type!=='checkbox'){ // 數字改了：只更新狀態那一塊，不重畫輸入框（免得鍵盤收起來）
         const it=fvs.f.items.find(i=>i.id===ds.id), v=evalItem(fvs.f,it,dr), el=$('it-'+ds.id);
@@ -1693,8 +1705,7 @@ document.addEventListener('input',e=>{
     else if(ds.in==='face') dr.x._face=t.checked?1:0;
     else if(ds.in==='chg') dr.x._chg=t.checked?1:0;
     else if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
-    if(ds.in==='r'||ds.in==='face'||ds.in==='chg'||t.type==='checkbox') { if(ds.in==='r') refreshItem(ds.id); }
-    if(ds.in==='n'&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
+    if((ds.in==='n'||ds.in==='o')&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
     refreshCnt(); saveDraft(); return;
   }
   if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
