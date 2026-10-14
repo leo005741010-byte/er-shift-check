@@ -20,9 +20,14 @@ body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",syst
 button{font:inherit}
 .wrap{max-width:860px;margin:0 auto;padding:0 16px}
 header.top{background:var(--navy);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
-header.top .wrap{padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:10px}
-header.top h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.5px}
-main.wrap{padding-top:14px;padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+header.top .wrap{padding-top:calc(9px + env(safe-area-inset-top));padding-bottom:9px;display:flex;align-items:center;gap:10px}
+header.top h1{font-size:18px;margin:0;font-weight:700;letter-spacing:.5px;white-space:nowrap}
+.hinfo{flex:1;min-width:0;display:flex;align-items:center;justify-content:flex-end;gap:8px;font-size:15px;white-space:nowrap}
+.hinfo .hd{font-weight:700}
+.hinfo button{font:inherit;color:#fff;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);border-radius:7px;padding:2px 8px;cursor:pointer;white-space:nowrap}
+.hinfo button.pos{font-weight:700;border-color:rgba(255,255,255,.7)}
+main.wrap{padding-top:10px;padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+@media (max-width:380px){ header.top h1{font-size:16px} .hinfo{font-size:13.5px;gap:5px} .hinfo button{padding:2px 5px} }
 .mut{color:var(--mut)}
 .btn{border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;white-space:nowrap;font-size:14px}
 .btn:hover{background:var(--navy-dark)}
@@ -311,7 +316,7 @@ table.tt .l{text-align:left}
 </style>
 </head>
 <body>
-<header class="top"><div class="wrap"><h1 id="ttl">急診點班</h1></div></header>
+<header class="top"><div class="wrap"><h1 id="ttl">急診點班</h1><div class="hinfo" id="hinfo"></div></div></header>
 <main class="wrap" id="main"><div class="empty">載入中…</div></main>
 <div id="bar"></div>
 <div class="pick" id="pick"></div>
@@ -323,7 +328,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.3.1';
+const VERSION='1.3.2';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -689,20 +694,24 @@ function shiftStat(d,s){
   return {n:L.length,done,bad};
 }
 
+// 頁首：急診點班｜10/14（三）白班｜名字（點了換人）｜位置（點了換位置）
+function renderHead(){
+  const el=$('hinfo'); if(!el||MANAGE) return;
+  const {d,s}=view, P=curPos(), nm=me();
+  el.innerHTML=`<span class="hd">${dayLabel(d)}${SHIFT[s].name}</span>`+
+    (nm?`<button data-act="who" title="換人">${esc(nm)}</button>`:'')+
+    (nm&&hasPos()&&P?`<button class="pos" data-act="pos" title="換位置" style="background:${P==='*'?'rgba(255,255,255,.14)':POS_COLOR[P]||''}">${P==='*'?'全部':esc(P)}</button>`:'');
+}
 function renderNurse(){
   if(!$("main")) return;
+  renderHead();
   const name=me();
   if(!name){ renderWho(); renderBar(); return; }
   if(hasPos()&&!curPos()){ renderPosPick(); renderBar(); return; }
   const {d,s}=view, cur=nowShift(), isNow=cur.d===d&&cur.s===s;
   const VP=viewParts(d,s), st=shiftStat(d,s), P=curPos();
-  const duty=onDuty(d,s);
-  const nDate=s==='N'?`（${dayLabel(addDays(d,1)).replace(/（.）/,'')} 00:00–08:00）`:SHIFT[s].t;
   let h=cloudAlert();
-  h+=`<div class="shead"><h2>${dayLabel(d)} ${SHIFT[s].name}</h2><span class="t">${nDate}</span>${isNow?'<span class="now">現在這一班</span>':''}</div>`;
-  if(hasPos()) h+=`<div class="posbar">我的位置 <b style="background:${P==='*'?'#8a98a3':POS_COLOR[P]||'#8a98a3'}">${P==='*'?'全部':esc(posLab(P,s))}</b><button class="lk" data-act="pos" style="background:none;border:none;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13.5px">換位置</button></div>`;
   h+=`<div class="prog"><div class="bar"><span style="width:${st.n?Math.round(st.done/st.n*100):0}%"></span></div><b>${st.done}／${st.n}</b> 張已點${st.bad?`・<span style="color:var(--warn);font-weight:700">${st.bad} 張有異常</span>`:''}</div>`;
-  if(duty.length) h+=`<div class="duty">本班（班表）：${duty.map(esc).join('、')}</div>`;
   const RS=restockList(), RSme=RS.filter(x=>x.who===name);
   if(RS.length) h+=`<button class="note warn" data-act="restock">⚠ <b>待補 ${RS.length} 項</b>（上一班未補）${RSme.length?`・<b>其中 ${RSme.length} 項請你補</b>`:''} ›</button>`;
   const row=({f,k,p},tag)=>{
@@ -723,7 +732,7 @@ function renderNurse(){
     h+=`<details class="oth"><summary>其他位置的點班（${od}／${VP.other.length} 已點）</summary><div class="flist">${VP.other.map(x=>row(x,1)).join('')}</div></details>`; }
   const soakOpen=soakList().filter(x=>!x.outAt).length;
   h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄<small>寄消物品放入／取出</small></span><span class="fs">${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button></div>`;
-  h+=`<div class="foot">點班者：<b>${esc(name)}</b> <button class="lk" data-act="who">換人</button><br><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
+  h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderBar();
 }
