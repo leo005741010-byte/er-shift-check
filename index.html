@@ -291,9 +291,9 @@ table.tt .l{text-align:left}
 <script>
 'use strict';
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
-// index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，要管理密碼）。
+// index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.1.0';
+const VERSION='1.1.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -303,7 +303,7 @@ const lsGet=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:JSON
 const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
 const clone=o=>JSON.parse(JSON.stringify(o));
 const WD='日一二三四五六';
-const LS={me:'erCheck_me',dev:'erCheck_dev',rt:'erCheck_fbrt',out:'erCheck_outbox',cache:'erCheck_cache',sched:'erCheck_sched',draft:'erCheck_draft',unlock:'erCheck_unlock'};
+const LS={me:'erCheck_me',dev:'erCheck_dev',rt:'erCheck_fbrt',out:'erCheck_outbox',cache:'erCheck_cache',sched:'erCheck_sched',draft:'erCheck_draft'};
 
 // ---------- 日期與班別 ----------
 const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
@@ -871,20 +871,11 @@ async function refreshView(){
 //  管理頁（護理長／主任）
 // ======================================================================
 let appStart=null;   // 第一筆點班紀錄的日期：之前的日子還沒開始用，不算應點
-let mcur=mkey(ymd(new Date())), unlocked=false, mOpen={}, edF=null, edSel=null, edDirty=false, mtForm='cart';
-// 管理密碼：雲端只存 PBKDF2 導出的雜湊（不存密碼本身）；這是「軟鎖」，擋一般人誤入管理頁用
-async function sha(pw){
-  const te=new TextEncoder(), base=await crypto.subtle.importKey('raw',te.encode(pw),'PBKDF2',false,['deriveBits']);
-  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:te.encode('er-shift-check-admin-v1'),iterations:200000},base,256);
-  return [...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,'0')).join('');
-}
+let mcur=mkey(ymd(new Date())), mOpen={}, edF=null, edSel=null, edDirty=false, mtForm='cart';
 async function manageInit(){
   $('ttl').textContent='急診點班・管理';
   await Promise.all([pull('cfg'),loadSched([ymd(new Date())])]);
   applyCfg();
-  const h=getAt('cfg/adminHash');
-  if(h&&lsGet(LS.unlock,'')===h) unlocked=true;
-  if(!unlocked){ renderGate(); return; }
   await findStart();
   await loadMonth(mcur,true);
 }
@@ -896,18 +887,6 @@ async function findStart(){
     appStart=`${ms[0]}-${ds.length?ds[0].slice(1):'01'}`;
   }catch(e){}
 }
-function renderGate(){
-  const h=getAt('cfg/adminHash');
-  let x=cloudAlert();
-  if(cloud.st!=='ok'&&!h){ x+=`<div class="card">${cloud.st==='denied'?'雲端開通後重新整理這一頁，就可以設定管理密碼。':'連不上雲端，請確認網路後重新整理。'}</div>`; $('main').innerHTML=x; return; }
-  x+=`<div class="card" style="max-width:460px;margin:20px auto">${h?`<h2 style="margin:0 0 6px;font-size:18px;color:var(--navy-dark)">管理密碼</h2><div class="hint">這一頁給護理長／主任看全部紀錄、核簽與改點班單內容。</div>
-    <input type="password" id="pw1" placeholder="管理密碼" style="width:100%" autocomplete="current-password"><div class="edrow"><button class="btn" data-act="login" style="margin-left:auto">進入</button></div>`
-    :`<h2 style="margin:0 0 6px;font-size:18px;color:var(--navy-dark)">第一次使用：設定管理密碼</h2><div class="hint">至少 8 個字，要有英文和數字。設定後只有知道密碼的人能進這一頁（護理師的點班頁不需要密碼）。</div>
-    <input type="password" id="pw1" placeholder="新密碼" style="width:100%;margin-bottom:8px" autocomplete="new-password"><input type="password" id="pw2" placeholder="再輸入一次" style="width:100%" autocomplete="new-password">
-    <div class="edrow"><button class="btn" data-act="setpw" style="margin-left:auto">設定</button></div>`}<div id="pw-msg" class="hint" style="color:var(--bad)"></div></div>`;
-  $('main').innerHTML=x;
-}
-const pwOk=p=>p.length>=8&&/[A-Za-z]/.test(p)&&/\d/.test(p);
 const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
 async function loadMonth(mk,render){
   if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
@@ -969,7 +948,6 @@ function vsPrev(m,S,P){
   return `${lab} ${pctHtml(pctVs(v,pv),true)}`;
 }
 function renderManage(){
-  if(!unlocked){ renderGate(); return; }
   const pk=shiftMonth(mcur,-1);
   if(!mLoaded.has(mcur)&&!loading[mcur]&&Date.now()-(mTry[mcur]||0)>30000) loadMonth(mcur,true);
   if(!mLoaded.has(pk)&&!loading[pk]&&Date.now()-(mTry[pk]||0)>30000) loadMonth(pk,true);
@@ -1004,7 +982,6 @@ function renderManage(){
   h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
   // 設定
   h+=card('staff','設定：名單','',staffEditor());
-  h+=card('pw','設定：管理密碼','',`<div class="hint">換一個新的管理密碼（至少 8 個字，要有英文和數字）。</div><input type="password" id="npw1" placeholder="新密碼" style="width:100%;margin-bottom:8px" autocomplete="new-password"><input type="password" id="npw2" placeholder="再輸入一次" style="width:100%" autocomplete="new-password"><div class="edrow"><button class="btn" data-act="chpw" style="margin-left:auto">更換</button></div><div id="npw-msg" class="hint"></div><div class="edrow"><button class="btn ghost mini" data-act="logout">這台裝置登出</button></div>`);
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderMBar();
@@ -1398,17 +1375,6 @@ document.addEventListener('click',async e=>{
     write('PATCH',`soak/${ds.mk}/${ds.id}`,{outBy:me(),outAt:Date.now()}); renderSoak(true); toast('已登錄取出'); return; }
   // ---- 管理頁 ----
   if(a==='close'){ closeDlg(); return; }
-  if(a==='setpw'){ const p1=$('pw1').value, p2=$('pw2').value, msg=$('pw-msg');
-    if(!pwOk(p1)){ msg.textContent='至少 8 個字，要有英文和數字'; return; } if(p1!==p2){ msg.textContent='兩次輸入的不一樣'; return; }
-    await pull('cfg/adminHash'); if(getAt('cfg/adminHash')){ renderGate(); return; }
-    const h=await sha(p1); try{ await fb('PUT','cfg/adminHash',h); }catch(err){ msg.textContent='存不上雲端：'+err.message; return; }
-    setAt('cfg/adminHash',h); lsSet(LS.unlock,h); unlocked=true; await loadMonth(mcur,true); return; }
-  if(a==='login'){ const h=await sha($('pw1').value||''); if(h!==getAt('cfg/adminHash')){ $('pw-msg').textContent='密碼不對'; return; } lsSet(LS.unlock,h); unlocked=true; await loadMonth(mcur,true); return; }
-  if(a==='logout'){ lsSet(LS.unlock,''); unlocked=false; renderGate(); $('bar').style.display='none'; return; }
-  if(a==='chpw'){ const p1=$('npw1').value, p2=$('npw2').value, msg=$('npw-msg');
-    if(!pwOk(p1)){ msg.textContent='至少 8 個字，要有英文和數字'; return; } if(p1!==p2){ msg.textContent='兩次輸入的不一樣'; return; }
-    const h=await sha(p1); try{ await fb('PUT','cfg/adminHash',h); }catch(err){ msg.textContent='存不上雲端：'+err.message; return; }
-    setAt('cfg/adminHash',h); lsSet(LS.unlock,h); msg.textContent='已更換'; $('npw1').value=$('npw2').value=''; return; }
   if(a==='mstep'){ switchMonth(shiftMonth(mcur,+ds.d)); return; }
   if(a==='mpick'){ mpick=!mpick; mpickY=null; renderMBar(); return; }
   if(a==='myear'){ mpickY+=(+ds.d); renderMBar(); return; }
@@ -1505,7 +1471,7 @@ function markDirty(){ if(!edDirty){ edDirty=true; const b=document.querySelector
 // 卡片收合狀態只記在記憶體（每次打開都是收起來的）
 document.addEventListener('toggle',e=>{ const t=e.target; if(t.dataset&&t.dataset.tg) mOpen[t.dataset.tg]=t.open; },true);
 window.addEventListener('beforeunload',e=>{ if(MANAGE&&edDirty){ e.preventDefault(); e.returnValue=''; } });
-document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='pw1'&&!$('pw2')) document.querySelector('[data-act=login]')?.click(); if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); } });
 
 // ---------- 啟動 ----------
 applyCfg();
@@ -1513,7 +1479,7 @@ if(MANAGE){
   $('bar').style.display='none';
   manageInit().catch(e=>{ $('main').innerHTML=`<div class="note bad">載入失敗：${esc(e.message)}</div>`; });
   // 回到這一頁時重讀這個月（點班單內容有沒儲存的修改時不重畫，免得改到一半被蓋掉）
-  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&unlocked&&!edDirty) loadMonth(mcur,true); });
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&!edDirty) loadMonth(mcur,true); });
 } else {
   renderNurse();
   refreshView();

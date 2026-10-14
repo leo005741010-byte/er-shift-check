@@ -1,6 +1,6 @@
 // 急診點班 Service Worker
 // 改版後手機還看到舊畫面：把 CACHE 版本號 +1 再推
-const CACHE='er-shift-check-v2';
+const CACHE='er-shift-check-v3';
 const CORE=['./','./index.html','./manage.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 
 self.addEventListener('install', e=>{
