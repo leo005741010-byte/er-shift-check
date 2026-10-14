@@ -177,6 +177,15 @@ button.note{display:block;width:100%;text-align:left;cursor:pointer;font:inherit
 details.notes{background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:13.5px}
 details.notes summary{cursor:pointer;color:var(--navy-dark);font-weight:700}
 details.notes ol{margin:6px 0 0;padding-left:20px}
+.pgt{display:grid;gap:6px;margin:0 0 10px}
+.pgt button{display:flex;flex-direction:column;align-items:center;gap:1px;border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:6px 4px;font-size:14px;color:var(--txt);cursor:pointer;min-width:0}
+.pgt button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pgt button b{font-size:12px;color:var(--mut)}
+.pgt button small{font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+.pgt button.ok{border-color:#bfe5cd;background:var(--okbg)}
+.pgt button.ok small{color:var(--ok);font-weight:700}
+.pgt button.ng small{color:var(--bad);font-weight:700}
+.pgt button.on{border-color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--navy);font-weight:700}
 .soakrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #edf1f3}
 .soakrow:last-child{border-bottom:none}
 .soakrow .w{flex:1;min-width:0}
@@ -329,7 +338,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.4.1';
+const VERSION='1.5.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -739,7 +748,7 @@ function renderNurse(){
   if(VP.other.length){ const od=VP.other.filter(x=>shiftStatOne(d,x)).length;
     h+=`<details class="oth"><summary>其他位置的點班（${od}／${VP.other.length} 已點）</summary><div class="flist">${VP.other.map(x=>row(x,1)).join('')}</div></details>`; }
   const soakOpen=soakList().filter(x=>!x.outAt).length;
-  h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄<small>寄消物品放入／取出</small></span><span class="fs">${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button></div>`;
+  h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄<small>寄消物品放入／取出</small></span><span class="fs">${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button>${(()=>{ const so=sterList().filter(x=>!x.inAt).length; return `<button class="frow${so?' part':''}" data-act="ster"><span class="dot"></span><span class="fn">送消登記<small>送去消毒／回來簽收</small></span><span class="fs">${so?`送消中 ${so} 件`:''}</span><span class="chev">›</span></button>`; })()}</div>`;
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderBar();
@@ -909,23 +918,33 @@ function renderForm(top){
   if(f.kind==='clock') h+=`<div class="clock"><small>電腦時間（這支手機）</small><b id="clk">--:--:--</b><small>${dayLabel(ymd(new Date()))}</small></div>`;
   if(f.kind==='virus') h+=virusHtml(dr,ro);
   if(!dr){ h+='<div class="empty">讀取中…</div>'; }
-  else secs(f).forEach(g=>{
+  else { const G=secs(f), paged=!ro&&isPaged(f);
+    if(paged){ if(fvs.pg==null||fvs.pg>=G.length) fvs.pg=0; h+=pgTabs(f,dr,G); }
+    (paged?[G[fvs.pg]]:G).forEach(g=>{
     const okBtn=!ro&&f.kind!=='narc'&&f.kind!=='temp'?`<button class="btn mini outline" data-act="secok" data-s="${esc(g.s)}">這區全部${g.items[0]&&g.items[0].t==='y'?'ˇ':'✓'}</button>`:'';
     h+=`<div class="secb"><div class="sh2"><b>${esc(g.s)}<small>${g.items.length} 項</small></b>${okBtn}</div>${g.items.map(it=>itemHtml(f,it,dr,ro)).join('')}</div>`;
-  });
+  }); }
   if(f.kind==='narc'&&dr) h+=giverHtml(f,dr,ro);
   h+=`</div></div>`;
-  if(!ro){ const p=progressOf(f,dr);
-    h+=`<div class="fs2"><div class="in"><span class="cnt" id="fv-cnt">已點 <b>${p.ans}</b>／${p.tot}</span><button class="btn" data-act="submit">送出・簽名 ${esc(me())}</button></div></div>`; }
+  if(!ro){ const p=progressOf(f,dr), paged=isPaged(f), nG=secs(f).length, last=!paged||fvs.pg>=nG-1;
+    h+=`<div class="fs2"><div class="in"><span class="cnt" id="fv-cnt">已點 <b>${p.ans}</b>／${p.tot}</span>${paged&&fvs.pg>0?'<button class="btn outline" data-act="pgstep" data-d="-1">‹ 上一區</button>':''}${last?`<button class="btn" data-act="submit">送出・簽名 ${esc(me())}</button>`:'<button class="btn" data-act="pgstep" data-d="1">下一區 ›</button>'}</div></div>`; }
   $('fv').innerHTML=h;
   const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=top?0:sc;
   tickClock();
+}
+// 項目很多的單子（急救車 72 項）分頁點：一區一頁，上面是各區的頁籤（點了幾項），下面上一區／下一區，最後一頁送出
+const isPaged=f=>f.items.length>30&&secs(f).length>=3;
+const pgName=s=>s.replace(/（.*?）/g,'').replace('抽屜','');
+function pgTabs(f,dr,G){
+  return `<div class="pgt" id="pgt" style="grid-template-columns:repeat(${G.length<=4?G.length:3},1fr)">${G.map((g,i)=>{ const a=g.items.filter(it=>evalItem(f,it,dr)!=null).length, ng=g.items.some(it=>evalItem(f,it,dr)===0);
+    return `<button class="${i===fvs.pg?'on':''}${a===g.items.length?' ok':''}${ng?' ng':''}" data-act="pg" data-i="${i}"><span><b>${i+1}</b> ${esc(pgName(g.s))}</span><small>${a===g.items.length?'✓ ':''}${a}/${g.items.length}</small></button>`; }).join('')}</div>`;
 }
 function refreshItem(id){
   if(!fvs) return; const it=fvs.f.items.find(x=>x.id===id); const el=$('it-'+id); if(!it||!el) return;
   el.outerHTML=itemHtml(fvs.f,it,fvs.dr,false); refreshCnt();
 }
-function refreshCnt(){ const el=$('fv-cnt'); if(!el||!fvs) return; const p=progressOf(fvs.f,fvs.dr); el.innerHTML=`已點 <b>${p.ans}</b>／${p.tot}`; }
+function refreshCnt(){ const el=$('fv-cnt'); if(!el||!fvs) return; const p=progressOf(fvs.f,fvs.dr); el.innerHTML=`已點 <b>${p.ans}</b>／${p.tot}`;
+  const t=$('pgt'); if(t&&fvs.edit&&isPaged(fvs.f)) t.outerHTML=pgTabs(fvs.f,fvs.dr,secs(fvs.f)); }
 function saveDraft(){ if(!fvs||!fvs.edit||fvs.rec) return; drafts[draftKey(fvs.d,fvs.f,fvs.k)]=fvs.dr; lsSet(LS.draft,drafts); }
 let _clk=null;
 function startClock(){ stopClock(); _clk=setInterval(tickClock,1000); }
@@ -936,7 +955,9 @@ async function submitForm(){
   if(_submitting) return;
   const {f,d,k,dr}=fvs, p=progressOf(f,dr);
   if(p.miss.length){
-    fvs.showMiss=p.miss; renderForm();
+    fvs.showMiss=p.miss;
+    if(isPaged(f)){ const G=secs(f), gi=G.findIndex(g=>g.items.some(it=>it.id===p.miss[0])); if(gi>=0) fvs.pg=gi; }   // 分頁的：跳到第一個沒點的那一區
+    renderForm();
     const el=$('it-'+p.miss[0]); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
     toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
     return;
@@ -1025,6 +1046,31 @@ function renderSoak(keep){
   const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
 }
 
+// ---------- 送消登記（送去消毒、回來簽收）----------
+function sterList(){
+  const t=ymd(new Date()), ks=[mkey(t),shiftMonth(mkey(t),-1)], out=[];
+  ks.forEach(mk=>{ const o=getAt('ster/'+mk)||{}; Object.keys(o).forEach(id=>{ if(o[id]) out.push(Object.assign({id,mk},o[id])); }); });
+  return out.sort((a,b)=>b.outAt-a.outAt);
+}
+let sterForm={item:'',other:'',qty:1,oth:false};
+const sterItems=()=>{ const f=formById('inst'); return [...new Set([...(f?f.items.map(it=>it.name):[]),'喉頭鏡葉片'])]; };
+function openSter(){ fvs={ster:1}; sterForm={item:'',other:'',qty:1,oth:false}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSter(); }
+function renderSter(keep){
+  const L=sterList(), open=L.filter(x=>!x.inAt), done=L.filter(x=>x.inAt&&Date.now()-x.inAt<3*864e5);
+  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0, its=sterItems();
+  const age=t=>{ const h=Math.floor((Date.now()-t)/3600e3); return h<24?`${h} 小時`:`${Math.floor(h/24)} 天`; };
+  let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>送消登記</b><small>送去消毒時登記，回來時按「簽收」</small></div></div><div class="fb"><div class="in">`;
+  h+=`<div class="card"><b>送出</b><div class="chips" style="margin:8px 0">${its.map(x=>`<button class="chip${!sterForm.oth&&sterForm.item===x?' on':''}" data-act="st-item" data-n="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip${sterForm.oth?' on':''}" data-act="st-item" data-oth="1">其他</button></div>
+    ${sterForm.oth?`<input type="text" placeholder="請寫品名" data-in="st-other" value="${esc(sterForm.other)}" style="width:100%;margin-bottom:8px">`:''}
+    <div class="edrow"><span>數量</span><span class="stp"><button data-act="st-q" data-d="-1">−</button><input type="number" inputmode="numeric" data-in="st-qty" value="${sterForm.qty}"><button data-act="st-q" data-d="1">＋</button></span>
+    <button class="btn" data-act="st-out" style="margin-left:auto">送出（${esc(me())}）</button></div></div>`;
+  h+=`<div class="secb"><div class="sh2"><b>送消中<small>${open.length} 件</small></b></div>${open.length?open.map(x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.outBy)} ${whenLabel(x.outAt)} 送出・已 ${age(x.outAt)}</small></div><button class="btn mini" data-act="st-in" data-id="${x.id}" data-mk="${x.mk}">簽收</button></div>`).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
+  h+=`<div class="secb"><div class="sh2"><b>最近三天已簽收<small>${done.length} 件</small></b></div>${done.length?done.map(x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.outBy)} ${whenLabel(x.outAt)} 送出 → ${esc(x.inBy)} ${whenLabel(x.inAt)} 簽收</small></div></div>`).join(''):'<div class="soakrow mut">還沒有</div>'}</div>`;
+  h+=`</div></div>`;
+  $('fv').innerHTML=h;
+  const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
+}
+
 // ---------- 讀資料 ----------
 let _busy=false, _cfgAt=0;
 async function refreshView(){
@@ -1037,11 +1083,11 @@ async function refreshView(){
     }
     const ps=prevShift(d,s);
     const rd=[...new Set([d,ps.d,t,addDays(t,-1)])];
-    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),pull(`rec/${mkey(d)}/_m`),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),
+    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),pull(`rec/${mkey(d)}/_m`),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),pull('ster/'+mkey(t)),pull('ster/'+shiftMonth(mkey(t),-1)),
       loadSched([...new Set([d,ps.d,nowShift().d])])]);
     flush();
   } finally{ _busy=false; }
-  if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
+  if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.ster) renderSter(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
 }
 
 // ======================================================================
@@ -1067,7 +1113,7 @@ async function findStart(){
 const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
 async function loadMonth(mk,render){
   if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
-  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk)]);
+  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk)]);
   delete loading[mk]; if(ok[0]) mLoaded.add(mk);
   if(render) renderManage();
 }
@@ -1180,6 +1226,9 @@ function renderManage(){
   // 泡消登錄
   const so=getAt('soak/'+mcur)||{}, sl=Object.keys(so).map(id=>Object.assign({id},so[id])).sort((a,b)=>a.inAt-b.inAt);
   h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
+  // 送消登記
+  const st=getAt('ster/'+mcur)||{}, stl=Object.keys(st).map(id=>Object.assign({id},st[id])).filter(x=>x.outAt).sort((a,b)=>a.outAt-b.outAt), stOpen=stl.filter(x=>!x.inAt).length;
+  h+=card('ster','送消登記',`${stl.length} 筆${stOpen?`・送消中 ${stOpen}`:''}`,stl.length?`<div class="tw"><table class="tt"><tr><th class="l">送出</th><th class="l">品名</th><th>數量</th><th class="l">送出人</th><th class="l">簽收</th><th class="l">簽收人</th></tr>${stl.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送消中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
   // 設定
   h+=card('staff','設定：名單','',staffEditor());
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
@@ -1214,7 +1263,7 @@ function dayDetail(d){
 function monthTable(S){
   const f0=formById(mtForm)||activeForms()[0]; if(!f0) return '';
   const f=formAt(f0,S.mk);
-  let h=`<div class="prt"><div class="edrow"><select id="pr-scope" style="flex:1;min-width:0"><option value="one">列印這一張（${esc(f0.name)}）</option><option value="all">列印全部點班單＋泡消登錄</option><option value="soak">只印泡消登錄表</option></select></div>
+  let h=`<div class="prt"><div class="edrow"><select id="pr-scope" style="flex:1;min-width:0"><option value="one">列印這一張（${esc(f0.name)}）</option><option value="all">列印全部點班單＋泡消登錄＋送消登記</option><option value="soak">只印泡消登錄表</option><option value="ster">只印送消登記表</option></select></div>
     <div class="edrow"><label>表頭</label><input type="text" id="pr-title" value="${esc(printTitle())}" style="flex:1;min-width:0" placeholder="例如：○○醫院 急診室"></div>
     <div class="edrow"><button class="btn" data-act="print">列印／存成 PDF</button><button class="btn outline" data-act="doc">下載 Word</button></div>
     <div class="hint">${monLabel(S.mk)}・A4 橫印，每張點班單從新的一頁開始，後面附當月異常紀錄。要 PDF：列印畫面選「另存為 PDF」。</div></div>
@@ -1319,7 +1368,14 @@ function soakModel(mk,title){
   if(!L.length) rows.push({cells:[C('這個月沒有紀錄',{cs:8})]});
   return [{t:'h',text:`${title}　VIRUSOLVE 泡消登錄表`,sub:monLabel(mk)},{t:'tbl',widths:[28,60,16,22,30,22,30,22],rows}];
 }
-const printModels=(mk,list,title)=>list.map(f=>f==='soak'?soakModel(mk,title):formModel(f,mk,title));
+function sterModel(mk,title){
+  const so=getAt('ster/'+mk)||{}, L=Object.keys(so).map(id=>so[id]).filter(x=>x&&x.outAt).sort((a,b)=>a.outAt-b.outAt), H={b:1,sh:1};
+  const rows=[{h:1,cells:['送出日期','時間','品名','數量','送出人','簽收日期','時間','簽收人'].map((v,i)=>C(v,{...H,al:i===2?'l':''}))}];
+  L.forEach(x=>rows.push({cells:[C(dayLabel(ymd(new Date(x.outAt)))),C(hm(x.outAt)),C(x.item,{al:'l'}),C(x.qty),C(x.outBy),C(x.inAt?dayLabel(ymd(new Date(x.inAt))):'送消中'),C(x.inAt?hm(x.inAt):''),C(x.inBy||'')]}));
+  if(!L.length) rows.push({cells:[C('這個月沒有紀錄',{cs:8})]});
+  return [{t:'h',text:`${title}　送消登記表`,sub:monLabel(mk)},{t:'tbl',widths:[28,16,70,14,30,28,16,30],rows}];
+}
+const printModels=(mk,list,title)=>list.map(f=>f==='soak'?soakModel(mk,title):f==='ster'?sterModel(mk,title):formModel(f,mk,title));
 // ---- 列印用網頁 ----
 const PFONT='"標楷體","DFKai-SB","BiauKai","Kaiti TC",serif';
 function cellHtml(c,tag){
@@ -1404,7 +1460,7 @@ async function doDoc(mk,list){
   const title=($('pr-title')||{}).value||printTitle();
   toast('產生 Word 檔中…');
   const blob=await docxBlob(printModels(mk,list,title));
-  const name=`急診點班_${monLabel(mk)}_${list.length===1?(list[0]==='soak'?'泡消登錄':list[0].name):'全部'}.docx`.replace(/[\\/:*?"<>|（）()\s]/g,'');
+  const name=`急診點班_${monLabel(mk)}_${list.length===1?(list[0]==='soak'?'泡消登錄':list[0]==='ster'?'送消登記':list[0].name):'全部'}.docx`.replace(/[\\/:*?"<>|（）()\s]/g,'');
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000);
   toast('已下載 '+name);
@@ -1586,6 +1642,7 @@ document.addEventListener('click',async e=>{
   if(a==='open'){ openForm(ds.f,view.d,ds.k,false,ds.p||''); return; }
   if(a==='setpos'){ setPos(ds.p); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='pos'){ posSel[`${view.d}|${view.s}`]=''; renderNurse(); return; }
+  if(a==='back'&&fvs&&fvs.ster){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'){ if(fvs&&fvs.restock){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
     if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
   if(a==='edit'){ openForm(fvs.f.id,fvs.d,fvs.k,true,fvs.f._part); return; }
@@ -1631,7 +1688,16 @@ document.addEventListener('click',async e=>{
     if(ds.oth){ const inp=document.querySelector('input[data-in=giver]'); if(inp) inp.focus(); }
     return; }
   if(a==='submit'&&fvs){ submitForm(); return; }
+  if(a==='pg'&&fvs){ fvs.pg=+ds.i; renderForm(true); return; }
+  if(a==='pgstep'&&fvs){ fvs.pg=Math.max(0,(fvs.pg||0)+(+ds.d)); renderForm(true); return; }
   if(a==='soak'){ openSoak(); return; }
+  if(a==='ster'){ openSter(); return; }
+  if(a==='st-item'){ if(ds.oth){ sterForm.oth=true; sterForm.item=''; } else { sterForm.oth=false; sterForm.item=ds.n; } renderSter(true); if(ds.oth){ const i=document.querySelector('input[data-in=st-other]'); if(i) i.focus(); } return; }
+  if(a==='st-q'){ sterForm.qty=Math.max(1,(+sterForm.qty||1)+(+ds.d)); renderSter(true); return; }
+  if(a==='st-out'){ const item=sterForm.oth?(sterForm.other||'').trim():sterForm.item; if(!item){ toast(sterForm.oth?'請寫品名':'請選要送消的物品'); return; }
+    const now=Date.now(), id=now.toString(36)+Math.random().toString(36).slice(2,5);
+    write('PUT',`ster/${mkey(ymd(new Date()))}/${id}`,{item,qty:+sterForm.qty||1,outBy:me(),outAt:now}); sterForm={item:'',other:'',qty:1,oth:false}; renderSter(true); toast('已登記送消'); return; }
+  if(a==='st-in'){ write('PATCH',`ster/${ds.mk}/${ds.id}`,{inBy:me(),inAt:Date.now()}); renderSter(true); toast('已簽收'); return; }
   if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
   if(a==='sk-q'){ soakForm.qty=Math.max(1,(+soakForm.qty||1)+(+ds.d)); renderSoak(true); return; }
   if(a==='sk-in'){ const item=SOAK_ITEMS.includes(soakForm.item)?soakForm.item:(soakForm.other||'').trim(); if(!item){ toast('請寫品名'); return; }
@@ -1662,7 +1728,7 @@ document.addEventListener('click',async e=>{
 這一班會變回「未點」（刪掉的紀錄會留底）。`)) return;
     cancelRec(ds.d,f,ds.k,r,nm); closeDlg(); renderManage(); toast('已刪除這筆點班'); return; }
   if(a==='print'||a==='doc'){ const sc=($('pr-scope')||{}).value||'one', f=formById(mtForm)||activeForms()[0];
-    const list=sc==='all'?[...activeForms(),'soak']:sc==='soak'?['soak']:[f];
+    const list=sc==='all'?[...activeForms(),'soak','ster']:sc==='soak'?['soak']:sc==='ster'?['ster']:[f];
     if(a==='print') doPrint(mcur,list); else doDoc(mcur,list); return; }
   if(a==='review'){ e.preventDefault(); const nm=await mgrName(); if(!nm) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
   if(a==='unreview'){ if(!confirm('取消這一天的核簽？')) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,null); renderManage(); return; }
@@ -1726,7 +1792,7 @@ function fixDone(t){ closeDlg(); const r=_fxRes; _fxRes=null; if(r) r(t||''); }
 function pickDone(n){ closeDlg(); const r=_pickRes; _pickRes=null; if(n) ME=n; if(r) r(n||''); }
 document.addEventListener('input',e=>{
   const t=e.target, ds=t.dataset;
-  if(ds.in&&fvs&&!fvs.soak){
+  if(ds.in&&fvs&&fvs.f){   // 點班單畫面的輸入（泡消、送消、待補畫面沒有 fvs.f）
     const dr=fvs.dr;
     if(ds.in==='n') dr.n[ds.id]=t.value;
     else if(ds.in==='a'){ dr.a[ds.id]=t.value===''?null:+t.value; const it=fvs.f.items.find(i=>i.id===ds.id), el=$('it-'+ds.id), b=el&&el.querySelector('.ngx .fix b'), sh=shortOf(it,dr.a[ds.id]);
@@ -1751,6 +1817,8 @@ document.addEventListener('input',e=>{
   }
   if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
   if(ds.in==='sk-qty'){ soakForm.qty=Math.max(1,+t.value||1); return; }
+  if(ds.in==='st-other'){ sterForm.other=t.value; return; }
+  if(ds.in==='st-qty'){ sterForm.qty=Math.max(1,+t.value||1); return; }
   // 管理頁：點班單內容編輯
   if(ds.ed&&edF){ const f=edF.find(x=>x.id===edSel);
     if(ds.ed==='on') f.on=t.checked?undefined:false;
