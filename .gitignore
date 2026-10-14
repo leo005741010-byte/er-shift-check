@@ -1,0 +1,6 @@
+# 本機測試用（假雲端），不上傳
+_test.html
+_mock.js
+*.bak
+desktop.ini
+Thumbs.db

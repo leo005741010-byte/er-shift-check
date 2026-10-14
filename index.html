@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#13606e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="急診點班">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>急診點班</title>
+<style>
+:root{--navy:#13606e;--navy-dark:#0c4651;--bg:#f2f6f7;--card:#fff;--line:#dbe5e8;--txt:#1f2d3d;--mut:#667785;
+  --ok:#1f8a4c;--okbg:#e6f5ec;--warn:#a85800;--warnbg:#fff4e0;--bad:#c0392b;--badbg:#fdecea}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;font-family:"Microsoft JhengHei","PingFang TC","Noto Sans TC",system-ui,sans-serif;background:var(--bg);color:var(--txt);font-size:15px;line-height:1.55}
+button{font:inherit}
+.wrap{max-width:860px;margin:0 auto;padding:0 16px}
+header.top{background:var(--navy);color:#fff;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+header.top .wrap{padding-top:calc(10px + env(safe-area-inset-top));padding-bottom:10px}
+header.top h1{font-size:19px;margin:0;font-weight:700;letter-spacing:.5px}
+main.wrap{padding-top:14px;padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+.mut{color:var(--mut)}
+.btn{border:1px solid var(--navy);background:var(--navy);color:#fff;border-radius:8px;padding:7px 14px;cursor:pointer;white-space:nowrap;font-size:14px}
+.btn:hover{background:var(--navy-dark)}
+.btn.outline{background:#fff;color:var(--navy)}
+.btn.outline:hover{background:#eef6f7}
+.btn.ghost{background:transparent;color:var(--mut);border-color:var(--line)}
+.btn.mini{font-size:12.5px;padding:3px 10px;border-radius:6px}
+.btn.big{font-size:17px;padding:12px 18px;border-radius:12px;width:100%}
+.btn:disabled{opacity:.45;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:14px}
+details.sec>summary{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:16px;font-weight:700;color:var(--navy-dark);list-style:none;cursor:pointer}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::before{content:'▸';color:var(--mut);font-size:15px;transition:transform .15s}
+details.sec[open]>summary::before{transform:rotate(90deg)}
+details.sec[open]>summary{margin-bottom:12px}
+details.sec>summary .r{margin-left:auto;font-weight:400;font-size:13px;color:var(--mut)}
+.hint{font-size:12.5px;color:var(--mut);margin:2px 0 10px}
+.note{border-radius:9px;padding:9px 13px;font-size:13.5px;margin-bottom:12px}
+.note.warn{background:var(--warnbg);color:var(--warn);border:1px solid #f3d9a4}
+.note.bad{background:var(--badbg);color:var(--bad);border:1px solid #f1b9b3}
+.note.info{background:#e8f4f5;color:var(--navy-dark);border:1px solid #c4e0e3}
+.note b{font-weight:700}
+pre.rule{background:#0f2238;color:#e8f0fa;border-radius:8px;padding:10px 12px;font-size:12.5px;overflow:auto;white-space:pre;user-select:all;margin:8px 0 0}
+.tag{display:inline-block;font-size:12px;border-radius:6px;padding:1px 7px;font-weight:700;white-space:nowrap}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.no{background:var(--badbg);color:var(--bad)}.tag.w{background:var(--warnbg);color:var(--warn)}.tag.g{background:#eef2f4;color:var(--mut)}
+.foot{text-align:center;color:var(--mut);font-size:12.5px;margin-top:18px;line-height:2}
+.foot .lk{background:none;border:none;color:var(--navy);text-decoration:underline;cursor:pointer;padding:0 2px;font-size:12.5px}
+#toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#1f2d3d;color:#fff;padding:9px 16px;border-radius:999px;font-size:14px;z-index:90;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw;text-align:center}
+#toast.on{opacity:.95}
+input[type=number],input[type=text],input[type=password],input[type=date],select,textarea{font:inherit;font-size:16px;border:1px solid #c5d3d8;border-radius:8px;padding:6px 9px;background:#fff;color:var(--txt)}
+input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset:0}
+
+/* ---- 本班標題＋進度 ---- */
+.shead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:2px 0 4px}
+.shead h2{font-size:21px;margin:0;color:var(--navy-dark)}
+.shead .t{color:var(--mut);font-size:13px}
+.shead .now{font-size:12px;background:#e0f1f3;color:var(--navy);border-radius:999px;padding:1px 9px;font-weight:700}
+.prog{display:flex;align-items:center;gap:10px;margin:6px 0 4px;font-size:14px}
+.prog .bar{flex:1;height:8px;border-radius:4px;background:#e3eaed;overflow:hidden}
+.prog .bar span{display:block;height:100%;background:#2eb872}
+.duty{font-size:12.5px;color:var(--mut);margin:0 0 12px}
+.grp{font-size:13px;color:var(--mut);font-weight:700;margin:16px 2px 6px}
+/* ---- 點班單列表 ---- */
+.flist{display:flex;flex-direction:column;gap:8px}
+.frow{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;color:var(--txt)}
+.frow:active{background:#f3f8f9}
+.frow .dot{width:12px;height:12px;border-radius:50%;flex:0 0 auto;background:#cfd8dc}
+.frow.ok .dot{background:#2eb872}.frow.bad .dot{background:#f2a541}.frow.part .dot{background:#8fc4cb}
+.frow .fn{flex:1;min-width:0;font-size:16px;font-weight:700;color:var(--navy-dark)}
+.frow .fn small{display:block;font-size:12.5px;font-weight:400;color:var(--mut)}
+.frow .fs{font-size:13px;text-align:right;white-space:nowrap}
+.frow.ok .fs{color:var(--ok)}.frow.bad .fs{color:var(--warn);font-weight:700}
+.frow .chev{color:#a9b7bd;font-size:20px}
+
+/* ---- 最下面一條：‹ 日期班別 › ---- */
+#bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);box-shadow:0 -2px 12px rgba(12,70,81,.08);
+  display:flex;align-items:center;justify-content:center;gap:10px;padding:8px 12px calc(8px + env(safe-area-inset-bottom))}
+.mb-nav{font-size:22px;line-height:1;width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer}
+.mb-nav:disabled{opacity:.3;cursor:default}
+.mb-cur{font-size:16px;font-weight:700;color:#fff;background:var(--navy);border:none;border-radius:999px;padding:10px 18px;min-width:200px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px}
+.mb-cur i{width:9px;height:9px;border-radius:50%;display:inline-block;background:#c5ced9}
+.mb-cur i.done{background:#2eb872}.mb-cur i.part{background:#f2a541}.mb-cur i.none{background:#e2574c}
+.pick{position:fixed;left:0;right:0;bottom:calc(64px + env(safe-area-inset-bottom));z-index:31;display:none;justify-content:center;padding:0 12px}
+.pick.on{display:flex}
+.pick .box{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 34px rgba(12,70,81,.25);padding:14px;width:100%;max-width:380px}
+.pick .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:10px}
+.pick .sh{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.pick .sh button{padding:10px 0;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-size:15px}
+.pick .sh button.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.pick .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.pick .grid .m{font-size:15px;padding:10px 0;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px}
+.pick .grid .m:disabled{color:#c2cad4;background:#f7f9fb;cursor:default}
+.pick .grid .m.on{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700}
+.pick .grid .m.now{border-color:var(--navy)}
+.pick .yr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;font-size:17px;color:var(--navy-dark)}
+
+/* ---- 點班單畫面（整頁） ---- */
+.fv{position:fixed;inset:0;z-index:40;background:var(--bg);display:none;flex-direction:column}
+.fv.on{display:flex}
+.fv .fh{background:var(--navy);color:#fff;display:flex;align-items:center;gap:8px;padding:calc(8px + env(safe-area-inset-top)) 10px 8px}
+.fv .fh .back{background:none;border:none;color:#fff;font-size:26px;width:40px;height:40px;cursor:pointer;line-height:1}
+.fv .fh .ft{flex:1;min-width:0}
+.fv .fh .ft b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fv .fh .ft small{font-size:12.5px;opacity:.85}
+.fv .fb{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 12px 24px}
+.fv .fb>.in{max-width:760px;margin:0 auto}
+.fv .fs2{background:#fff;border-top:1px solid var(--line);padding:10px 12px calc(10px + env(safe-area-inset-bottom));box-shadow:0 -2px 12px rgba(12,70,81,.08)}
+.fv .fs2 .in{max-width:760px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.fv .fs2 .cnt{font-size:14px;white-space:nowrap}
+.fv .fs2 .btn{flex:1;font-size:16px;padding:11px 12px;border-radius:12px}
+.secb{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:12px;overflow:hidden}
+.secb>.sh2{display:flex;align-items:center;gap:8px;padding:9px 12px;background:#eef5f6;border-bottom:1px solid var(--line)}
+.secb>.sh2 b{flex:1;color:var(--navy-dark);font-size:15px}
+.secb>.sh2 small{color:var(--mut);font-weight:400;margin-left:6px}
+.it{padding:9px 12px;border-bottom:1px solid #edf1f3}
+.it:last-child{border-bottom:none}
+.it.ng{background:#fff7f6}
+.it.miss{background:#fff8e6}
+.ir{display:flex;align-items:center;gap:10px}
+.itx{flex:1;min-width:0}
+.itx .nm{font-size:15px;line-height:1.4;word-break:break-word}
+.itx .sub{font-size:12.5px;color:var(--mut);display:flex;gap:8px;flex-wrap:wrap}
+.itx .q{color:var(--navy);font-weight:700}
+.ib{display:flex;gap:6px;flex:0 0 auto}
+.ib .b{width:46px;height:42px;border-radius:10px;border:1.5px solid #cfdade;background:#fff;font-size:20px;line-height:1;cursor:pointer;color:#9aaab0}
+.ib .b.ok.on{background:#2eb872;border-color:#2eb872;color:#fff}
+.ib .b.ng.on{background:#e2574c;border-color:#e2574c;color:#fff}
+.ib .b.na.on{background:#8a98a3;border-color:#8a98a3;color:#fff}
+.ro{width:40px;text-align:center;font-size:19px;font-weight:700;color:#aab6bb}
+.ro.ok{color:var(--ok)}.ro.ng{color:var(--bad)}.ro.na{color:var(--mut)}
+.ngx{margin-top:8px;display:flex;flex-direction:column;gap:8px}
+.ngx label{font-size:14px}
+.ngx input[type=number]{width:90px;text-align:right}
+.ngx input.note{width:100%}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{border:1px solid #c4dade;background:#f2f8f9;color:var(--navy-dark);border-radius:999px;padding:4px 12px;font-size:13.5px;cursor:pointer}
+.chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.fix{font-size:13.5px;color:var(--mut);display:flex;align-items:center;gap:6px}
+.fix input{width:18px;height:18px}
+.ngro{font-size:13px;color:var(--bad);margin-top:3px}
+.ngro .res{color:var(--ok)}
+.stp{display:inline-flex;align-items:center;border:1px solid #c5d3d8;border-radius:10px;overflow:hidden;background:#fff}
+.stp button{width:40px;height:40px;border:none;background:#f2f8f9;font-size:20px;color:var(--navy);cursor:pointer}
+.stp input{width:56px;height:40px;border:none;border-left:1px solid #e3eaed;border-right:1px solid #e3eaed;border-radius:0;text-align:center;font-size:18px;font-weight:700;padding:0}
+.nar{display:grid;grid-template-columns:auto auto;gap:8px 12px;align-items:center;margin-top:8px}
+.nar .lb{font-size:14px;color:var(--mut)}
+.tot{font-size:15px;margin-top:8px}
+.tmp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:8px}
+.tmp label{font-size:13px;color:var(--mut);display:flex;flex-direction:column;gap:3px}
+.tmp input{width:100%;text-align:center;font-size:20px;font-weight:700}
+.clock{text-align:center;background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:12px}
+.clock b{display:block;font-size:34px;font-variant-numeric:tabular-nums;color:var(--navy-dark);letter-spacing:1px}
+.clock small{color:var(--mut);font-size:12.5px}
+.done{background:var(--okbg);border:1px solid #bfe5cd;color:var(--ok);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.done.bad{background:var(--warnbg);border-color:#f3d9a4;color:var(--warn)}
+.done b{font-size:15px}
+.done .btn{margin-left:auto}
+details.notes{background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:13.5px}
+details.notes summary{cursor:pointer;color:var(--navy-dark);font-weight:700}
+details.notes ol{margin:6px 0 0;padding-left:20px}
+.soakrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #edf1f3}
+.soakrow:last-child{border-bottom:none}
+.soakrow .w{flex:1;min-width:0}
+.soakrow .w small{display:block;color:var(--mut);font-size:12.5px}
+.soakrow .min{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.soakrow .min.go{color:var(--ok)}
+/* ---- 選名字 ---- */
+.who h2{font-size:18px;color:var(--navy-dark);margin:0 0 4px}
+.names{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin:8px 0 14px}
+.names button{padding:12px 4px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:16px;cursor:pointer;color:var(--txt)}
+.names button.duty{border-color:var(--navy);background:#eef6f7;font-weight:700;color:var(--navy-dark)}
+
+/* ---- 管理頁 ---- */
+.mhead{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin:4px 0 12px}
+.mhead h2{font-size:22px;margin:0;color:var(--navy-dark)}
+.tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;position:relative;text-align:left;color:var(--txt)}
+.tile:hover{border-color:#8fc4cb;box-shadow:0 2px 10px rgba(19,96,110,.12)}
+.tile .l{font-size:12.5px;color:var(--mut)}
+.tile .v{font-size:25px;font-weight:700;color:var(--navy-dark);font-variant-numeric:tabular-nums;line-height:1.25}
+.tile .v small{font-size:14px;font-weight:400}
+.tile .s{font-size:12.5px;color:var(--mut)}
+.tile .tg{position:absolute;top:7px;right:10px;font-size:13px;opacity:.6}
+.tile.big{background:#e8f4f5;border-color:#c9e3e6;text-align:center;padding:14px}
+.tile.big .v{font-size:32px}
+.tile.big .l{font-size:14px;color:var(--navy-dark);font-weight:600}
+.tile .pbar{height:6px;border-radius:3px;background:#d7e6e9;margin:6px 0 2px;overflow:hidden}
+.tile .pbar span{display:block;height:100%;background:#2eb872}
+.up{color:var(--ok);font-weight:700}.dn{color:var(--warn);font-weight:700}
+.dayrow{border-bottom:1px solid var(--line)}
+.dayrow:last-child{border-bottom:none}
+.dayrow>summary{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 2px;cursor:pointer;list-style:none}
+.dayrow>summary::-webkit-details-marker{display:none}
+.dayrow>summary .d{font-weight:700;min-width:86px;color:var(--navy-dark)}
+.dayrow>summary .r{margin-left:auto;display:flex;gap:6px;align-items:center}
+.dayrow .body{padding:0 2px 12px}
+.frm{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.frm:last-child{border-bottom:none}
+.frm .n{min-width:112px;font-weight:600}
+.cell{border:1px solid var(--line);background:#fff;border-radius:7px;padding:2px 8px;font-size:13px;cursor:pointer;white-space:nowrap;color:var(--txt)}
+.cell.ok{background:var(--okbg);border-color:#bfe5cd;color:var(--ok)}
+.cell.bad{background:var(--warnbg);border-color:#f3d9a4;color:var(--warn);font-weight:700}
+.cell.miss{background:var(--badbg);border-color:#f1b9b3;color:var(--bad);cursor:default}
+.cell.wait{color:#a9b7bd;cursor:default}
+.abn{padding:9px 0;border-bottom:1px solid var(--line);font-size:14px}
+.abn:last-child{border-bottom:none}
+.abn .h{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.abn .h b{color:var(--navy-dark)}
+.abn .h .btn{margin-left:auto}
+.abn .t{color:var(--mut);font-size:13px}
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:8px}
+table.mt{border-collapse:collapse;font-size:12.5px}
+table.mt th,table.mt td{border:1px solid #e3eaed;padding:3px 4px;text-align:center;white-space:nowrap}
+table.mt th{background:#f1f6f7;color:var(--navy-dark);font-weight:700}
+table.mt td.l,table.mt th.l{text-align:left;position:sticky;left:0;background:#fff;z-index:1;max-width:190px;white-space:normal;min-width:150px}
+table.mt th.l{background:#f1f6f7}
+table.mt td.x{color:var(--bad);font-weight:700;background:#fff3f1}
+table.mt td.o{color:var(--ok)}
+table.mt td.vn{writing-mode:vertical-rl;font-size:11.5px;letter-spacing:1px;padding:4px 2px;min-height:44px}
+table.ed{border-collapse:collapse;width:100%;font-size:14px}
+table.ed td,table.ed th{padding:4px 3px;border-bottom:1px solid var(--line);vertical-align:middle}
+table.ed th{font-size:12.5px;color:var(--mut);text-align:left}
+table.ed input,table.ed select{font-size:14px;padding:4px 6px;width:100%}
+table.ed td.q input{width:64px}
+table.ed td.act{white-space:nowrap}
+table.ed td.act button{border:1px solid var(--line);background:#fff;border-radius:6px;width:30px;height:30px;cursor:pointer;color:var(--mut)}
+.edrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
+.edrow label{font-size:13.5px;color:var(--mut)}
+.mask{position:fixed;inset:0;background:rgba(12,70,81,.45);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:30px 10px;overflow:auto}
+.mask.on{display:flex}
+.dlg{background:#fff;border-radius:14px;max-width:720px;width:100%;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
+.dlg h2{margin:0 0 4px;font-size:18px;color:var(--navy-dark);display:flex;align-items:center;gap:8px}
+.dlg h2 .btn{margin-left:auto}
+.cumh{font-weight:700;color:var(--navy-dark);font-size:14.5px;margin:12px 0 0}
+.cumh small{font-weight:400;color:var(--mut);margin-left:6px}
+.trend{display:block;width:100%;max-width:560px;height:auto;margin:6px auto 10px}
+.sub2{font-size:12.5px;color:var(--mut);margin-top:6px}
+table.tt{border-collapse:collapse;width:100%;font-size:14px}
+table.tt th,table.tt td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:right}
+table.tt th{background:#f1f6f7;color:var(--navy-dark);font-size:13px}
+table.tt .l{text-align:left}
+.pr{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line);font-size:14px}
+.pr .pl{flex:1;min-width:0}
+.pr .pv{color:var(--mut);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pr .pp{min-width:52px;text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.pr .pb{flex:0 0 90px;height:7px;border-radius:4px;background:#e3eaed;overflow:hidden}
+.pr .pb span{display:block;height:100%;background:#2eb872}
+.empty{text-align:center;color:var(--mut);padding:30px 10px}
+@media (max-width:640px){
+  .card{padding:12px}
+  .tile .v{font-size:22px}.tile.big .v{font-size:27px}.tile.big{padding:12px 8px}
+  .mb-cur{min-width:0;padding:10px 14px}
+}
+</style>
+</head>
+<body>
+<header class="top"><div class="wrap"><h1 id="ttl">急診點班</h1></div></header>
+<main class="wrap" id="main"><div class="empty">載入中…</div></main>
+<div id="bar"></div>
+<div class="pick" id="pick"></div>
+<div class="fv" id="fv"></div>
+<div class="mask" id="mask"><div class="dlg" id="dlg"></div></div>
+<div id="toast"></div>
+<script>
+'use strict';
+// 急診點班：護理師用自己的手機點班，取代手寫點班單。
+// index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，要管理密碼）。
+// 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
+const VERSION='1.0.0';
+const MANAGE=!!window.MANAGE;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const fmt=(n,dp)=>n==null||isNaN(n)?'—':Number(n).toLocaleString('en-US',{maximumFractionDigits:dp==null?1:dp});
+const lsGet=(k,d)=>{ try{ const v=localStorage.getItem(k); return v==null?d:JSON.parse(v); }catch(e){ return d; } };
+const lsSet=(k,v)=>{ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} };
+const clone=o=>JSON.parse(JSON.stringify(o));
+const WD='日一二三四五六';
+const LS={me:'erCheck_me',dev:'erCheck_dev',rt:'erCheck_fbrt',out:'erCheck_outbox',cache:'erCheck_cache',sched:'erCheck_sched',draft:'erCheck_draft',unlock:'erCheck_unlock'};
+
+// ---------- 日期與班別 ----------
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseD=s=>{ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); };
+const addDays=(s,n)=>{ const d=parseD(s); d.setDate(d.getDate()+n); return ymd(d); };
+const mkey=s=>s.slice(0,7);            // '2026-10'
+const dkey=s=>'d'+s.slice(8,10);        // 'd14'（不用純數字當 key，免得雲端把它當成陣列）
+const dayLabel=s=>{ const d=parseD(s); return `${d.getMonth()+1}/${d.getDate()}（${WD[d.getDay()]}）`; };
+const monLabel=k=>{ const [y,m]=k.split('-').map(Number); return `${y-1911}年${m}月`; };
+const hm=t=>{ const d=new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const whenLabel=t=>{ const d=new Date(t); return `${d.getMonth()+1}/${d.getDate()} ${hm(t)}`; };
+const dim=k=>{ const [y,m]=k.split('-').map(Number); return new Date(y,m,0).getDate(); };
+const shiftMonth=(k,n)=>{ const [y,m]=k.split('-').map(Number), d=new Date(y,m-1+n,1); return `${d.getFullYear()}-${pad(d.getMonth()+1)}`; };
+// 班別時間照護理班表：白班 08–16、小夜 16–24、大夜 00–08（大夜算前一天的，跟紙本點班單一樣：同一天 D→E→N）
+const SHIFT={D:{name:'白班',t:'08:00–16:00'},E:{name:'小夜',t:'16:00–24:00'},N:{name:'大夜',t:'00:00–08:00'}};
+const SHIFTS=['D','E','N'];
+// 現在是哪一班：接班前 30 分鐘就算下一班（先到先點）
+function nowShift(){
+  const n=new Date(), m=n.getHours()*60+n.getMinutes(), t=ymd(n);
+  if(m<7*60+30) return {d:addDays(t,-1),s:'N'};
+  if(m<15*60+30) return {d:t,s:'D'};
+  if(m<23*60+30) return {d:t,s:'E'};
+  return {d:t,s:'N'};
+}
+const prevShift=(d,s)=>s==='D'?{d:addDays(d,-1),s:'N'}:s==='E'?{d,s:'D'}:{d,s:'E'};
+const nextShift=(d,s)=>s==='D'?{d,s:'E'}:s==='E'?{d,s:'N'}:{d:addDays(d,1),s:'D'};
+const shiftStart=(d,s)=>parseD(d).getTime()+({D:8,E:16,N:24}[s])*3600e3;
+// 時段：每班三格；有些單子只在特定班點（Virusolve 白班、環境物資小夜）、每天一次、每天兩次（冰箱 09:00／17:00）或每月一次
+const SLOT={D:{lab:'白班',sh:'D',end:16},E:{lab:'小夜',sh:'E',end:24},N:{lab:'大夜',sh:'N',end:32},
+  X:{lab:'每日',sh:'*',end:32},AM:{lab:'09:00',sh:'D',end:16},PM:{lab:'17:00',sh:'E',end:24},M:{lab:'本月',sh:'*'}};
+const FREQ={shift:{lab:'每班（白班／小夜／大夜）',slots:['D','E','N']},D:{lab:'每天白班一次',slots:['D']},E:{lab:'每天小夜一次',slots:['E']},
+  N:{lab:'每天大夜一次',slots:['N']},day:{lab:'每天一次（哪一班都可以）',slots:['X']},twice:{lab:'每天兩次（09:00、17:00）',slots:['AM','PM']},month:{lab:'每月一次',slots:['M']}};
+const slotsOf=f=>(FREQ[f.freq]||FREQ.shift).slots;
+const slotIn=(f,s)=>slotsOf(f).find(k=>SLOT[k].sh===s||SLOT[k].sh==='*');
+const slotEnd=(d,k)=>k==='M'?new Date(+d.slice(0,4),+d.slice(5,7),1).getTime():parseD(d).getTime()+SLOT[k].end*3600e3;
+const slotLab=(f,k)=>k==='M'?'本月':slotsOf(f).length===1&&k!=='X'?SHIFT[k]?SHIFT[k].name:SLOT[k].lab:SLOT[k].lab;
+
+// ---------- 點班單內容（預設＝紙本點班單；管理頁可以改，改過的存在雲端 cfg/forms） ----------
+// 項目：t='n' 數量（打 ✗ 時填實際數量）、'c' 打勾（設定量是「各2」這類文字）、'y' ˇ／✗／Δ（不適用）
+const sec=(s,list,t)=>list.map(r=>({id:r[0],s,name:r[1],q:r[2]==null?'':String(r[2]),t:t||(/^\d+$/.test(String(r[2]==null?'':r[2]))?'n':'c'),sub:r[3]||''}));
+const DEFAULT_FORMS=[
+{id:'cart',name:'急救車',full:'急救車點班單',freq:'shift',
+ notes:['Ambu Bag 及 Mask 功能檢測：壓擠 Ambu bag，瓣膜可張合、無漏氣；Ambu Mask 須以清潔透明塑膠袋包裝。','喉頭鏡亮度不足時，應立即更換電池及檢查燈泡，保持亮度。','請於 CPR 後 1 小時內整車完畢。'],
+ items:[
+ ...sec('桌面',[['c01','Ambu Bag＋Mask＋O2 雙接管（床頭處）',1],['c02','Endo 7.0／7.5 Fr','各1'],['c03','喉頭鏡柄＋葉片 3.0／4.0 Fr（亮度正常）','各2'],
+   ['c04','Bite（大）／Airway（80／90／100mm）','各1'],['c05','通條、10cc 空針','各1'],['c06','Endo 固定帶',4],['c07','Jelly、筆燈、瞳孔尺','各1'],
+   ['c08','無菌手套 6.5／7.0／7.5 號','各1'],['c09','EMMA-ETCO2',1],['c10','備用電池 2 號、3 號、4 號、9V','各4'],['c11','張口器（鐵製）',1],
+   ['c12','托舌鉗 大／小','各1'],['c13','大 Kelly（彎）',1],['c14','感染垃圾袋（放急救盤下）',1]]),
+ ...sec('第一層抽屜（急救藥物）',[['c15','*Adenosine／Adenocor（6mg/2ml/vial）',5],['c16','*Amiodarone／Cordarone（150mg/3ml/amp）',6],
+   ['c17','*Dopamine（200mg/5ml/amp）',4],['c18','*Epinephrine（1mg/1ml/amp）',30],['c19','*Glucose 50%／Vitagen（10g/20ml/amp）',4],
+   ['c20','*MgSO4（2000mg/20ml/amp）',1],['c21','*Midazolam／Midatin（5mg/1ml/amp）',2],['c22','*Succinylcholine（500mg/vial）',1],
+   ['c23','*Norepinephrine／Levophed（4mg/4ml/vial）',4],['c24','*Rocuronium（50mg/5ml/vial）',2],['c25','Verapamil（5mg/2ml/amp）',2],
+   ['c26','Atropine（1mg/1ml/amp）',2],['c27','Calcium Chloride／Vitacal（5.44mEq/20ml/amp）',2],['c28','Chlorpheniramine（5mg/1ml/amp）',2],
+   ['c29','Furosemide／Rosis（20mg/2ml/amp）',10],['c30','Methylprednisolone／BELON（40mg/vial）',2],['c31','Nitroglycerin／Nitrostat（0.6mg/tab）（NTG）',1],
+   ['c32','Salbutamol／Saldolin（5mg/2.5ml/amp）',2],['c33','Sodium Bicarbonate（1400mg/20ml/amp）',20],['c34','Phenytoin／Aleviatin（250mg/5ml/amp）',4]]),
+ ...sec('第二層抽屜',[['c35','Bite 大',3],['c36','心肌長針',3],['c37','Nasal Airway 6.0／6.5／7.0／7.5','各1'],['c38','Oral Airway 80／90／100mm','各2'],
+   ['c39','Endo Tube 6.0／6.5／7.0／7.5／8.0 號','各2'],['c40','硬式抽吸管 大',1],['c41','通條',2]]),
+ ...sec('第三層抽屜（小兒急救用品組）',[['c42','葉片可與成人喉頭鏡柄卡榫密合',1],['c43','直－喉頭鏡葉片 0#（亮度正常）',1],['c44','直－喉頭鏡葉片 1#（亮度正常）',1],
+   ['c45','彎－喉頭鏡葉片 0#（亮度正常）',1],['c46','彎－喉頭鏡葉片 1#（亮度正常）',1],['c47','彎－喉頭鏡葉片 2#（亮度正常）',2],['c48','喉頭鏡葉片 3#（亮度正常）',1],
+   ['c49','Oral Airway 40／50／60／70mm','各1'],['c50','Bite 小',2],['c51','小兒急救尺',1],['c52','小兒 Ambu Bag＋Mask＋O2 雙接管',1],['c53','LMA 1.5／2.0','各1'],
+   ['c54','Endo Tube 4.5／5.0／5.5 號（有 cuff）','各1'],['c55','Endo Tube 3.0／3.5／4.0 號（無 cuff）','各1'],['c56','小兒胃管 10／12 號','各1'],
+   ['c57','硬式抽吸管 小',1],['c58','小兒通條',2]]),
+ ...sec('第四層抽屜',[['c59','電子喉頭鏡',1],['c60','電子喉頭鏡鏡葉',3],['c61','電動骨針電鑽',1],['c62','骨針 45mm',2],['c63','骨針 25mm',2],['c64','骨針 15mm',1],
+   ['c65','LMA 3.0／4.0','各1'],['c66','防護裝備','1組']]),
+ ...sec('側面',[['c67','聽診器（右邊）',2],['c68','急救板（急救車背面）',1],['c69','N95 口罩',5],['c70','i-Bougie（橘色）／S-guide（透明黃）','各2'],['c71','小兒血氧線',1],['c72','小兒壓脈帶',1]])]},
+{id:'narc',name:'管制藥品',full:'管制藥品點班紀錄表',freq:'shift',kind:'narc',
+ notes:['未用＋空瓶＝總量，總量要等於設定量。','交班者與接班者當面核對後送出；送出的人＝接班者。'],
+ items:[{id:'n1',s:'管制藥品',name:'Pethidine 50mg',q:'1',t:'n',sub:'支'},{id:'n2',s:'管制藥品',name:'Morphine 10mg',q:'10',t:'n',sub:'支'}]},
+{id:'high',name:'高警訊藥品',full:'常備高警訊藥品點班單',freq:'shift',notes:[],
+ items:sec('常備高警訊藥品',[['h1','Actrapid（RI）100IU/ml、10ml/Vial',1],['h2','Propofol Lipuro 1%　10mg/ml、200mg/20ml/Amp',1],['h3','Heparin（Hesharin）5000 Unit/ml、5ml/Vial',2],
+   ['h4','Tramtor（Tramadol）50mg/ml、100mg/2ml/Amp',2],['h5','Anxicam（Lorazepam）2mg/1ml/amp（冰箱內）',2],['h6','Lidocaine 20mg/ml、20ml/Vial',1]])},
+{id:'gen',name:'一般常備藥品',full:'一般常備藥品及流量表點班單',freq:'shift',notes:[],
+ items:sec('一般常備藥品及流量表',[['g1','Combivent 2.5ml',2],['g2','Tetana（Tetanus toxoid）1ml/vial',30],['g3','留觀區 O2 流量表（單）',7],['g4','E20、E21 流量表（雙）',1]])},
+{id:'dfm',name:'電擊器 DFM100',full:'心臟電擊器日常功能檢測（DFM100）',freq:'shift',
+ notes:['測試放電時不可對人放電，以免發生電弧現象損壞電擊板或造成人員受傷。','✓＝功能正常且用物完備；✗＝功能異常或用品不完整。','當班發現用品不齊全或功能異常，查檢者務必立即補足，並完成修繕及故障排除的追蹤。'],
+ items:sec('檢查項目',[['d1','記錄紙、電極片','','電極片至少準備六片以上'],['d2','EKG cables & Lead wires','','導線組若有破損或接觸不良請醫工組檢修'],
+   ['d3','電擊用 Jelly 足夠','','可備有 N/S 及 4×4 紗布取代'],['d4','電擊板完整','','大人、小孩皆具備'],['d5','板面 AC／BATT／CHRG 需亮燈','','隨時保持充電狀態'],
+   ['d6','電擊板放在電擊器正確位置','','不可交叉放在板架上，板面清潔乾淨無 Jelly 痕跡'],['d7','電擊器功能檢測','','測試後紀錄單需黏貼'],['d8','記錄器及日期時間','','列印清晰，且日期時間與電腦時間相同']],'c')},
+{id:'xl',name:'電擊器 XL+',full:'心臟電擊器日常功能檢測（XL+）',freq:'shift',
+ notes:['測試放電時不可對人放電，以免發生電弧現象損壞電擊板或造成人員受傷。','✓＝功能正常且用物完備；✗＝功能異常或用品不完整。','當班發現用品不齊全或功能異常，查檢者務必立即補足，並完成修繕及故障排除的追蹤。'],
+ items:sec('檢查項目',[['x1','記錄紙、電極片','','電極片至少準備六片以上'],['x2','EKG cables & Lead wires','','導線組若有破損或接觸不良請醫工組檢修'],
+   ['x3','電擊用 Jelly 足夠','','可備有 N/S 及 4×4 紗布取代'],['x4','電擊板完整','','大人、小孩皆具備'],['x5','板面 AC／BATT／CHRG 需亮燈','','隨時保持充電狀態'],
+   ['x6','電擊板放在電擊器正確位置','','不可交叉放在板架上，板面清潔乾淨無 Jelly 痕跡'],['x7','電擊器功能檢測','','測試後紀錄單需黏貼'],['x8','記錄器及日期時間','','列印清晰，且日期時間與電腦時間相同']],'c')},
+{id:'vent',name:'呼吸器',full:'急救區每日查檢紀錄表（呼吸器）',freq:'shift',notes:[],
+ items:[...sec('呼吸器 V60',[['v1','每班檢測功能、呼吸管路正常'],['v2','備有呼吸器面罩 M 號、L 號']],'c'),
+   ...sec('呼吸器 Astral 100',[['v3','每班檢測功能、呼吸管路正常'],['v4','備有呼吸器面罩 M 號、L 號']],'c'),
+   ...sec('Tumper',[['v5','每班檢測功能、呼吸管路正常']],'c'),
+   ...sec('HF',[['v6','HF 備品×2、雙頭流量表（備×1）']],'c')]},
+{id:'equip',name:'儀器（B）',full:'儀器點班單（B）',freq:'shift',notes:[],
+ items:[...sec('急救區',[['e01','輸血加壓袋',2],['e02','輸血加溫器',2],['e03','腳蹬',1],['e04','歐式車',3],['e05','O2 鋼瓶（含推車×3）',5],['e06','沙袋 2KG',2],['e07','抽吸負壓表',2],['e08','O2 流量表（雙）',2],['e09','移行板',1]]),
+   ...sec('護理站',[['e10','耳溫槍',3],['e11','電子血壓機',1],['e12','移動生理監視器',2],['e13','十二導程 EKG',1],['e14','血糖機',1]]),
+   ...sec('診間',[['e15','五官鏡',2]]),
+   ...sec('留觀區',[['e16','烤燈',2],['e17','IV Pump',5],['e18','磅秤（3KG）',2],['e19','床上桌',2]]),
+   ...sec('其它',[['e20','三層車',1],['e21','抽吸負壓表',3],['e22','超音波',1],['e23','冰枕（冰箱內）',1],['e24','留觀 O2 流量表（單）',9],['e25','E19 O2 流量表（雙）',1],['e26','E18 O2 流量表（雙）',1],['e27','病床點滴架',22]])]},
+{id:'inst',name:'器械（A）',full:'器械點班單（A）',freq:'shift',notes:[],
+ items:sec('包盤類',[['a1','CVP 包',2],['a2','腰椎穿刺包／CSF 玻璃管','各2'],['a3','切開縫合包',3],['a4','氣切包',1],['a5','生產包',1]])},
+{id:'triage',name:'檢傷',full:'檢傷點班單',freq:'shift',notes:[],
+ items:[...sec('檢傷區',[['t1','電子身高體重計',1],['t2','手機',1],['t3','血糖機',1],['t4','輪椅',7],['t5','額溫槍／耳溫槍','2／2']]),
+   ...sec('隔離室',[['t6','蚊帳',4],['t7','血壓計／耳溫槍（專用）','1／1'],['t8','血氧機',1],['t9','O2 流量表（單頭）',1],['t10','Air 流量表',1]])]},
+{id:'fridge',name:'冰箱溫度',full:'藥品冰箱溫度紀錄',freq:'twice',kind:'temp',lo:2,hi:8,
+ notes:['每天兩次（09:00、17:00）以高低溫度計檢查冰箱溫度；除霜時請勾「除霜中」。','冷藏溫度應保持 2–8℃；異常時依冰箱溫度異常處理流程作業，填寫「藥用冰箱異常處理單」送修並記錄處理情形。','各類藥品依規定存放，不可擺放食物、飲料或其他非醫療用品。'],
+ items:[{id:'f1',s:'藥品冰箱',name:'藥品冰箱',q:'2–8℃',t:'temp',sub:''}]},
+{id:'virus',name:'Virusolve 濃度',full:'Virusolve 溶液濃度監測',freq:'D',kind:'virus',
+ notes:['每日上午 08:00 點班必須檢測並留紀錄。','更換溶液時機：①消毒溶液到期（更換日起算 14 天，如 1/1–1/14）②濃度監測未通過廠牌閾值。','試紙開瓶後請放置於陰涼處，保持乾燥勿受潮。'],
+ items:sec('溶液濃度監測',[['u1','消毒溶液在效期內'],['u2','試紙檢測時間 15 秒'],['u3','試紙在有效期限內'],['u4','有效濃度（試紙判讀通過）']],'c')},
+{id:'env',name:'環境物資',full:'環境物資點班單',freq:'E',notes:[],
+ items:sec('環境物資',[['m1','廣播音量（固定 2）','3'],['m2','乾洗手起訖日期','18'],['m3','洗手乳起訖日期','5'],['m4','體溫監測儀時間','1']],'c')},
+{id:'safety',name:'安全衛生日檢',full:'安全衛生日檢表',freq:'day',notes:['ˇ＝正常、✗＝異常、Δ＝不適用。','異常請寫改善措施及追蹤。'],
+ items:[...sec('環境空間',[['s01','天花板','','是否有破損、掉落之虞'],['s02','通風口','','是否髒汙'],['s03','牆面','','懸掛物是否穩固'],['s04','通道','','不得堆積雜物、需光線充足'],['s05','地面','','是否油汙、濕滑、不平整']],'y'),
+   ...sec('逃生設備',[['s06','安全門','','常開及常閉安全門確認'],['s07','出口標示燈','','是否損壞不亮'],['s08','救助袋、自走梯','','不得堆置雜物影響使用']],'y'),
+   ...sec('消防設備',[['s09','滅火器','','壓力正常、皮管及插銷完整'],['s10','消防栓箱','','不得堆放雜物影響開啟'],['s11','消防栓','','水帶、瞄子完備']],'y'),
+   ...sec('用電安全',[['s12','電器','','未使用未認證之高耗能電器'],['s13','延長線、分接頭','','未使用未認證之器具'],['s14','電源線','','不得綑綁捲曲、無破損'],['s15','插座','','無焦黑、堆積棉絮']],'y'),
+   ...sec('危害物質',[['s16','標示、SDS','','危害物皆有危害標示及 SDS'],['s17','防護具','','作業時配戴合適之防護具'],['s18','抽風櫃、排氣機','','確認其運作正常']],'y'),
+   ...sec('感染控制',[['s19','針扎','','使用安全針具、置針盒'],['s20','個人防護具','','依情形選用適當防護具']],'y'),
+   ...sec('安全行為',[['s21','工作守則、SOP','','依安全衛生工作守則作業'],['s22','職安政策','','宣導職安政策並協助推動']],'y'),
+   ...sec('其他',[['s23','垃圾分類','','確實分類、感染類應加蓋'],['s24','緊急應變','','有緊急應變手冊、聯絡方式']],'y')]},
+{id:'clock',name:'儀器時間校正',full:'儀器時間校正查核表',freq:'month',kind:'clock',
+ notes:['以這支手機上方的時間為「電腦時間」，和儀器上的時間比對。','時間誤差限一分鐘；有誤差請聯絡醫工（28840）處理，處理方法寫在處理情形。'],
+ items:sec('儀器時間（誤差 ≤ 1 分鐘）',[['k1','電擊器（DFM100）'],['k2','電擊器（XL+）'],['k3','12 導程 EKG'],['k4','超音波'],['k5','留觀區三合一血壓機（1）'],['k6','留觀區三合一血壓機（2）']],'c')}
+];
+const SOAK_ITEMS=['喉頭鏡葉片'];
+const CHIPS=['已補齊','已更換','已通知補貨','已通知醫工','已送修'];
+const AUTO_FIX={'已補齊':1,'已更換':1};
+
+// ---------- 雲端（Firebase REST，匿名登入；與其他急診 App 同一個資料庫） ----------
+const FB_DB='https://tenchener-488d2-default-rtdb.firebaseio.com', NODE='erShiftCheckData', SCHED='erNurseScheduleData';
+const FB_API_KEY='AIzaSyB6w2D8gaqSBHoDmtWsWGWGY-DQtDEcyFY';   // Firebase Web API key：本來就設計成公開內嵌，不是密碼
+const RULE=`"${NODE}": { ".read": "auth != null", ".write": "auth != null" }`;
+let _tok=null,_tokExp=0,_tokP=null;
+async function idToken(force){
+  if(!force&&_tok&&Date.now()<_tokExp) return _tok;
+  if(_tokP&&!force) return _tokP;
+  _tokP=(async()=>{
+    const keep=d=>{ _tok=d.idToken||d.id_token; _tokExp=Date.now()+(Number(d.expiresIn||d.expires_in||3600)-60)*1000;
+      const rt=d.refreshToken||d.refresh_token; if(rt) lsSet(LS.rt,rt); return _tok; };
+    const rt=lsGet(LS.rt,null);
+    if(rt){ const r=await fetch(`https://securetoken.googleapis.com/v1/token?key=${FB_API_KEY}`,{method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(rt)});
+      if(r.ok) return keep(await r.json()); }
+    const r=await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${FB_API_KEY}`,{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({returnSecureToken:true})});
+    if(!r.ok) throw new Error('雲端登入失敗（HTTP '+r.status+'）');
+    return keep(await r.json());
+  })();
+  try{ return await _tokP; } finally{ _tokP=null; }
+}
+async function fb(method,path,body,base,q){
+  for(let i=0;;i++){
+    const r=await fetch(`${FB_DB}/${base||NODE}/${path}.json?auth=${encodeURIComponent(await idToken(i>0))}${q||''}`,
+      {method,cache:'no-store',body:body===undefined?undefined:JSON.stringify(body)});
+    if(r.ok) return r.json();
+    const msg=await r.text().catch(()=>'');
+    if((r.status===401||r.status===403)&&i===0&&/expired|invalid|token/i.test(msg)) continue;   // 憑證過期：重拿一次
+    if(r.status===401||r.status===403) throw Object.assign(new Error('雲端規則尚未開放'),{kind:'denied'});
+    throw new Error('雲端回應 HTTP '+r.status);
+  }
+}
+// 這支手機上的雲端副本（只放讀過的部分），路徑和雲端一樣：rec/2026-10/d14/cart_D
+let db=MANAGE?{}:lsGet(LS.cache,{});
+let outbox=lsGet(LS.out,[]);          // 還沒上傳成功的寫入（沒網路也能點班，連上後自動補傳）
+const cloud={st:'idle',at:0,msg:''};
+const getAt=path=>path.split('/').reduce((o,k)=>o&&typeof o==='object'?o[k]:undefined,db);
+function setAt(path,val,merge){
+  const ks=path.split('/'); let o=db;
+  for(let i=0;i<ks.length-1;i++){ if(!o[ks[i]]||typeof o[ks[i]]!=='object') o[ks[i]]={}; o=o[ks[i]]; }
+  const k=ks[ks.length-1];
+  if(val==null) delete o[k];
+  else if(merge&&o[k]&&typeof o[k]==='object') Object.assign(o[k],val);
+  else o[k]=val;
+}
+function saveCache(){
+  if(MANAGE) return;
+  const lim=addDays(ymd(new Date()),-3), keepM=new Set([mkey(ymd(new Date())),shiftMonth(mkey(ymd(new Date())),-1)]);   // 手機上只留最近幾天
+  Object.keys(db.rec||{}).forEach(mk=>{ const o=db.rec[mk]; if(!o||typeof o!=='object') return;
+    Object.keys(o).forEach(dk=>{ if(/^d\d\d$/.test(dk)&&`${mk}-${dk.slice(1)}`<lim&&(!view||`${mk}-${dk.slice(1)}`!==view.d)) delete o[dk]; });
+    if(!keepM.has(mk)&&!Object.keys(o).some(k=>k!=='_m')) delete db.rec[mk]; });
+  Object.keys(db.soak||{}).forEach(mk=>{ if(!keepM.has(mk)) delete db.soak[mk]; });
+  lsSet(LS.cache,db);
+}
+async function pull(path){
+  try{
+    const v=await fb('GET',path);
+    setAt(path,v);
+    outbox.forEach(o=>{ if(o.p===path||o.p.startsWith(path+'/')) setAt(o.p,o.b,o.m==='PATCH'); });   // 還沒傳上去的，蓋回本機副本
+    cloud.st='ok'; cloud.at=Date.now(); saveCache();
+    return true;
+  }catch(e){ cloud.st=e.kind==='denied'?'denied':'off'; cloud.msg=e.message; return false; }
+}
+function write(m,path,body){
+  setAt(path,body,m==='PATCH');
+  // 同一個位置重複寫（例如改了又改）只留最後一筆
+  if(m==='PUT') outbox=outbox.filter(o=>!(o.p===path&&o.m==='PUT'));
+  outbox.push({m,p:path,b:body,t:Date.now()}); lsSet(LS.out,outbox); saveCache();
+  flush(true);
+}
+let _flushing=false;
+async function flush(fromWrite){
+  if(_flushing||!outbox.length) return; _flushing=true;
+  try{
+    while(outbox.length){ const o=outbox[0]; await fb(o.m,o.p,o.b); outbox.shift(); lsSet(LS.out,outbox); }
+    cloud.st='ok'; cloud.at=Date.now();
+    if(!MANAGE&&!fvs) renderNurse();
+  }catch(e){ cloud.st=e.kind==='denied'?'denied':'off'; cloud.msg=e.message;
+    if(!MANAGE&&!fvs){ renderNurse(); if(fromWrite) toast(cloud.st==='denied'?'雲端還沒開通，紀錄先存在這支手機':'沒有網路，紀錄先存在這支手機，連上後自動上傳'); } }
+  finally{ _flushing=false; renderFootOnly(); }
+}
+
+// ---------- 名單：讀急診護理班表（唯讀，絕不寫入） ----------
+let sched=lsGet(LS.sched,{nurses:[],days:{},at:0});
+async function loadSched(dates){
+  try{
+    if(!sched.nurses.length||Date.now()-sched.at>6*3600e3){
+      const docs=await fb('GET','doctors',undefined,SCHED);
+      const arr=Array.isArray(docs)?docs:Object.values(docs||{});
+      sched.nurses=arr.filter(n=>n&&n.id&&n.name).map(n=>({id:String(n.id),name:String(n.name).trim()}));
+      sched.at=Date.now();
+    }
+    for(const d of dates){
+      if(sched.days[d]&&Date.now()-(sched.days[d]._at||0)<30*60e3) continue;
+      const v=await fb('GET','schedule/'+d,undefined,SCHED)||{};
+      sched.days[d]={D:v.D||[],E:v.E||[],N:v.N||[],_at:Date.now()};
+    }
+    const keep=new Set([...dates,ymd(new Date()),addDays(ymd(new Date()),-1)]);
+    Object.keys(sched.days).forEach(d=>{ if(!keep.has(d)&&Object.keys(sched.days).length>8) delete sched.days[d]; });
+    lsSet(LS.sched,sched);
+  }catch(e){}
+}
+const nameById=id=>{ const n=sched.nurses.find(x=>x.id===String(id)); return n?n.name:''; };
+function onDuty(d,s){ const day=sched.days[d]; return day&&day[s]?[...new Set(day[s].map(nameById).filter(Boolean))]:[]; }
+function staffNames(){
+  const s=new Set(); sched.nurses.forEach(n=>s.add(n.name)); (getAt('cfg/staff')||[]).forEach(n=>n&&s.add(String(n).trim()));
+  return [...s].filter(Boolean);
+}
+
+// ---------- 點班單設定 ----------
+let FORMS=clone(DEFAULT_FORMS), fver=0;
+function applyCfg(){
+  const f=getAt('cfg/forms'), v=getAt('cfg/fver');
+  if(Array.isArray(f)&&f.length){ FORMS=f.map(x=>Object.assign({notes:[],items:[]},x,{items:(x.items||[]).filter(Boolean),notes:(x.notes||[]).filter(Boolean)})); fver=+v||0; }
+  else { FORMS=clone(DEFAULT_FORMS); fver=0; }
+}
+const formById=id=>FORMS.find(f=>f.id===id);
+const activeForms=()=>FORMS.filter(f=>f.on!==false);
+const secs=f=>{ const o=[]; f.items.forEach(it=>{ let g=o.find(x=>x.s===it.s); if(!g) o.push(g={s:it.s,items:[]}); g.items.push(it); }); return o; };
+
+// ---------- 紀錄 ----------
+const R=r=>r?Object.assign({v:{},a:{},n:{},r:{},x:{},res:{}},r):null;
+const recPath=(d,f,k)=>`rec/${mkey(d)}/${dkey(d)}/${f.id}_${k}`;
+function recOf(d,f,k){
+  if(k==='M'){ const m=getAt(`rec/${mkey(d)}/_m/${f.id}`); if(!m) return null;
+    const r=R(getAt(recPath(m.d,f,'M'))||{by:m.by,at:m.at,bad:m.bad||0,_stub:1}); r._d=m.d; return r; }   // 每月一次：紀錄放在點的那一天，_d＝那一天
+  return R(getAt(recPath(d,f,k)));
+}
+const special=f=>f.kind==='narc'||f.kind==='temp';
+const openCount=r=>Object.keys(r.v).filter(id=>r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])).length;
+
+// ---------- 共用 ----------
+const me=()=>lsGet(LS.me,'');
+let dev=lsGet(LS.dev,''); if(!dev){ dev=Math.random().toString(36).slice(2,10); lsSet(LS.dev,dev); }
+let _toastT=null;
+function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(_toastT); _toastT=setTimeout(()=>el.classList.remove('on'),2600); }
+function openDlg(h){ $('dlg').innerHTML=h; $('mask').classList.add('on'); }
+function closeDlg(){ $('mask').classList.remove('on'); $('dlg').innerHTML=''; }
+function cloudLine(){
+  const pend=outbox.length?`<b style="color:var(--warn)">${outbox.length} 筆還沒上傳</b>・`:'';
+  const st=cloud.st==='ok'?`雲端已同步 ${hm(cloud.at)}`:cloud.st==='denied'?'雲端尚未開通':cloud.st==='off'?'目前離線':'連線中…';
+  return pend+st;
+}
+function renderFootOnly(){ const el=$('cloudst'); if(el) el.innerHTML=cloudLine(); }
+function cloudAlert(){
+  if(cloud.st==='denied') return MANAGE
+    ?`<div class="note bad"><b>雲端資料庫還沒開放這個 App。</b>請到 Firebase 主控台 → Realtime Database → 規則，在 rules 裡加上這一行後按「發布」：<pre class="rule">${esc(RULE)}</pre></div>`
+    :`<div class="note warn"><b>雲端還沒開通</b>：點班紀錄先存在這支手機，開通後會自動上傳。</div>`;
+  if(outbox.length&&cloud.st==='off') return `<div class="note warn">目前沒有網路：<b>${outbox.length} 筆</b>點班紀錄存在這支手機，連上網路後會自動上傳。</div>`;
+  return '';
+}
+
+// ======================================================================
+//  護理師點班頁
+// ======================================================================
+let view=nowShift(), followNow=true, pickOpen=false;
+let fvs=null;   // 正在看的點班單 {f,d,k,edit,dr}
+const drafts=lsGet(LS.draft,{});
+(function pruneDrafts(){ const lim=addDays(ymd(new Date()),-3); Object.keys(drafts).forEach(k=>{ if(k.split('|')[0]<lim) delete drafts[k]; }); lsSet(LS.draft,drafts); })();
+const draftKey=(d,f,k)=>`${d}|${f.id}_${k}`;
+const emptyDr=()=>({v:{},a:{},n:{},r:{},x:{}});
+
+function viewForms(d,s){ return activeForms().map(f=>{ const k=slotIn(f,s); return k?{f,k}:null; }).filter(Boolean); }
+function shiftStat(d,s){
+  const L=viewForms(d,s).filter(x=>x.k!=='M'); let done=0,bad=0;
+  L.forEach(({f,k})=>{ const r=recOf(d,f,k); if(r){ done++; if(r.bad) bad++; } });
+  return {n:L.length,done,bad};
+}
+
+function renderNurse(){
+  const name=me();
+  if(!name){ renderWho(); renderBar(); return; }
+  const {d,s}=view, cur=nowShift(), isNow=cur.d===d&&cur.s===s;
+  const L=viewForms(d,s), st=shiftStat(d,s);
+  const duty=onDuty(d,s);
+  const nDate=s==='N'?`（${dayLabel(addDays(d,1)).replace(/（.）/,'')} 00:00–08:00）`:SHIFT[s].t;
+  let h=cloudAlert();
+  h+=`<div class="shead"><h2>${dayLabel(d)} ${SHIFT[s].name}</h2><span class="t">${nDate}</span>${isNow?'<span class="now">現在這一班</span>':''}</div>`;
+  h+=`<div class="prog"><div class="bar"><span style="width:${st.n?Math.round(st.done/st.n*100):0}%"></span></div><b>${st.done}／${st.n}</b> 張已點${st.bad?`・<span style="color:var(--warn);font-weight:700">${st.bad} 張有異常</span>`:''}</div>`;
+  if(duty.length) h+=`<div class="duty">本班（班表）：${duty.map(esc).join('、')}</div>`;
+  const row=({f,k})=>{
+    const r=recOf(d,f,k), dr=drafts[draftKey(d,f,k)];
+    let cls='',fs='未點';
+    if(r){ cls=r.bad?'bad':'ok'; fs=r.bad?`⚠ ${r.bad} 項異常・${esc(r.by)}`:`✓ ${esc(r.by)} ${r._d?dayLabel(r._d).replace(/（.）/,'')+' ':''}${hm(r.at)}`; }
+    else if(dr&&Object.keys(dr.v||{}).length+Object.keys(dr.x||{}).length){ cls='part'; fs='點到一半'; }
+    const sl=['AM','PM','X'].includes(k)?SLOT[k].lab+'・':'';
+    return `<button class="frow ${cls}" data-act="open" data-f="${f.id}" data-k="${k}"><span class="dot"></span><span class="fn">${esc(f.name)}<small>${sl}${f.items.length} 項</small></span><span class="fs">${fs}</span><span class="chev">›</span></button>`;
+  };
+  const main=L.filter(x=>x.k!=='M'), mon=L.filter(x=>x.k==='M');
+  h+=`<div class="flist">${main.map(row).join('')}</div>`;
+  if(mon.length) h+=`<div class="grp">每月一次</div><div class="flist">${mon.map(row).join('')}</div>`;
+  const soakOpen=soakList().filter(x=>!x.outAt).length;
+  h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄<small>寄消物品放入／取出</small></span><span class="fs">${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button></div>`;
+  h+=`<div class="foot">點班者：<b>${esc(name)}</b> <button class="lk" data-act="who">換人</button><br><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
+  $('main').innerHTML=h;
+  renderBar();
+}
+function renderWho(){
+  const names=staffNames(), cur=nowShift(), duty=onDuty(cur.d,cur.s), rest=names.filter(n=>!duty.includes(n)).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">選一次就好，這支手機會記住。點班送出時會用這個名字簽名。</div>`;
+  if(duty.length) h+=`<div class="grp" style="margin-top:6px">現在這一班（${SHIFT[cur.s].name}）</div><div class="names">${duty.map(n=>`<button class="duty" data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+  if(rest.length) h+=`<div class="grp">${duty.length?'其他人':'名單'}</div><div class="names">${rest.map(n=>`<button data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
+  if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請直接輸入名字。'}</div>`;
+  h+=`<div class="edrow"><input type="text" id="who-in" placeholder="名單上沒有？輸入名字" style="flex:1;min-width:0"><button class="btn" data-act="setme-in">確定</button></div></div>`;
+  $('main').innerHTML=h;
+}
+// 最下面：‹ 10/14（二）白班 ›，點中間可以挑日期和班別
+function renderBar(){
+  const bar=$('bar'), pk=$('pick');
+  if(MANAGE) return;
+  if(!me()){ bar.style.display='none'; pk.classList.remove('on'); return; }
+  bar.style.display='';
+  const {d,s}=view, st=shiftStat(d,s), cls=st.done>=st.n?'done':st.done?'part':'none';
+  const nx=nextShift(d,s), canNext=shiftStart(nx.d,nx.s)-3600e3<=Date.now();
+  bar.innerHTML=`<button class="mb-nav" data-act="step" data-d="-1" aria-label="上一班">‹</button>
+    <button class="mb-cur" data-act="pick"><span>📅</span>${dayLabel(d)} ${SHIFT[s].name}<i class="${cls}"></i></button>
+    <button class="mb-nav" data-act="step" data-d="1" aria-label="下一班"${canNext?'':' disabled'}>›</button>`;
+  if(!pickOpen){ pk.classList.remove('on'); return; }
+  const cur=nowShift();
+  pk.innerHTML=`<div class="box"><div class="row"><input type="date" id="pk-date" value="${d}" max="${ymd(new Date())}" style="flex:1"></div>
+    <div class="sh">${SHIFTS.map(x=>`<button class="${x===s?'on':''}" data-act="pksh" data-s="${x}">${SHIFT[x].name}</button>`).join('')}</div>
+    <button class="btn outline" style="width:100%" data-act="pknow">回到現在這一班（${dayLabel(cur.d)} ${SHIFT[cur.s].name}）</button></div>`;
+  pk.classList.add('on');
+}
+function setView(v,follow){ view=v; followNow=!!follow; pickOpen=false; renderNurse(); window.scrollTo({top:0}); refreshView(); }
+
+// ---------- 點班單畫面 ----------
+function openForm(fid,d,k,edit){
+  const f=formById(fid); if(!f) return;
+  const r=recOf(d,f,k);
+  if(k==='M'&&r&&r._stub) pull(recPath(r._d,f,'M')).then(()=>{ if(fvs&&fvs.f&&fvs.f.id===fid) renderForm(); });
+  let dr;
+  if(r&&edit) dr={v:clone(r.v),a:clone(r.a),n:clone(r.n),r:clone(r.r),x:clone(r.x)};
+  else dr=drafts[draftKey(d,f,k)]||emptyDr();
+  fvs={f,d,k,edit:!r||!!edit,dr};
+  $('fv').classList.add('on'); document.body.style.overflow='hidden';
+  renderForm(true);
+  if(f.kind==='clock') startClock();
+}
+function closeForm(){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; stopClock(); renderNurse(); }
+const isNum=v=>v!==''&&v!=null&&!isNaN(+v);
+// 管制藥品／冰箱這兩種單子的單項狀態：1 正常、0 異常、null 還沒填完
+function evalItem(f,it,dr){
+  if(f.kind==='narc'){ const x=dr.x[it.id]||{}; if(!isNum(x.u)||!isNum(x.e)) return null; return (+x.u)+(+x.e)===+it.q?1:0; }
+  if(f.kind==='temp'){ const x=dr.x[it.id]||{}; if(!isNum(x.now)||!isNum(x.max)||!isNum(x.min)) return null;
+    const lo=f.lo==null?2:+f.lo, hi=f.hi==null?8:+f.hi; return [x.now,x.max,x.min].every(v=>+v>=lo&&+v<=hi)?1:0; }
+  const v=dr.v[it.id]; return v===0||v===1||v===2?v:null;
+}
+function progressOf(f,dr){
+  let ans=0,need=0,miss=[];
+  f.items.forEach(it=>{ const v=evalItem(f,it,dr); if(v!=null) ans++; else miss.push(it.id);
+    if(v===0&&!String(dr.n[it.id]||'').trim()) { need++; miss.push(it.id); } });
+  if(f.kind==='narc'&&!String(dr.x._giver||'').trim()) miss.push('_giver');
+  return {ans,tot:f.items.length,need,miss};
+}
+function itemHtml(f,it,dr,ro){
+  const v=evalItem(f,it,dr), st=v===1?'ok':v===0?'ng':v===2?'na':'';
+  const qt=it.q?`<span class="q">設定 ${esc(it.q)}${it.t==='n'&&it.sub&&f.kind==='narc'?esc(it.sub):''}</span>`:'';
+  const sub=(qt||it.sub&&f.kind!=='narc')?`<div class="sub">${qt}${it.sub&&f.kind!=='narc'?`<span>${esc(it.sub)}</span>`:''}</div>`:'';
+  let right='', body='';
+  if(f.kind==='narc'||f.kind==='temp'){
+    right=`<div class="ro ${st}">${v===1?'✓':v===0?'⚠':''}</div>`;
+    body=f.kind==='narc'?narcBody(f,it,dr,ro,v):tempBody(f,it,dr,ro,v);
+  } else if(ro){ right=`<div class="ro ${st}">${v===1?(it.t==='y'?'ˇ':'✓'):v===0?'✗':v===2?'Δ':'—'}</div>`; }
+  else { right=`<div class="ib"><button class="b ok${v===1?' on':''}" data-act="iv" data-id="${it.id}" data-v="1" aria-label="正常">${it.t==='y'?'ˇ':'✓'}</button><button class="b ng${v===0?' on':''}" data-act="iv" data-id="${it.id}" data-v="0" aria-label="異常">✗</button>${it.t==='y'?`<button class="b na${v===2?' on':''}" data-act="iv" data-id="${it.id}" data-v="2" aria-label="不適用">Δ</button>`:''}</div>`; }
+  if(v===0) body+=ngBody(f,it,dr,ro);
+  const miss=fvs&&fvs.showMiss&&fvs.showMiss.includes(it.id);
+  return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${right}</div>${body}</div>`;
+}
+function ngBody(f,it,dr,ro){
+  const note=dr.n[it.id]||'', fixed=!!dr.r[it.id]||!!(dr.res&&dr.res[it.id]);
+  if(ro){ const rs=dr.res&&dr.res[it.id];
+    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}・`:''}${esc(note)} ${fixed?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<div class="res">管理者處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
+  return `<div class="ngx">${it.t==='n'&&!special(f)?`<label>實際數量 <input type="number" inputmode="numeric" min="0" data-in="a" data-id="${it.id}" value="${esc(dr.a[it.id]==null?'':dr.a[it.id])}"></label>`:''}
+    <div class="chips">${CHIPS.map(c=>`<button class="chip${note===c?' on':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>
+    <input type="text" class="note" placeholder="處理情形（必填）" data-in="n" data-id="${it.id}" value="${esc(note)}">
+    <label class="fix"><input type="checkbox" data-in="r" data-id="${it.id}"${dr.r[it.id]?' checked':''}> 已處理完畢（沒勾＝待追蹤，會出現在護理長的追蹤清單）</label></div>`;
+}
+const stp=(id,fld,val,ro,dec)=>ro?`<b style="font-size:18px">${esc(val==null||val===''?'—':val)}</b>`
+  :`<span class="stp"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="-1">−</button><input type="number" inputmode="${dec?'decimal':'numeric'}" data-in="x" data-id="${id}" data-fld="${fld}" value="${esc(val==null?'':val)}"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="1">＋</button></span>`;
+function narcBody(f,it,dr,ro,v){
+  const x=dr.x[it.id]||{}, tot=isNum(x.u)&&isNum(x.e)?(+x.u)+(+x.e):null;
+  return `<div class="nar"><span class="lb">未用</span>${stp(it.id,'u',x.u,ro)}<span class="lb">空瓶</span>${stp(it.id,'e',x.e,ro)}</div>
+    <div class="tot">總量 <b>${tot==null?'—':tot}</b> ${it.sub||''}${tot==null?'':v===1?' <span class="tag ok">與設定量相符</span>':` <span class="tag no">設定量 ${esc(it.q)}，不相符</span>`}</div>`;
+}
+function tempBody(f,it,dr,ro,v){
+  const x=dr.x[it.id]||{}, inp=(fld,lab)=>`<label>${lab}${ro?`<b style="font-size:20px;color:var(--txt)">${esc(isNum(x[fld])?x[fld]+'℃':'—')}</b>`:`<input type="number" inputmode="decimal" step="0.1" data-in="x" data-id="${it.id}" data-fld="${fld}" value="${esc(x[fld]==null?'':x[fld])}">`}</label>`;
+  return `<div class="tmp">${inp('now','當時')}${inp('max','最高')}${inp('min','最低')}</div>
+    <label class="fix" style="margin-top:8px"><input type="checkbox" data-in="x" data-id="${it.id}" data-fld="def"${x.def?' checked':''}${ro?' disabled':''}> 除霜中（紙本的 ※）</label>`;
+}
+function giverHtml(f,dr,ro){
+  const {d,k}=fvs, p=prevShift(d,k), duty=onDuty(p.d,p.s).filter(n=>n!==me()), g=dr.x._giver||'';
+  if(ro) return `<div class="card"><b>交班者：</b>${esc(g||'—')}${dr.x._face?'（已當面核對）':''}　<b>接班者：</b>${esc(fvs.rec?fvs.rec.by:'')}</div>`;
+  const miss=fvs.showMiss&&fvs.showMiss.includes('_giver');
+  return `<div class="card${miss?' miss':''}" id="it-_giver" style="${miss?'background:#fff8e6':''}"><b>交班者（上一班：${dayLabel(p.d)} ${SHIFT[p.s].name}）</b>
+    <div class="chips" style="margin:8px 0">${duty.map(n=>`<button class="chip${g===n?' on':''}" data-act="giver" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+    <input type="text" placeholder="交班者姓名" data-in="giver" value="${esc(g)}" style="width:100%">
+    <label class="fix" style="margin-top:8px"><input type="checkbox" data-in="face"${dr.x._face?' checked':''}> 交班者已當面一起核對</label>
+    <div class="hint" style="margin:6px 0 0">接班者：${esc(me())}（送出的人）</div></div>`;
+}
+function virusHtml(dr,ro){
+  const c=getAt('virus/cur'), end=c&&c.start?addDays(c.start,13):null, left=end?Math.round((parseD(end)-parseD(fvs.d))/864e5):null;
+  const info=c&&c.start?`目前溶液：${dayLabel(c.start)} 更換（${esc(c.by||'')}），效期到 <b>${dayLabel(end)}</b>${left!=null?(left>=0?`，還有 ${left} 天`:`，<b style="color:var(--bad)">已過期 ${-left} 天</b>`):''}`:'還沒有更換紀錄（第一次更換時請勾下面那格）';
+  return `<div class="card"><div style="font-size:14px">${info}</div>
+    <label class="fix" style="margin-top:8px;color:var(--txt)"><input type="checkbox" data-in="chg"${dr.x._chg?' checked':''}${ro?' disabled':''}> 這一班更換了消毒溶液（更換者＝${esc(ro&&fvs.rec?fvs.rec.by:me())}，新效期 ${dayLabel(fvs.d)}～${dayLabel(addDays(fvs.d,13))}）</label></div>`;
+}
+function renderForm(top){
+  if(!fvs) return;
+  const {f,d,k}=fvs, rec=recOf(d,f,k); fvs.rec=rec;
+  const ro=!fvs.edit, dr=ro?rec:fvs.dr;
+  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0;
+  let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>${esc(f.full||f.name)}</b><small>${dayLabel(d)} ${k==='M'?'（每月一次）':slotLab(f,k)}${k==='AM'||k==='PM'?'（'+SHIFT[SLOT[k].sh].name+'）':''}</small></div></div><div class="fb"><div class="in">`;
+  if(rec&&ro){
+    const late=rec.at>slotEnd(rec._d||d,k), hist=(rec.h||[]).length;
+    h+=`<div class="done${rec.bad?' bad':''}"><b>${rec.bad?`⚠ ${rec.bad} 項異常`:'✓ 已點班'}</b><span>${esc(rec.by)}・${whenLabel(rec.at)}${late?'（補登）':''}${hist?`・改過 ${hist} 次`:''}</span>${MANAGE?'':'<button class="btn mini outline" data-act="edit">修改</button>'}</div>`;
+  } else if(rec&&!ro){
+    h+=`<div class="note info">修改 ${esc(rec.by)} ${whenLabel(rec.at)} 的點班紀錄；送出後會留下修改紀錄。</div>`;
+  } else {
+    const fut=shiftStart(d,SLOT[k]&&SHIFT[SLOT[k].sh]?SLOT[k].sh:'D')-3600e3>Date.now();
+    if(fut) h+=`<div class="note warn">這一班還沒開始。</div>`;
+  }
+  if(f.notes&&f.notes.length) h+=`<details class="notes"><summary>說明</summary><ol>${f.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></details>`;
+  if(f.kind==='clock') h+=`<div class="clock"><small>電腦時間（這支手機）</small><b id="clk">--:--:--</b><small>${dayLabel(ymd(new Date()))}</small></div>`;
+  if(f.kind==='virus') h+=virusHtml(dr,ro);
+  if(!dr){ h+='<div class="empty">讀取中…</div>'; }
+  else secs(f).forEach(g=>{
+    const okBtn=!ro&&f.kind!=='narc'&&f.kind!=='temp'?`<button class="btn mini outline" data-act="secok" data-s="${esc(g.s)}">這區全部${g.items[0]&&g.items[0].t==='y'?'ˇ':'✓'}</button>`:'';
+    h+=`<div class="secb"><div class="sh2"><b>${esc(g.s)}<small>${g.items.length} 項</small></b>${okBtn}</div>${g.items.map(it=>itemHtml(f,it,dr,ro)).join('')}</div>`;
+  });
+  if(f.kind==='narc'&&dr) h+=giverHtml(f,dr,ro);
+  h+=`</div></div>`;
+  if(!ro){ const p=progressOf(f,dr);
+    h+=`<div class="fs2"><div class="in"><span class="cnt" id="fv-cnt">已點 <b>${p.ans}</b>／${p.tot}</span><button class="btn" data-act="submit">送出・簽名 ${esc(me())}</button></div></div>`; }
+  $('fv').innerHTML=h;
+  const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=top?0:sc;
+  tickClock();
+}
+function refreshItem(id){
+  if(!fvs) return; const it=fvs.f.items.find(x=>x.id===id); const el=$('it-'+id); if(!it||!el) return;
+  el.outerHTML=itemHtml(fvs.f,it,fvs.dr,false); refreshCnt();
+}
+function refreshCnt(){ const el=$('fv-cnt'); if(!el||!fvs) return; const p=progressOf(fvs.f,fvs.dr); el.innerHTML=`已點 <b>${p.ans}</b>／${p.tot}`; }
+function saveDraft(){ if(!fvs||!fvs.edit||fvs.rec) return; drafts[draftKey(fvs.d,fvs.f,fvs.k)]=fvs.dr; lsSet(LS.draft,drafts); }
+let _clk=null;
+function startClock(){ stopClock(); _clk=setInterval(tickClock,1000); }
+function stopClock(){ if(_clk) clearInterval(_clk); _clk=null; }
+function tickClock(){ const el=$('clk'); if(!el) return; const n=new Date(); el.textContent=`${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}`; }
+let _submitting=false;
+async function submitForm(){
+  if(_submitting) return;
+  const {f,d,k,dr}=fvs, p=progressOf(f,dr);
+  if(p.miss.length){
+    fvs.showMiss=p.miss; renderForm();
+    const el=$('it-'+p.miss[0]); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
+    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'異常的項目要寫處理情形':'請填交班者');
+    return;
+  }
+  // 送出前再看一次雲端：別人剛好也點了同一張，先問再蓋
+  _submitting=true;
+  const before=fvs.rec;
+  if(k==='M') await pull(`rec/${mkey(d)}/_m/${f.id}`); else await pull(recPath(d,f,k));
+  _submitting=false;
+  if(!fvs||fvs.f!==f) return;
+  const cur=recOf(d,f,k);
+  if(cur&&(!before||cur.at!==before.at)&&!confirm(`${cur.by} 在 ${whenLabel(cur.at)} 已經點過這一張了。\n要用你的紀錄取代嗎？（原本那筆會留在修改紀錄裡）`)) return;
+  fvs.rec=cur;
+  const v={}; f.items.forEach(it=>{ v[it.id]=evalItem(f,it,dr); });
+  const bad=Object.values(v).filter(x=>x===0).length;
+  const keep=o=>{ const r={}; Object.keys(o||{}).forEach(id=>{ if(v[id]===0||id.startsWith('_')||special(f)) r[id]=o[id]; }); return r; };
+  const old=fvs.rec, now=Date.now();
+  const rec={by:me(),at:now,dev,fv:fver,v,a:keep(dr.a),n:keep(dr.n),r:keep(dr.r),x:keep(dr.x),bad};
+  if(old&&old.by) rec.h=[...(old.h||[]),{by:old.by,at:old.at,bad:old.bad||0}];
+  if(old&&old.res&&Object.keys(old.res).length) rec.res=old.res;
+  const dd=k==='M'&&old&&old._d?old._d:d;   // 每月一次的改紀錄：寫回原本那一天
+  write('PUT',recPath(dd,f,k),rec);
+  if(k==='M') write('PUT',`rec/${mkey(d)}/_m/${f.id}`,{d:dd,by:rec.by,at:now,bad});
+  if(f.kind==='virus'&&dr.x._chg) write('PUT','virus/cur',{start:d,by:rec.by,at:now});
+  delete drafts[draftKey(d,f,k)]; lsSet(LS.draft,drafts);
+  closeForm();
+  toast(bad?`已送出，${bad} 項異常`:'已送出 ✓');
+}
+
+// ---------- Virusolve 泡消登錄 ----------
+function soakList(){
+  const t=ymd(new Date()), ks=[mkey(t),shiftMonth(mkey(t),-1)], out=[];
+  ks.forEach(mk=>{ const o=getAt('soak/'+mk)||{}; Object.keys(o).forEach(id=>{ if(o[id]) out.push(Object.assign({id,mk},o[id])); }); });
+  return out.sort((a,b)=>b.inAt-a.inAt);
+}
+let soakForm={item:'喉頭鏡葉片',other:'',qty:1}, _soakT=null;
+function openSoak(){ fvs={soak:1}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSoak(); clearInterval(_soakT); _soakT=setInterval(()=>{ if(fvs&&fvs.soak) renderSoak(true); else clearInterval(_soakT); },30000); }
+function renderSoak(keep){
+  const L=soakList(), open=L.filter(x=>!x.outAt), t=ymd(new Date()), done=L.filter(x=>x.outAt&&ymd(new Date(x.outAt))===t);
+  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0;
+  const isOther=!SOAK_ITEMS.includes(soakForm.item);
+  let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>Virusolve 泡消登錄</b><small>寄消物品至少泡 10 分鐘，時間到請自行取回</small></div></div><div class="fb"><div class="in">`;
+  h+=`<div class="card"><b>放入</b><div class="chips" style="margin:8px 0">${SOAK_ITEMS.map(x=>`<button class="chip${soakForm.item===x?' on':''}" data-act="sk-item" data-n="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip${isOther?' on':''}" data-act="sk-item" data-n="">其他</button></div>
+    ${isOther?`<input type="text" placeholder="品名" data-in="sk-other" value="${esc(soakForm.other)}" style="width:100%;margin-bottom:8px">`:''}
+    <div class="edrow"><span>數量</span><span class="stp"><button data-act="sk-q" data-d="-1">−</button><input type="number" inputmode="numeric" data-in="sk-qty" value="${soakForm.qty}"><button data-act="sk-q" data-d="1">＋</button></span>
+    <button class="btn" data-act="sk-in" style="margin-left:auto">放入（${esc(me())}）</button></div>
+    <div class="hint" style="margin:6px 0 0">寄消物品請確實清潔並把水份擦乾再放入。</div></div>`;
+  h+=`<div class="secb"><div class="sh2"><b>浸泡中<small>${open.length} 件</small></b></div>${open.length?open.map(x=>{ const m=Math.floor((Date.now()-x.inAt)/60000);
+    return `<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.inBy)} ${whenLabel(x.inAt)} 放入</small></div><span class="min${m>=10?' go':''}">${m} 分${m>=10?'・可取出':''}</span><button class="btn mini" data-act="sk-out" data-id="${x.id}" data-mk="${x.mk}">取出</button></div>`; }).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
+  h+=`<div class="secb"><div class="sh2"><b>今天已取出<small>${done.length} 件</small></b></div>${done.length?done.map(x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.inBy)} ${hm(x.inAt)} 放入 → ${esc(x.outBy)} ${hm(x.outAt)} 取出（${Math.round((x.outAt-x.inAt)/60000)} 分）</small></div></div>`).join(''):'<div class="soakrow mut">還沒有</div>'}</div>`;
+  h+=`</div></div>`;
+  $('fv').innerHTML=h;
+  const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
+}
+
+// ---------- 讀資料 ----------
+let _busy=false, _cfgAt=0;
+async function refreshView(){
+  if(MANAGE||_busy) return; _busy=true;
+  try{
+    const {d,s}=view, t=ymd(new Date());
+    if(Date.now()-_cfgAt>10*60e3||cloud.st!=='ok'){   // 點班單內容十分鐘讀一次就好
+      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null]); _cfgAt=Date.now(); }
+      applyCfg();
+    }
+    const ps=prevShift(d,s);
+    await Promise.all([pull(`rec/${mkey(d)}/${dkey(d)}`),pull(`rec/${mkey(d)}/_m`),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),
+      loadSched([...new Set([d,ps.d,nowShift().d])])]);
+    flush();
+  } finally{ _busy=false; }
+  if(fvs&&fvs.soak) renderSoak(true); else if(fvs) renderForm(); else renderNurse();
+}
+
+// ======================================================================
+//  管理頁（護理長／主任）
+// ======================================================================
+let appStart=null;   // 第一筆點班紀錄的日期：之前的日子還沒開始用，不算應點
+let mcur=mkey(ymd(new Date())), unlocked=false, mOpen={}, edF=null, edSel=null, edDirty=false, mtForm='cart';
+// 管理密碼：雲端只存 PBKDF2 導出的雜湊（不存密碼本身）；這是「軟鎖」，擋一般人誤入管理頁用
+async function sha(pw){
+  const te=new TextEncoder(), base=await crypto.subtle.importKey('raw',te.encode(pw),'PBKDF2',false,['deriveBits']);
+  const bits=await crypto.subtle.deriveBits({name:'PBKDF2',hash:'SHA-256',salt:te.encode('er-shift-check-admin-v1'),iterations:200000},base,256);
+  return [...new Uint8Array(bits)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+async function manageInit(){
+  $('ttl').textContent='急診點班・管理';
+  await Promise.all([pull('cfg'),loadSched([ymd(new Date())])]);
+  applyCfg();
+  const h=getAt('cfg/adminHash');
+  if(h&&lsGet(LS.unlock,'')===h) unlocked=true;
+  if(!unlocked){ renderGate(); return; }
+  await findStart();
+  await loadMonth(mcur,true);
+}
+async function findStart(){
+  try{
+    const ms=Object.keys(await fb('GET','rec',undefined,undefined,'&shallow=true')||{}).filter(k=>/^\d{4}-\d{2}$/.test(k)).sort();
+    if(!ms.length){ appStart=ymd(new Date()); return; }
+    const ds=Object.keys(await fb('GET','rec/'+ms[0],undefined,undefined,'&shallow=true')||{}).filter(k=>/^d\d\d$/.test(k)).sort();
+    appStart=`${ms[0]}-${ds.length?ds[0].slice(1):'01'}`;
+  }catch(e){}
+}
+function renderGate(){
+  const h=getAt('cfg/adminHash');
+  let x=cloudAlert();
+  if(cloud.st!=='ok'&&!h){ x+=`<div class="card">${cloud.st==='denied'?'雲端開通後重新整理這一頁，就可以設定管理密碼。':'連不上雲端，請確認網路後重新整理。'}</div>`; $('main').innerHTML=x; return; }
+  x+=`<div class="card" style="max-width:460px;margin:20px auto">${h?`<h2 style="margin:0 0 6px;font-size:18px;color:var(--navy-dark)">管理密碼</h2><div class="hint">這一頁給護理長／主任看全部紀錄、核簽與改點班單內容。</div>
+    <input type="password" id="pw1" placeholder="管理密碼" style="width:100%" autocomplete="current-password"><div class="edrow"><button class="btn" data-act="login" style="margin-left:auto">進入</button></div>`
+    :`<h2 style="margin:0 0 6px;font-size:18px;color:var(--navy-dark)">第一次使用：設定管理密碼</h2><div class="hint">至少 8 個字，要有英文和數字。設定後只有知道密碼的人能進這一頁（護理師的點班頁不需要密碼）。</div>
+    <input type="password" id="pw1" placeholder="新密碼" style="width:100%;margin-bottom:8px" autocomplete="new-password"><input type="password" id="pw2" placeholder="再輸入一次" style="width:100%" autocomplete="new-password">
+    <div class="edrow"><button class="btn" data-act="setpw" style="margin-left:auto">設定</button></div>`}<div id="pw-msg" class="hint" style="color:var(--bad)"></div></div>`;
+  $('main').innerHTML=x;
+}
+const pwOk=p=>p.length>=8&&/[A-Za-z]/.test(p)&&/\d/.test(p);
+const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
+async function loadMonth(mk,render){
+  if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
+  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk)]);
+  delete loading[mk]; if(ok[0]) mLoaded.add(mk);
+  if(render) renderManage();
+}
+// 這個月每天各班：應點／已點／異常。只算已經過完的班（或已經點了的），進行中的班不算未點
+function monthStats(mk){
+  const D=dim(mk), now=Date.now(), today=ymd(new Date()), days=[], abn=[], byForm={};
+  let due=0,done=0,bad=0,open=0;
+  const last=mk===mkey(today)?+today.slice(8):mk>mkey(today)?0:D;
+  for(let i=1;i<=last;i++){
+    const d=`${mk}-${pad(i)}`, pre=!!appStart&&d<appStart, o={i,d,due:0,done:0,bad:0,open:0,miss:0,pre};
+    activeForms().forEach(f=>{ slotsOf(f).forEach(k=>{
+      if(k==='M') return;
+      const r=recOf(d,f,k), isDue=!!r||(!pre&&slotEnd(d,k)<=now);
+      const bf=byForm[f.id]||(byForm[f.id]={f,due:0,done:0,bad:0});
+      if(isDue){ o.due++; bf.due++; }
+      if(r){ o.done++; bf.done++; o.bad+=r.bad||0; bf.bad+=r.bad||0; o.open+=openCount(r);
+        f.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d,k,f,it,r,fixed:!!r.r[it.id]||!!(r.res&&r.res[it.id])}); }); }
+      else if(isDue) o.miss++;
+    }); });
+    days.push(o); due+=o.due; done+=o.done; bad+=o.bad; open+=o.open;
+  }
+  // 每月一次的單子：月底前沒點不算未點
+  activeForms().filter(f=>slotsOf(f).includes('M')).forEach(f=>{
+    const m=getAt(`rec/${mk}/_m/${f.id}`), r=m?R(getAt(recPath(m.d,f,'M'))):null, ended=slotEnd(`${mk}-01`,'M')<=now&&!(appStart&&mk<mkey(appStart));
+    const bf=byForm[f.id]||(byForm[f.id]={f,due:0,done:0,bad:0});
+    if(m||ended){ due++; bf.due++; const o=days[(m?+m.d.slice(8):last)-1]; if(o) o.due++; }
+    if(m){ done++; bf.done++; bad+=m.bad||0; bf.bad+=m.bad||0; const o=days[+m.d.slice(8)-1]; if(o){ o.done++; o.bad+=m.bad||0; }
+      if(r){ open+=openCount(r); if(o) o.open+=openCount(r); f.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d:m.d,k:'M',f,it,r,fixed:!!r.r[it.id]||!!(r.res&&r.res[it.id])}); }); } }
+    else if(ended){ const o=days[last-1]; if(o) o.miss++; }
+  });
+  const miss=days.reduce((a,o)=>a+o.miss,0);
+  return {mk,days,due,done,bad,open,miss,abn,byForm,last};
+}
+const rate=S=>S.due?S.done/S.due*100:null;
+const TR={
+  rate:{t:'點班完成率',unit:'%',isRate:1,day:o=>o.due?o.done/o.due*100:null,cum:(S,i)=>{ let a=0,b=0; for(let j=0;j<=i;j++){ a+=S.days[j].done; b+=S.days[j].due; } return b?a/b*100:null; },mon:rate,
+    note:'已點的班次 ÷ 應點的班次。只算已經過完的班（進行中的班還沒點不算未點）。'},
+  bad:{t:'異常項目',unit:'項',day:o=>o.bad,mon:S=>S.bad,note:'點班時打 ✗（或數量、溫度不符）的項目數。'},
+  miss:{t:'未點班次',unit:'班',day:o=>o.miss,mon:S=>S.miss,note:'班已經過完、卻沒有人點的點班單張數。'},
+  open:{t:'待追蹤',unit:'項',day:o=>o.open,mon:S=>S.open,note:'異常裡還沒標「已處理」的項目。'}
+};
+const pctVs=(v,pv)=>pv?(v-pv)/Math.abs(pv)*100:null;
+// 異常、未點、待追蹤是越少越好：減少用綠色
+const pctHtml=(d,lowGood)=>{ const good=lowGood?d<=0:d>=0; return `<span class="${good?'up':'dn'}">${d>=0?'▲ +':'▼ '}${d.toFixed(1)}%</span>`; };
+const ppHtml=d=>`<span class="${d>=0?'up':'dn'}">${d>=0?'▲ +':'▼ '}${d.toFixed(1)} 個百分點</span>`;
+// 數字磚上的「較上月」：比率比整個上個月；件數在這個月還沒過完時比「上月同期」（上個月 1 日到同一天）
+function vsPrev(m,S,P){
+  if(!P||!P.due) return '<span class="mut">沒有上個月的資料可比</span>';
+  const T=TR[m], isCur=S.mk===mkey(ymd(new Date()));
+  if(T.isRate){ const v=T.mon(S), pv=T.mon(P); return v==null||pv==null?'':`較上月 ${ppHtml(v-pv)}`; }
+  let pv=T.mon(P), lab='較上月';
+  if(isCur){ pv=P.days.slice(0,S.last).reduce((a,o)=>a+(T.day(o)||0),0); lab='較上月同期'; }
+  const v=T.mon(S);
+  if(!pv) return `<span class="mut">${lab}${v?'是 0':'：都是 0'}</span>`;
+  return `${lab} ${pctHtml(pctVs(v,pv),true)}`;
+}
+function renderManage(){
+  if(!unlocked){ renderGate(); return; }
+  const pk=shiftMonth(mcur,-1);
+  if(!mLoaded.has(mcur)&&!loading[mcur]&&Date.now()-(mTry[mcur]||0)>30000) loadMonth(mcur,true);
+  if(!mLoaded.has(pk)&&!loading[pk]&&Date.now()-(mTry[pk]||0)>30000) loadMonth(pk,true);
+  const S=monthStats(mcur), P=mLoaded.has(pk)?monthStats(pk):null;   // 上個月：開始使用以前的月份 due＝0，不比
+  const r=rate(S), isCur=mcur===mkey(ymd(new Date()));
+  let h=cloudAlert();
+  h+=`<div class="mhead"><h2>${monLabel(mcur)}</h2><span class="mut">${isCur?`到今天（${dayLabel(ymd(new Date()))}）`:'整月'}</span></div>`;
+  h+=`<div class="tiles">
+    <button class="tile big" data-act="trend" data-m="rate"><span class="tg">📈</span><div class="l">點班完成率</div><div class="v">${r==null?'—':fmt(r)+'<small>%</small>'}</div><div class="pbar"><span style="width:${r||0}%"></span></div><div class="s">已點 ${S.done}／應點 ${S.due}</div><div class="s">${vsPrev('rate',S,P)}</div></button>
+    <button class="tile big" data-act="trend" data-m="bad"><span class="tg">📈</span><div class="l">異常項目</div><div class="v">${S.bad}<small> 項</small></div><div class="s">其中待追蹤 ${S.open} 項</div><div class="s">${vsPrev('bad',S,P)}</div></button>
+    <button class="tile" data-act="trend" data-m="miss"><span class="tg">📈</span><div class="l">未點班次</div><div class="v">${S.miss}<small> 張</small></div><div class="s">${vsPrev('miss',S,P)}</div></button>
+    <button class="tile" data-act="trend" data-m="open"><span class="tg">📈</span><div class="l">待追蹤</div><div class="v">${S.open}<small> 項</small></div><div class="s">${vsPrev('open',S,P)}</div></button></div>`;
+  // 待追蹤異常
+  const opens=S.abn.filter(a=>!a.fixed).sort((a,b)=>a.d<b.d?1:-1), fixed=S.abn.filter(a=>a.fixed).sort((a,b)=>a.d<b.d?1:-1);
+  const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b><span>${esc(a.it.name)}</span>${a.fixed?'<span class="tag ok">已處理</span>':`<button class="btn mini" data-act="resolve" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-id="${a.it.id}">標記已處理</button>`}</div>
+    <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}</div></div>`;
+  h+=card('abn',`異常追蹤`,`待追蹤 ${opens.length}・已處理 ${fixed.length}`,
+    (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有待追蹤的異常</div>')+(fixed.length?`<div class="grp">已處理</div>${fixed.map(abnRow).join('')}`:''));
+  // 每日紀錄與核簽
+  const revs=getAt('rev/'+mcur)||{}, nrev=S.days.filter(o=>revs[dkey(o.d)]).length;
+  const dayHtml=o=>{ const rv=revs[dkey(o.d)];
+    return `<details class="dayrow"${mOpen['day'+o.d]?' open':''} data-tg="day${o.d}"><summary><span class="d">${dayLabel(o.d)}</span><span>${o.done}／${o.due}</span>${o.miss?`<span class="tag no">未點 ${o.miss}</span>`:''}${o.bad?`<span class="tag w">異常 ${o.bad}</span>`:''}
+      <span class="r">${rv?`<span class="tag ok">✓ ${esc(rv.by)}</span>`:`<button class="btn mini outline" data-act="review" data-d="${o.d}">核簽</button>`}</span></summary><div class="body">${dayDetail(o.d)}${rv?`<div class="hint" style="margin-top:8px">${esc(rv.by)} ${whenLabel(rv.at)} 核簽　<button class="btn mini ghost" data-act="unreview" data-d="${o.d}">取消核簽</button></div>`:''}</div></details>`; };
+  const useDays=S.days.filter(o=>!o.pre||o.done);
+  h+=card('days','每日紀錄與核簽',`已核簽 ${nrev}／${useDays.length} 天`,useDays.length?[...useDays].reverse().map(dayHtml).join(''):'<div class="mut">這個月還沒有點班紀錄</div>');
+  // 月表
+  h+=card('mt','點班單月表（同紙本格式）','',monthTable(S));
+  // 泡消登錄
+  const so=getAt('soak/'+mcur)||{}, sl=Object.keys(so).map(id=>Object.assign({id},so[id])).sort((a,b)=>a.inAt-b.inAt);
+  h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
+  // 設定
+  h+=card('forms','設定：點班單內容',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
+  h+=card('staff','設定：名單','',staffEditor());
+  h+=card('pw','設定：管理密碼','',`<div class="hint">換一個新的管理密碼（至少 8 個字，要有英文和數字）。</div><input type="password" id="npw1" placeholder="新密碼" style="width:100%;margin-bottom:8px" autocomplete="new-password"><input type="password" id="npw2" placeholder="再輸入一次" style="width:100%" autocomplete="new-password"><div class="edrow"><button class="btn" data-act="chpw" style="margin-left:auto">更換</button></div><div id="npw-msg" class="hint"></div><div class="edrow"><button class="btn ghost mini" data-act="logout">這台裝置登出</button></div>`);
+  h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
+  $('main').innerHTML=h;
+  renderMBar();
+}
+const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':''} data-tg="${id}"><summary>${title}<span class="r">${right}</span></summary>${body}</details>`;
+function dayDetail(d){
+  return activeForms().filter(f=>!slotsOf(f).includes('M')).map(f=>`<div class="frm"><span class="n">${esc(f.name)}</span>${slotsOf(f).map(k=>{
+    const r=recOf(d,f,k), lab=slotLab(f,k), due=slotEnd(d,k)<=Date.now();
+    if(r) return `<button class="cell ${r.bad?'bad':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="${k}">${lab} ${r.bad?'⚠'+r.bad:'✓'} ${esc(r.by)}</button>`;
+    return `<span class="cell ${due?'miss':'wait'}">${lab} ${due?'未點':'—'}</span>`; }).join('')}</div>`).join('')+
+    activeForms().filter(f=>slotsOf(f).includes('M')).map(f=>{ const m=getAt(`rec/${mkey(d)}/_m/${f.id}`); return m&&m.d===d?`<div class="frm"><span class="n">${esc(f.name)}</span><button class="cell ${m.bad?'bad':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="M">本月 ${m.bad?'⚠'+m.bad:'✓'} ${esc(m.by)}</button></div>`:''; }).join('');
+}
+function monthTable(S){
+  const f=formById(mtForm)||activeForms()[0]; if(!f) return '';
+  let h=`<div class="chips" style="margin-bottom:10px">${activeForms().map(x=>`<button class="chip${x.id===f.id?' on':''}" data-act="mtf" data-f="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+  const ks=slotsOf(f), D=dim(S.mk);
+  if(ks.includes('M')){
+    const m=getAt(`rec/${S.mk}/_m/${f.id}`), r=m?R(getAt(recPath(m.d,f,'M'))):null;
+    if(!m) return h+'<div class="mut">這個月還沒做</div>';
+    return h+`<div class="tw"><table class="mt"><tr><th class="l">項目</th><th>${dayLabel(m.d)}</th><th class="l">處理情形</th></tr>${f.items.map(it=>{ const v=r?r.v[it.id]:null;
+      return `<tr><td class="l">${esc(it.name)}</td><td class="${v===0?'x':v===1?'o':''}">${v===1?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r?r.n[it.id]||'':'')}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(m.by)}</td><td></td></tr></table></div>`;
+  }
+  const cols=[]; for(let i=1;i<=D;i++) ks.forEach(k=>cols.push({d:`${S.mk}-${pad(i)}`,k,i}));
+  const recs=cols.map(c=>recOf(c.d,f,c.k));
+  const cellOf=(it,r)=>{
+    if(!r) return '<td></td>';
+    if(f.kind==='narc'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.u)}/${esc(x.e)}</td>`; }
+    if(f.kind==='temp'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.now)}<br><small>${esc(x.max)}/${esc(x.min)}</small>${x.def?'※':''}</td>`; }
+    const v=r.v[it.id]; return `<td class="${v===0?'x':v===1?'o':''}">${v===1?(it.t==='y'?'ˇ':'✓'):v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):'✗'):v===2?'Δ':''}</td>`;
+  };
+  h+=`<div class="tw"><table class="mt"><tr><th class="l" rowspan="${ks.length>1?2:1}">項目${f.kind==='narc'?'（未用/空瓶）':f.kind==='temp'?'（當時、最高/最低℃）':''}</th><th rowspan="${ks.length>1?2:1}">設定</th>${[...Array(D)].map((_,i)=>`<th colspan="${ks.length}">${i+1}</th>`).join('')}</tr>`;
+  if(ks.length>1) h+=`<tr>${cols.map(c=>`<th>${c.k==='AM'?'9':c.k==='PM'?'17':c.k}</th>`).join('')}</tr>`;
+  f.items.forEach(it=>{ h+=`<tr><td class="l">${esc(it.name)}</td><td>${esc(it.q)}</td>${recs.map(r=>cellOf(it,r)).join('')}</tr>`; });
+  h+=`<tr><td class="l">點班者</td><td></td>${recs.map(r=>`<td class="vn">${r?esc(r.by):''}</td>`).join('')}</tr>`;
+  if(f.kind==='narc') h+=`<tr><td class="l">交班者</td><td></td>${recs.map(r=>`<td class="vn">${r?esc(r.x._giver||''):''}</td>`).join('')}</tr>`;
+  const revs=getAt('rev/'+S.mk)||{};
+  h+=`<tr><td class="l">單位主管核簽</td><td></td>${[...Array(D)].map((_,i)=>{ const rv=revs['d'+pad(i+1)]; return `<td colspan="${ks.length}" class="vn">${rv?esc(rv.by):''}</td>`; }).join('')}</tr></table></div>`;
+  h+=`<div class="sub2">✗＝異常（數量類寫實際數量）；空白＝沒有點。點「每日紀錄與核簽」裡的格子可以看每一筆的處理情形。</div>`;
+  return h;
+}
+// 一筆紀錄的明細（管理頁）
+async function showRec(d,fid,k){
+  const f=formById(fid); let r=recOf(d,f,k);
+  if(k==='M'){ const m=getAt(`rec/${mkey(d)}/_m/${f.id}`); if(m&&!getAt(recPath(m.d,f,'M'))) await pull(recPath(m.d,f,'M')); r=recOf(d,f,k); d=m?m.d:d; }
+  if(!r) return;
+  let F=f;
+  if((r.fv||0)!==fver){ if(!r.fv) F=DEFAULT_FORMS.find(x=>x.id===fid)||f; else { if(getAt('cfg/fhist/'+r.fv)===undefined) await pull('cfg/fhist/'+r.fv); const old=getAt('cfg/fhist/'+r.fv); F=(Array.isArray(old)&&old.find(x=>x&&x.id===fid))||f; } }
+  const items=F.items.filter(it=>r.v[it.id]!==undefined);
+  let h=`<h2>${esc(F.full||F.name)}<button class="btn mini ghost" data-act="close">關閉</button></h2><div class="hint">${dayLabel(d)} ${slotLab(F,k)}・${esc(r.by)} ${whenLabel(r.at)}${r.at>slotEnd(d,k)?'（補登）':''}${(r.h||[]).length?`・改過 ${(r.h||[]).length} 次（之前：${r.h.map(x=>esc(x.by)+' '+whenLabel(x.at)).join('、')}）`:''}</div>`;
+  if(F.kind==='narc') h+=`<div class="hint">交班者：${esc(r.x._giver||'—')}${r.x._face?'（已當面核對）':''}</div>`;
+  if(F.kind==='virus'&&r.x._chg) h+=`<div class="hint">這一班更換了消毒溶液</div>`;
+  const bad=items.filter(it=>r.v[it.id]===0), ok=items.filter(it=>r.v[it.id]!==0);
+  const line=it=>{ const v=r.v[it.id], x=r.x[it.id]||{};
+    let val=F.kind==='narc'?`未用 ${esc(x.u)}・空瓶 ${esc(x.e)}・總量 ${(+x.u||0)+(+x.e||0)}（設定 ${esc(it.q)}）`:F.kind==='temp'?`當時 ${esc(x.now)}℃・最高 ${esc(x.max)}℃・最低 ${esc(x.min)}℃${x.def?'・除霜中':''}`:'';
+    const rs=r.res&&r.res[it.id];
+    return `<div class="abn"><div class="h"><b style="color:${v===0?'var(--bad)':'var(--ok)'}">${v===1?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
+      ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-d="${d}" data-f="${fid}" data-k="${k}" data-id="${it.id}">標記已處理</button>`:''}</div>
+      ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')} ${r.r[it.id]||rs?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
+  h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
+  openDlg(h);
+}
+// 逐日累進 → 逐日 → 逐月
+async function showTrend(m){
+  const T=TR[m], S=monthStats(mcur), isCur=mcur===mkey(ymd(new Date()));
+  const dayPts=[], cumPts=[]; let acc=0;
+  S.days.forEach((o,i)=>{ const v=T.day(o); dayPts.push({k:o.i,v:v==null?0:v,na:v==null}); acc+=T.isRate?0:(v||0); cumPts.push({k:o.i,v:T.isRate?(T.cum(S,i)||0):acc}); });
+  let h=`<h2>${T.t}<button class="btn mini ghost" data-act="close">關閉</button></h2><div class="hint">${T.note}</div>`;
+  if(m==='rate'){ const L=Object.values(S.byForm).filter(x=>x.due).sort((a,b)=>a.done/a.due-b.done/b.due);
+    h+=`<div class="cumh">${monLabel(mcur)}・各點班單完成率<small>由低到高</small></div>${L.map(x=>{ const p=x.done/x.due*100; return `<div class="pr"><span class="pl">${esc(x.f.name)}</span><span class="pv">${x.done}／${x.due}</span><span class="pb"><span style="width:${p}%"></span></span><span class="pp">${fmt(p,0)}%</span></div>`; }).join('')}`; }
+  if(m==='bad'){ const c={}; S.abn.forEach(a=>{ const key=a.f.name+'｜'+a.it.name; c[key]=(c[key]||0)+1; }); const L=Object.entries(c).sort((a,b)=>b[1]-a[1]).slice(0,10);
+    if(L.length) h+=`<div class="cumh">${monLabel(mcur)}・最常異常的項目<small>前 ${L.length} 名</small></div>${L.map(([k,v])=>`<div class="pr"><span class="pl">${esc(k)}</span><span class="pp">${v} 次</span></div>`).join('')}`; }
+  if(S.days.length){
+    h+=`<div class="cumh">${monLabel(mcur)}・逐日累進<small>${T.isRate?'1 日起累計的完成率':'1 日起累計'}</small></div>${lineSvg(cumPts,isCur?S.last:-1,+mcur.slice(5),T.unit)}`;
+    h+=`<div class="cumh">${monLabel(mcur)}・逐日<small>每天各是多少（不累計）</small></div>${lineSvg(dayPts,isCur?S.last:-1,+mcur.slice(5),T.unit)}`;
+    if(isCur) h+=`<div class="sub2">這個月還沒過完，畫到今天（橘色那一點）。</div>`;
+  }
+  h+=`<div class="cumh">逐月趨勢</div><div id="tr-mon" class="sub2">讀取各月份…</div>`;
+  openDlg(h);
+  let ks=[]; try{ const o=await fb('GET','rec',undefined,undefined,'&shallow=true'); ks=Object.keys(o||{}).filter(k=>/^\d{4}-\d{2}$/.test(k)); }catch(e){}
+  if(!ks.includes(mcur)) ks.push(mcur); ks.sort();
+  for(const k of ks) if(!mLoaded.has(k)&&await pull('rec/'+k)) mLoaded.add(k);
+  const pts=ks.map(k=>{ const v=T.mon(monthStats(k)); return {k,v:v==null?0:v}; });
+  const el=$('tr-mon'); if(!el) return;
+  el.outerHTML=`${lineSvg(pts,mcur,0,T.unit)}<table class="tt"><tr><th class="l">月份</th><th>${T.t}</th><th>較上月</th></tr>${pts.map((p,i)=>{ const pv=i?pts[i-1].v:null;
+    return `<tr><td class="l">${monLabel(p.k)}</td><td>${fmt(p.v)}${T.unit==='%'?'%':' '+T.unit}</td><td>${pv==null?'':T.isRate?ppHtml(p.v-pv):pv?pctHtml(pctVs(p.v,pv),true):''}</td></tr>`; }).reverse().join('')}</table>${ks.length<2?'<div class="sub2">從開始使用這個 App 的月份才有資料。</div>':''}`;
+}
+// 折線圖（純 SVG）：縱軸分四格，每格取剛好夠大的整齊數字；橘色＝目前看的月份／今天；點太密時只標最後一點、最高點和今天
+function lineSvg(pts,curKey,day,unit){
+  const n=pts.length; if(!n) return '';
+  const isP=unit==='%';
+  const nice=m=>{ const raw=m/4, e=Math.pow(10,Math.floor(Math.log10(raw))); return 4*([1,1.25,1.5,2,2.5,3,4,5,6,8,10].map(f=>f*e).find(v=>v>=raw&&Math.abs(v-Math.round(v))<1e-9)||Math.ceil(raw)); };
+  const max=Math.max(0,...pts.map(p=>p.v));
+  const hi=isP?(max>0?Math.min(100,nice(max))||100:100):(max>0?nice(max):4), lo=0;
+  const W=400,H=230,L=46,Rr=22,B=38,T=n>6?40:26, step=n>1?(W-L-Rr)/(n-1):W;
+  const x=i=>n===1?L+(W-L-Rr)/2:L+step*i, y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo));
+  const lab=v=>fmt(v,isP?0:1)+(isP?'%':'');
+  let g='';
+  for(let i=0;i<=4;i++){ const v=lo+(hi-lo)*i/4, yy=y(v); g+=`<line x1="${L}" y1="${yy}" x2="${W-Rr}" y2="${yy}" stroke="#dbe5e8"/><text x="${L-6}" y="${yy+4}" text-anchor="end" font-size="10.5" fill="#667785">${lab(v)}</text>`; }
+  for(let i=1;i<n;i++) g+=`<line x1="${x(i-1)}" y1="${y(pts[i-1].v)}" x2="${x(i)}" y2="${y(pts[i].v)}" stroke="#13606e" stroke-width="2.5" stroke-linecap="round"/>`;
+  let mx=0; pts.forEach((p,i)=>{ if(p.v>pts[mx].v) mx=i; });
+  const boxes=[], labelY=(x0,cy,w)=>{ for(const dy of [-10,-23,21,-36,34]){ const ty=cy+dy, b=[x0-2,ty-10,x0+w+2,ty+3];
+      if(ty<11||ty>H-B-3||boxes.some(o=>b[0]<o[2]&&b[2]>o[0]&&b[1]<o[3]&&b[3]>o[1])) continue; boxes.push(b); return ty; } return cy-10; };
+  let lastY=null;
+  pts.forEach((p,i)=>{
+    const on=p.k===curKey, dense=n>(day?10:12), show=!dense||on||i===n-1||i===mx;
+    const [yy,mm]=day?[0,0]:p.k.split('-').map(Number);
+    const tick=day?(n<=16||i===0||i===n-1||((i+1)%5===0&&n-1-i>1)?p.k:''):mm+'月';
+    const anc=n>1&&i===0?'start':n>1&&i===n-1?'end':'middle', lx=x(i)+(anc==='start'?4:anc==='end'?-4:0), lw=lab(p.v).length*6.4;
+    const ly=show?labelY(anc==='start'?lx:anc==='end'?lx-lw:lx-lw/2,y(p.v),lw):0;
+    g+=(dense&&!show?'':`<circle cx="${x(i)}" cy="${y(p.v)}" r="${on?5.5:4}" fill="${on?'#f2a541':'#13606e'}" stroke="#fff" stroke-width="1.5"/>`)+
+      (show?`<text x="${lx}" y="${ly}" text-anchor="${anc}" font-size="11" font-weight="700" fill="${on?'#a85800':'#0c4651'}" stroke="#fff" stroke-width="3" paint-order="stroke">${lab(p.v)}</text>`:'')+
+      (tick!==''?`<text x="${x(i)}" y="${H-B+16}" text-anchor="middle" font-size="11" fill="#1f2d3d">${tick}</text>`:'')+
+      (day?(i===0?`<text x="${x(i)}" y="${H-B+30}" text-anchor="middle" font-size="10" fill="#667785">${day}月</text>`:''):(yy!==lastY?`<text x="${x(i)}" y="${H-B+30}" text-anchor="middle" font-size="10" fill="#667785">${yy-1911}年</text>`:''));
+    lastY=yy;
+  });
+  return `<svg class="trend" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+// 最下面的月份列
+let mpick=false, mpickY=null;
+function renderMBar(){
+  const bar=$('bar'), pk=$('pick');
+  const now=mkey(ymd(new Date())), canNext=mcur<now;
+  bar.style.display='';
+  bar.innerHTML=`<button class="mb-nav" data-act="mstep" data-d="-1" aria-label="上個月">‹</button><button class="mb-cur" data-act="mpick"><span>📅</span>${monLabel(mcur)}</button><button class="mb-nav" data-act="mstep" data-d="1" aria-label="下個月"${canNext?'':' disabled'}>›</button>`;
+  if(!mpick){ pk.classList.remove('on'); return; }
+  if(mpickY==null) mpickY=+mcur.slice(0,4);
+  pk.innerHTML=`<div class="box"><div class="yr"><button class="mb-nav" data-act="myear" data-d="-1">‹</button><b>${mpickY-1911}年</b><button class="mb-nav" data-act="myear" data-d="1"${mpickY<+now.slice(0,4)?'':' disabled'}>›</button></div>
+    <div class="grid">${[...Array(12)].map((_,j)=>{ const k=`${mpickY}-${pad(j+1)}`; return `<button class="m${k===mcur?' on':''}${k===now?' now':''}" ${k<=now?`data-act="month" data-k="${k}"`:'disabled'}>${j+1}月</button>`; }).join('')}</div></div>`;
+  pk.classList.add('on');
+}
+function switchMonth(k){ mpick=false; if(k===mcur){ renderManage(); return; } mcur=k; renderManage(); window.scrollTo({top:0}); }
+// 點班單內容編輯：改完按「儲存」才生效
+const TYPES={n:'數量',c:'打勾',y:'ˇ／✗／Δ'};
+function formEditor(){
+  if(!edF) edF=clone(FORMS);
+  if(!edSel||!edF.find(f=>f.id===edSel)) edSel=edF[0].id;
+  const f=edF.find(x=>x.id===edSel), fixedT=f.kind==='narc'||f.kind==='temp';
+  let h=`<div class="hint">改完按「儲存」才會生效，所有人的手機下次打開就會用新的內容。已經點過的紀錄照當時的內容保存，不受影響。</div>
+    <div class="edrow"><label>點班單</label><select data-ed-sel style="flex:1;min-width:0">${edF.map(x=>`<option value="${x.id}"${x.id===edSel?' selected':''}>${esc(x.name)}${x.on===false?'（停用）':''}</option>`).join('')}</select></div>
+    <div class="edrow"><label>簡稱</label><input type="text" data-ed="name" value="${esc(f.name)}" style="flex:1;min-width:120px"><label>全名</label><input type="text" data-ed="full" value="${esc(f.full||'')}" style="flex:2;min-width:160px"></div>
+    <div class="edrow"><label>頻率</label><select data-ed="freq">${Object.keys(FREQ).map(k=>`<option value="${k}"${f.freq===k?' selected':''}>${FREQ[k].lab}</option>`).join('')}</select>
+      <label><input type="checkbox" data-ed="on"${f.on===false?'':' checked'}> 使用中</label>${f.kind==='temp'?`<label>範圍</label><input type="number" data-ed="lo" value="${esc(f.lo)}" style="width:64px">～<input type="number" data-ed="hi" value="${esc(f.hi)}" style="width:64px">℃`:''}</div>
+    <div class="edrow" style="align-items:flex-start"><label>說明</label><textarea data-ed="notes" rows="3" style="flex:1;min-width:0" placeholder="一行一條">${esc((f.notes||[]).join('\n'))}</textarea></div>
+    <div class="tw" style="border:none"><table class="ed"><tr><th>區域</th><th>項目</th><th>設定量</th>${fixedT?'':'<th>方式</th>'}<th></th></tr>
+    ${f.items.map((it,i)=>`<tr><td style="width:24%"><input type="text" data-edi="s" data-i="${i}" value="${esc(it.s)}"></td><td><input type="text" data-edi="name" data-i="${i}" value="${esc(it.name)}"><input type="text" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）" style="margin-top:3px;font-size:12.5px"></td>
+      <td class="q"><input type="text" data-edi="q" data-i="${i}" value="${esc(it.q)}"></td>${fixedT?'':`<td style="width:90px"><select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select></td>`}
+      <td class="act"><button data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button data-act="eddel" data-i="${i}" title="刪除">✕</button></td></tr>`).join('')}</table></div>
+    <div class="edrow"><button class="btn outline mini" data-act="edadd">＋ 新增項目</button><button class="btn ghost mini" data-act="edreset">這張恢復成紙本原始內容</button></div>
+    <div class="edrow"><button class="btn" data-act="edsave"${edDirty?'':' disabled'}>儲存</button><button class="btn ghost" data-act="edcancel"${edDirty?'':' disabled'}>放棄修改</button>${edDirty?'<span class="tag w">有未儲存的修改</span>':''}</div>
+    <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；ˇ／✗／Δ＝多一個「不適用」。</div>`;
+  return h;
+}
+function staffEditor(){
+  const extra=getAt('cfg/staff')||[];
+  return `<div class="hint">護理師選名字時的名單＝急診護理班表上的人（自動帶入，${sched.nurses.length} 位）＋下面另外加入的人（例如護理長、支援人員）。</div>
+    <div class="chips" style="margin:8px 0">${extra.length?extra.map((n,i)=>`<span class="chip on" style="display:inline-flex;gap:6px;align-items:center">${esc(n)}<button data-act="stdel" data-i="${i}" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button></span>`).join(''):'<span class="mut">沒有另外加入的人</span>'}</div>
+    <div class="edrow"><input type="text" id="st-in" placeholder="名字" style="flex:1;min-width:0"><button class="btn" data-act="stadd">加入</button></div>`;
+}
+
+// ======================================================================
+//  事件
+// ======================================================================
+document.addEventListener('click',async e=>{
+  const t=e.target.closest('[data-act]');
+  if(!t){
+    if(pickOpen&&!e.target.closest('#pick')&&!e.target.closest('#bar')){ pickOpen=false; renderBar(); }
+    if(mpick&&!e.target.closest('#pick')&&!e.target.closest('#bar')){ mpick=false; renderMBar(); }
+    if(e.target.id==='mask') closeDlg();
+    return;
+  }
+  const a=t.dataset.act, ds=t.dataset;
+  // ---- 護理師頁 ----
+  if(a==='setme'){ lsSet(LS.me,ds.n); renderNurse(); toast('你好，'+ds.n); return; }
+  if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } lsSet(LS.me,v); renderNurse(); return; }
+  if(a==='who'){ if(confirm('要換成別人嗎？（這支手機會改用新的名字簽名）')){ lsSet(LS.me,''); renderNurse(); } return; }
+  if(a==='step'){ const v=+ds.d<0?prevShift(view.d,view.s):nextShift(view.d,view.s); const c=nowShift(); setView(v,v.d===c.d&&v.s===c.s); return; }
+  if(a==='pick'){ pickOpen=!pickOpen; renderBar(); return; }
+  if(a==='pksh'){ const d=($('pk-date')||{}).value||view.d; setView({d,s:ds.s},false); return; }
+  if(a==='pknow'){ setView(nowShift(),true); return; }
+  if(a==='open'){ openForm(ds.f,view.d,ds.k); return; }
+  if(a==='back'){ if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
+  if(a==='edit'){ openForm(fvs.f.id,fvs.d,fvs.k,true); return; }
+  if(a==='iv'&&fvs){ const v=+ds.v, dr=fvs.dr; if(dr.v[ds.id]===v&&v!==1) delete dr.v[ds.id]; else dr.v[ds.id]=v;
+    if(v!==0){ delete dr.n[ds.id]; delete dr.a[ds.id]; delete dr.r[ds.id]; }
+    if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(x=>x!==ds.id);
+    refreshItem(ds.id); saveDraft();
+    if(v===0){ const el=$('it-'+ds.id); const inp=el&&el.querySelector(fvs.f.items.find(x=>x.id===ds.id).t==='n'?'input[data-in=a]':'input.note'); if(inp) inp.focus(); }
+    return; }
+  if(a==='secok'&&fvs){ const dr=fvs.dr, v=fvs.f.items.find(it=>it.s===ds.s); fvs.f.items.forEach(it=>{ if(it.s===ds.s&&dr.v[it.id]==null) dr.v[it.id]=1; });
+    if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(id=>!fvs.f.items.some(it=>it.id===id&&it.s===ds.s&&dr.v[id]===1));
+    renderForm(); saveDraft(); return; }
+  if(a==='chip'&&fvs){ const dr=fvs.dr; dr.n[ds.id]=ds.c; if(AUTO_FIX[ds.c]) dr.r[ds.id]=1; refreshItem(ds.id); saveDraft(); return; }
+  if(a==='stp'&&fvs){ const dr=fvs.dr, x=dr.x[ds.id]||(dr.x[ds.id]={}); const cur=isNum(x[ds.fld])?+x[ds.fld]:(ds.fld==='u'&&+ds.d>0?(+fvs.f.items.find(i=>i.id===ds.id).q-1):0);
+    x[ds.fld]=Math.max(0,cur+(+ds.d)); if(ds.fld==='u'&&!isNum(x.e)&&+ds.d>0&&x.u>=+fvs.f.items.find(i=>i.id===ds.id).q) x.e=0;
+    if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
+    refreshItem(ds.id); saveDraft(); return; }
+  if(a==='giver'&&fvs){ fvs.dr.x._giver=ds.n; renderForm(); saveDraft(); return; }
+  if(a==='submit'&&fvs){ submitForm(); return; }
+  if(a==='soak'){ openSoak(); return; }
+  if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
+  if(a==='sk-q'){ soakForm.qty=Math.max(1,(+soakForm.qty||1)+(+ds.d)); renderSoak(true); return; }
+  if(a==='sk-in'){ const item=SOAK_ITEMS.includes(soakForm.item)?soakForm.item:(soakForm.other||'').trim(); if(!item){ toast('請寫品名'); return; }
+    const now=Date.now(), id=now.toString(36)+Math.random().toString(36).slice(2,5);
+    write('PUT',`soak/${mkey(ymd(new Date()))}/${id}`,{item,qty:+soakForm.qty||1,inBy:me(),inAt:now}); soakForm.qty=1; renderSoak(true); toast('已登錄放入'); return; }
+  if(a==='sk-out'){ const x=soakList().find(y=>y.id===ds.id), m=x?Math.floor((Date.now()-x.inAt)/60000):99;
+    if(m<10&&!confirm(`還沒泡滿 10 分鐘（目前 ${m} 分）。確定要取出？`)) return;
+    write('PATCH',`soak/${ds.mk}/${ds.id}`,{outBy:me(),outAt:Date.now()}); renderSoak(true); toast('已登錄取出'); return; }
+  // ---- 管理頁 ----
+  if(a==='close'){ closeDlg(); return; }
+  if(a==='setpw'){ const p1=$('pw1').value, p2=$('pw2').value, msg=$('pw-msg');
+    if(!pwOk(p1)){ msg.textContent='至少 8 個字，要有英文和數字'; return; } if(p1!==p2){ msg.textContent='兩次輸入的不一樣'; return; }
+    await pull('cfg/adminHash'); if(getAt('cfg/adminHash')){ renderGate(); return; }
+    const h=await sha(p1); try{ await fb('PUT','cfg/adminHash',h); }catch(err){ msg.textContent='存不上雲端：'+err.message; return; }
+    setAt('cfg/adminHash',h); lsSet(LS.unlock,h); unlocked=true; await loadMonth(mcur,true); return; }
+  if(a==='login'){ const h=await sha($('pw1').value||''); if(h!==getAt('cfg/adminHash')){ $('pw-msg').textContent='密碼不對'; return; } lsSet(LS.unlock,h); unlocked=true; await loadMonth(mcur,true); return; }
+  if(a==='logout'){ lsSet(LS.unlock,''); unlocked=false; renderGate(); $('bar').style.display='none'; return; }
+  if(a==='chpw'){ const p1=$('npw1').value, p2=$('npw2').value, msg=$('npw-msg');
+    if(!pwOk(p1)){ msg.textContent='至少 8 個字，要有英文和數字'; return; } if(p1!==p2){ msg.textContent='兩次輸入的不一樣'; return; }
+    const h=await sha(p1); try{ await fb('PUT','cfg/adminHash',h); }catch(err){ msg.textContent='存不上雲端：'+err.message; return; }
+    setAt('cfg/adminHash',h); lsSet(LS.unlock,h); msg.textContent='已更換'; $('npw1').value=$('npw2').value=''; return; }
+  if(a==='mstep'){ switchMonth(shiftMonth(mcur,+ds.d)); return; }
+  if(a==='mpick'){ mpick=!mpick; mpickY=null; renderMBar(); return; }
+  if(a==='myear'){ mpickY+=(+ds.d); renderMBar(); return; }
+  if(a==='month'){ switchMonth(ds.k); return; }
+  if(a==='trend'){ showTrend(ds.m); return; }
+  if(a==='rec'){ showRec(ds.d,ds.f,ds.k); return; }
+  if(a==='mtf'){ mtForm=ds.f; renderManage(); return; }
+  if(a==='review'){ e.preventDefault(); const nm=mgrName(); if(!nm) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
+  if(a==='unreview'){ if(!confirm('取消這一天的核簽？')) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,null); renderManage(); return; }
+  if(a==='resolve'){ const nm=mgrName(); if(!nm) return; const txt=prompt('處理情形（例如：已補齊、已送修完成）','已處理'); if(txt==null) return;
+    const f=formById(ds.f); let d=ds.d; if(ds.k==='M'){ const m=getAt(`rec/${mkey(d)}/_m/${f.id}`); if(m) d=m.d; }
+    write('PATCH',recPath(d,f,ds.k)+'/res',{[ds.id]:{by:nm,at:Date.now(),txt:txt.trim()||'已處理'}});
+    if($('mask').classList.contains('on')) showRec(d,ds.f,ds.k); renderManage(); toast('已標記處理'); return; }
+  if(a==='stadd'){ const v=($('st-in').value||'').trim(); if(!v) return; const L=[...(getAt('cfg/staff')||[])]; if(!L.includes(v)) L.push(v); write('PUT','cfg/staff',L); renderManage(); return; }
+  if(a==='stdel'){ const L=[...(getAt('cfg/staff')||[])]; L.splice(+ds.i,1); write('PUT','cfg/staff',L.length?L:null); renderManage(); return; }
+  if(a==='edmv'){ const f=edF.find(x=>x.id===edSel), i=+ds.i, j=i+(+ds.d); if(j<0||j>=f.items.length) return; [f.items[i],f.items[j]]=[f.items[j],f.items[i]]; edDirty=true; renderManage(); return; }
+  if(a==='eddel'){ const f=edF.find(x=>x.id===edSel); if(!confirm(`刪除「${f.items[+ds.i].name}」？`)) return; f.items.splice(+ds.i,1); edDirty=true; renderManage(); return; }
+  if(a==='edadd'){ const f=edF.find(x=>x.id===edSel), last=f.items[f.items.length-1]; f.items.push({id:f.id+'_'+Date.now().toString(36),s:last?last.s:'項目',name:'',q:'',t:f.kind==='narc'?'n':f.kind==='temp'?'temp':'c',sub:''}); edDirty=true; renderManage(); return; }
+  if(a==='edreset'){ const def=DEFAULT_FORMS.find(x=>x.id===edSel); if(!def){ toast('這張沒有原始內容'); return; } if(!confirm('這張點班單恢復成紙本原始內容？（按儲存才生效）')) return;
+    const i=edF.findIndex(x=>x.id===edSel); edF[i]=clone(def); edDirty=true; renderManage(); return; }
+  if(a==='edcancel'){ edF=null; edDirty=false; renderManage(); return; }
+  if(a==='edsave'){ const bad=edF.some(f=>f.items.some(it=>!String(it.name||'').trim())); if(bad){ toast('有項目沒寫名稱'); return; }
+    const nv=fver+1, data=clone(edF);
+    write('PUT','cfg/forms',data); write('PUT','cfg/fhist/'+nv,data); write('PUT','cfg/fver',nv);
+    applyCfg(); edF=null; edDirty=false; renderManage(); toast('點班單內容已儲存'); return; }
+});
+function mgrName(){
+  let n=me();
+  if(!n){ n=(prompt('核簽用的名字','')||'').trim(); if(!n) return ''; lsSet(LS.me,n); }
+  return n;
+}
+document.addEventListener('input',e=>{
+  const t=e.target, ds=t.dataset;
+  if(ds.in&&fvs&&!fvs.soak){
+    const dr=fvs.dr;
+    if(ds.in==='n') dr.n[ds.id]=t.value;
+    else if(ds.in==='a') dr.a[ds.id]=t.value===''?null:+t.value;
+    else if(ds.in==='r') dr.r[ds.id]=t.checked?1:0;
+    else if(ds.in==='x'){ const x=dr.x[ds.id]||(dr.x[ds.id]={}); x[ds.fld]=t.type==='checkbox'?(t.checked?1:0):(t.value===''?'':+t.value);
+      if(t.type!=='checkbox'){ // 數字改了：只更新狀態那一塊，不重畫輸入框（免得鍵盤收起來）
+        const it=fvs.f.items.find(i=>i.id===ds.id), v=evalItem(fvs.f,it,dr), el=$('it-'+ds.id);
+        if(el){ el.className='it '+(v===1?'ok':v===0?'ng':''); const ro=el.querySelector('.ro'); if(ro){ ro.className='ro '+(v===1?'ok':v===0?'ng':''); ro.textContent=v===1?'✓':v===0?'⚠':''; }
+          const tot=el.querySelector('.tot'); if(tot&&fvs.f.kind==='narc'){ const xx=dr.x[ds.id]; const tt=isNum(xx.u)&&isNum(xx.e)?(+xx.u)+(+xx.e):null;
+            tot.innerHTML=`總量 <b>${tt==null?'—':tt}</b> ${it.sub||''}${tt==null?'':v===1?' <span class="tag ok">與設定量相符</span>':` <span class="tag no">設定量 ${esc(it.q)}，不相符</span>`}`; }
+          const hasNg=!!el.querySelector('.ngx');
+          if((v===0)!==hasNg){ el.outerHTML=itemHtml(fvs.f,it,dr,false); const ne=$('it-'+ds.id), inp=ne&&ne.querySelector(`input[data-fld="${ds.fld}"]`); if(inp){ inp.focus(); const L=inp.value.length; try{ inp.setSelectionRange(L,L); }catch(_){} } } }
+        refreshCnt(); saveDraft(); return; } }
+    else if(ds.in==='giver') dr.x._giver=t.value;
+    else if(ds.in==='face') dr.x._face=t.checked?1:0;
+    else if(ds.in==='chg') dr.x._chg=t.checked?1:0;
+    else if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
+    if(ds.in==='r'||ds.in==='face'||ds.in==='chg'||t.type==='checkbox') { if(ds.in==='r') refreshItem(ds.id); }
+    if(ds.in==='n'&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
+    refreshCnt(); saveDraft(); return;
+  }
+  if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
+  if(ds.in==='sk-qty'){ soakForm.qty=Math.max(1,+t.value||1); return; }
+  // 管理頁：點班單內容編輯
+  if(t.matches('[data-ed-sel]')) return;
+  if(ds.ed&&edF){ const f=edF.find(x=>x.id===edSel);
+    if(ds.ed==='on') f.on=t.checked?undefined:false;
+    else if(ds.ed==='notes') f.notes=t.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    else if(ds.ed==='lo'||ds.ed==='hi') f[ds.ed]=t.value===''?undefined:+t.value;
+    else f[ds.ed]=t.value;
+    if(f.on===undefined) delete f.on;
+    markDirty(); return; }
+  if(ds.edi&&edF){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i]; it[ds.edi]=t.value; markDirty(); return; }
+});
+document.addEventListener('change',e=>{
+  const t=e.target;
+  if(t.matches('[data-ed-sel]')){ edSel=t.value; renderManage(); return; }
+  if(t.id==='pk-date'&&t.value){ setView({d:t.value,s:view.s},false); return; }
+  if(t.dataset.ed==='freq'||t.dataset.edi==='t'||t.dataset.ed==='on') renderManage();
+});
+function markDirty(){ if(!edDirty){ edDirty=true; const b=document.querySelector('[data-act=edsave]'), c=document.querySelector('[data-act=edcancel]'); if(b) b.disabled=false; if(c) c.disabled=false;
+  const s=document.querySelector('[data-tg=forms]>summary .r'); if(s) s.innerHTML='<span class="tag w">有未儲存的修改</span>'; } }
+// 卡片收合狀態只記在記憶體（每次打開都是收起來的）
+document.addEventListener('toggle',e=>{ const t=e.target; if(t.dataset&&t.dataset.tg) mOpen[t.dataset.tg]=t.open; },true);
+window.addEventListener('beforeunload',e=>{ if(MANAGE&&edDirty){ e.preventDefault(); e.returnValue=''; } });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='pw1'&&!$('pw2')) document.querySelector('[data-act=login]')?.click(); if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); } });
+
+// ---------- 啟動 ----------
+applyCfg();
+if(MANAGE){
+  $('bar').style.display='none';
+  manageInit().catch(e=>{ $('main').innerHTML=`<div class="note bad">載入失敗：${esc(e.message)}</div>`; });
+  // 回到這一頁時重讀這個月（點班單內容有沒儲存的修改時不重畫，免得改到一半被蓋掉）
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&unlocked&&!edDirty) loadMonth(mcur,true); });
+} else {
+  renderNurse();
+  refreshView();
+  // 回到 App、每分鐘：重新讀（看別人點了沒）；跟著現在這一班走的話，換班時自動切過去
+  const tick=()=>{ if(document.hidden) return; if(followNow&&!fvs){ const c=nowShift(); if(c.d!==view.d||c.s!==view.s){ view=c; renderNurse(); } } refreshView(); };
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) tick(); });
+  setInterval(tick,60000);
+  window.addEventListener('online',()=>flush());
+  if('serviceWorker' in navigator&&location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>

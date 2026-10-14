@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>急診點班・管理</title>
+</head>
+<body>
+<script>
+// 管理頁（護理長／主任）入口：載入和 index.html 同一份程式，先設 MANAGE，進去要管理密碼。
+// 護理師用的 index.html 不會出現管理登入。
+fetch('index.html',{cache:'no-store'}).then(function(r){ if(!r.ok) throw 0; return r.text(); }).then(function(t){
+  t=t.replace('<head>','<head><script>window.MANAGE=true<\/script>').replace('<link rel="manifest" href="manifest.json">','').replace('<title>急診點班</title>','<title>急診點班・管理</title>');
+  document.open(); document.write(t); document.close();
+}).catch(function(){ document.body.textContent='載入失敗，請確認網路後重新整理。'; });
+</script>
+</body>
+</html>
