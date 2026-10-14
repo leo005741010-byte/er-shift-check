@@ -125,6 +125,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .it{padding:9px 12px;border-bottom:1px solid #edf1f3}
 .it:last-child{border-bottom:none}
 .it.ng{background:#fff7f6}
+.it.fx{background:#fffdf0}
 .it.miss{background:#fff8e6}
 .ir{display:flex;align-items:center;gap:10px}
 .itx{flex:1;min-width:0}
@@ -137,7 +138,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .ib .b.ng.on{background:#e2574c;border-color:#e2574c;color:#fff}
 .ib .b.na.on{background:#8a98a3;border-color:#8a98a3;color:#fff}
 .ro{width:40px;text-align:center;font-size:19px;font-weight:700;color:#aab6bb}
-.ro.ok{color:var(--ok)}.ro.ng{color:var(--bad)}.ro.na{color:var(--mut)}
+.ro.ok,.ro.fx{color:var(--ok)}.ro.ng{color:var(--bad)}.ro.na{color:var(--mut)}
 .ngx{margin-top:8px;display:flex;flex-direction:column;gap:8px}
 .ngx label{font-size:14px}
 .ngx input[type=number]{width:90px;text-align:right}
@@ -266,6 +267,7 @@ table.mt td.l,table.mt th.l{text-align:left;position:sticky;left:0;background:#f
 table.mt th.l{background:#f1f6f7}
 table.mt td.x{color:var(--bad);font-weight:700;background:#fff3f1}
 table.mt td.o{color:var(--ok)}
+table.mt td.wf{background:#fffbe6}
 table.mt td.vn{writing-mode:vertical-rl;font-size:11.5px;letter-spacing:1px;padding:4px 2px;min-height:44px}
 table.ed{border-collapse:collapse;width:100%;font-size:14px}
 table.ed td,table.ed th{padding:4px 3px;border-bottom:1px solid var(--line);vertical-align:middle}
@@ -338,7 +340,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.6.0';
+const VERSION='1.6.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -843,14 +845,14 @@ function progressOf(f,dr){
   return {ans,tot:f.items.length,need,miss};
 }
 function itemHtml(f,it,dr,ro){
-  const v=evalItem(f,it,dr), st=v===1?'ok':v===0?'ng':v===2?'na':'';
+  const v=evalItem(f,it,dr), fx=ro&&v===0&&isFixed(dr,it.id), st=fx?'fx':v===1?'ok':v===0?'ng':v===2?'na':'';   // fx＝打過 ✗、已處理好：顯示成 ✓
   const qt=it.q?`<span class="q">設定 ${esc(it.q)}${it.t==='n'&&it.sub&&f.kind==='narc'?esc(it.sub):''}</span>`:'';
   const sub=(qt||it.sub&&f.kind!=='narc')?`<div class="sub">${qt}${it.sub&&f.kind!=='narc'?`<span>${esc(it.sub)}</span>`:''}</div>`:'';
   let right='', body='';
   if(f.kind==='narc'||f.kind==='temp'){
-    right=`<div class="ro ${st}">${v===1?'✓':v===0?'⚠':''}</div>`;
+    right=`<div class="ro ${st}">${v===1||fx?'✓':v===0?'⚠':''}</div>`;
     body=f.kind==='narc'?narcBody(f,it,dr,ro,v):tempBody(f,it,dr,ro,v);
-  } else if(ro){ right=`<div class="ro ${st}">${v===1?(it.t==='y'?'ˇ':'✓'):v===0?'✗':v===2?'Δ':'—'}</div>`; }
+  } else if(ro){ right=`<div class="ro ${st}">${v===1||fx?(it.t==='y'?'ˇ':'✓'):v===0?'✗':v===2?'Δ':'—'}</div>`; }
   else { right=`<div class="ib"><button class="b ok${v===1?' on':''}" data-act="iv" data-id="${it.id}" data-v="1" aria-label="正常">${it.t==='y'?'ˇ':'✓'}</button><button class="b ng${v===0?' on':''}" data-act="iv" data-id="${it.id}" data-v="0" aria-label="異常">✗</button>${it.t==='y'?`<button class="b na${v===2?' on':''}" data-act="iv" data-id="${it.id}" data-v="2" aria-label="不適用">Δ</button>`:''}</div>`; }
   if(v===0) body+=ngBody(f,it,dr,ro);
   const miss=fvs&&fvs.showMiss&&fvs.showMiss.includes(it.id);
@@ -872,7 +874,7 @@ function ngBody(f,it,dr,ro){
   if(ro){ const rs=dr.res&&dr.res[it.id];
     const w=dr.w&&dr.w[it.id], sh=shortOf(it,dr.a[it.id]);
     const canFix=!MANAGE&&!fixed&&dr._path&&me();   // 處理好了直接在這裡按（補齊／修好／處理好）
-    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}${sh?`（缺 ${sh}）`:''}・`:''}${esc(note)}${w?`・請 ${esc(w)} 補`:''} ${fixed?'<span class="tag wn">警示・已處理</span>':`<span class="tag no">${w?'待補':'異常'}</span>`}${canFix?` <button class="btn mini" data-act="rsdone" data-path="${esc(dr._path)}" data-id="${esc(it.id)}" data-txt="${fixWord(note)}">${fixWord(note)}</button>`:''}${rs?`<div class="res">${esc(rs.txt||'已處理')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
+    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}${sh?`（缺 ${sh}）`:''}・`:''}${esc(note)}${w?`・請 ${esc(w)} 補`:''} ${fixed?'<span class="tag wn">警示・已處理</span>':`<span class="tag no">${w?'待補':'異常'}</span>`}${canFix?` <button class="btn mini" data-act="rsdone" data-path="${esc(dr._path)}" data-id="${esc(it.id)}" data-txt="${fixWord(note)}" data-name="${esc(it.name)}">${fixWord(note)}</button>`:''}${rs?`<div class="res">${esc(rs.txt||'已處理')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
   const sh=shortOf(it,dr.a[it.id]);
   let who='';
   if(note===PREV_MISS&&fvs){ const cands=prevCands(fvs.d,f,fvs.k,it.id), w=(dr.w||{})[it.id]||'', oth=!!uiOther['w:'+it.id]||(!!w&&!cands.includes(w));
@@ -1025,7 +1027,7 @@ function restockList(){
 function openRestock(){ fvs={restock:1}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderRestock(); }
 function renderRestock(keep){
   const L=restockList(), mine=L.filter(x=>x.who&&x.who===me()), old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0;
-  const row=x=>`<div class="rsrow${x.who===me()?' me':''}"><div class="w"><b>${esc(x.it?x.it.name:x.id)}</b>${x.short?` <span class="sh">缺 ${x.short}</span>`:''}<small>${esc(x.f?x.f.name:'')}・${dayLabel(x.d)} ${x.f?slotLab(x.f,x.k):''}・${esc(x.r.by)} ${hm(x.r.at)} 發現・請 <b>${esc(x.who||'—')}</b> 補</small></div><button class="btn mini" data-act="rsdone" data-path="${esc(x.path)}" data-id="${esc(x.id)}">已補齊</button></div>`;
+  const row=x=>`<div class="rsrow${x.who===me()?' me':''}"><div class="w"><b>${esc(x.it?x.it.name:x.id)}</b>${x.short?` <span class="sh">缺 ${x.short}</span>`:''}<small>${esc(x.f?x.f.name:'')}・${dayLabel(x.d)} ${x.f?slotLab(x.f,x.k):''}・${esc(x.r.by)} ${hm(x.r.at)} 發現・請 <b>${esc(x.who||'—')}</b> 補</small></div><button class="btn mini" data-act="rsdone" data-path="${esc(x.path)}" data-id="${esc(x.id)}" data-txt="已補齊" data-name="${esc(x.it?x.it.name:x.id)}">已補齊</button></div>`;
   let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>待補（上一班未補）</b><small>補好了按「已補齊」，誰按都可以</small></div></div><div class="fb"><div class="in">`;
   if(mine.length) h+=`<div class="secb"><div class="sh2"><b>請你（${esc(me())}）補<small>${mine.length} 項</small></b><button class="btn mini outline" data-act="rsall" data-sc="mine">這些全部已補齊</button></div>${mine.map(row).join('')}</div>`;
   const rest=L.filter(x=>!mine.includes(x));
@@ -1041,8 +1043,12 @@ function soakList(){
   ks.forEach(mk=>{ const o=getAt('soak/'+mk)||{}; Object.keys(o).forEach(id=>{ if(o[id]) out.push(Object.assign({id,mk},o[id])); }); });
   return out.sort((a,b)=>b.inAt-a.inAt);
 }
-let soakForm={item:'喉頭鏡葉片',other:'',qty:1}, _soakT=null;
-function openSoak(){ fvs={soak:1}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSoak(); clearInterval(_soakT); _soakT=setInterval(()=>{ if(fvs&&fvs.soak) renderSoak(true); else clearInterval(_soakT); },30000); }
+let soakForm={item:'喉頭鏡葉片',other:'',qty:1,time:''}, _soakT=null, soakOut={};   // time＝放入時間（空白＝現在）；soakOut＝按了取出、正在填取出時間的
+const nowHM=()=>{ const n=new Date(); return `${pad(n.getHours())}:${pad(n.getMinutes())}`; };
+// 今天的 HH:MM → 時間；比現在晚 5 分鐘以上就當成昨天（過了半夜補登）
+function hmToTs(v){ const m=String(v||'').match(/^(\d{1,2}):(\d{2})/); if(!m) return Date.now(); const d=new Date(); d.setHours(+m[1],+m[2],0,0); if(d.getTime()>Date.now()+5*60000) d.setDate(d.getDate()-1); return d.getTime(); }
+function openSoak(){ fvs={soak:1}; soakForm.time=''; soakOut={}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSoak(); clearInterval(_soakT);
+  _soakT=setInterval(()=>{ if(!(fvs&&fvs.soak)){ clearInterval(_soakT); return; } const ae=document.activeElement; if(ae&&ae.tagName==='INPUT'&&$('fv').contains(ae)) return; renderSoak(true); },30000); }
 function renderSoak(keep){
   const L=soakList(), open=L.filter(x=>!x.outAt), t=ymd(new Date()), done=L.filter(x=>x.outAt&&ymd(new Date(x.outAt))===t);
   const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0;
@@ -1051,9 +1057,12 @@ function renderSoak(keep){
   h+=`<div class="card"><b>放入</b><div class="chips" style="margin:8px 0">${SOAK_ITEMS.map(x=>`<button class="chip${soakForm.item===x?' on':''}" data-act="sk-item" data-n="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip${isOther?' on':''}" data-act="sk-item" data-n="">其他</button></div>
     ${isOther?`<input type="text" placeholder="品名" data-in="sk-other" value="${esc(soakForm.other)}" style="width:100%;margin-bottom:8px">`:''}
     <div class="edrow"><span>數量</span><span class="stp"><button data-act="sk-q" data-d="-1">−</button><input type="number" inputmode="numeric" data-in="sk-qty" value="${soakForm.qty}"><button data-act="sk-q" data-d="1">＋</button></span>
-    <button class="btn" data-act="sk-in" style="margin-left:auto">放入（${esc(me())}）</button></div>
+    </div>
+    <div class="edrow"><span>放入時間</span><input type="time" data-in="sk-time" value="${esc(soakForm.time||nowHM())}" style="width:120px"><button class="btn" data-act="sk-in" style="margin-left:auto">放入（${esc(me())}）</button></div>
     <div class="hint" style="margin:6px 0 0">寄消物品請確實清潔並把水份擦乾再放入。</div></div>`;
   h+=`<div class="secb"><div class="sh2"><b>浸泡中<small>${open.length} 件</small></b></div>${open.length?open.map(x=>{ const m=Math.floor((Date.now()-x.inAt)/60000);
+    if(soakOut[x.id]!=null) return `<div class="soakrow" style="flex-wrap:wrap"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.inBy)} ${whenLabel(x.inAt)} 放入</small></div>
+      <div class="edrow" style="flex-basis:100%;margin:6px 0 0"><span>取出時間</span><input type="time" data-in="sk-otime" data-id="${x.id}" value="${esc(soakOut[x.id]||nowHM())}" style="width:120px"><button class="btn mini ghost" data-act="sk-outx" data-id="${x.id}">取消</button><button class="btn mini" data-act="sk-outok" data-id="${x.id}" data-mk="${x.mk}" style="margin-left:auto">確定取出</button></div></div>`;
     return `<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.inBy)} ${whenLabel(x.inAt)} 放入</small></div><span class="min${m>=10?' go':''}">${m} 分${m>=10?'・可取出':''}</span><button class="btn mini" data-act="sk-out" data-id="${x.id}" data-mk="${x.mk}">取出</button></div>`; }).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
   h+=`<div class="secb"><div class="sh2"><b>今天已取出<small>${done.length} 件</small></b></div>${done.length?done.map(x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.inBy)} ${hm(x.inAt)} 放入 → ${esc(x.outBy)} ${hm(x.outAt)} 取出（${Math.round((x.outAt-x.inAt)/60000)} 分）</small></div></div>`).join(''):'<div class="soakrow mut">還沒有</div>'}</div>`;
   h+=`</div></div>`;
@@ -1296,7 +1305,8 @@ function monthTable(S){
     if(!r) return '<td></td>';
     if(f.kind==='narc'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.u)}/${esc(x.e)}</td>`; }
     if(f.kind==='temp'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.now)}<br><small>${esc(x.max)}/${esc(x.min)}</small>${x.def?'※':''}</td>`; }
-    const v=r.v[it.id]; return `<td class="${v===0?'x':v===1?'o':''}">${v===1?(it.t==='y'?'ˇ':'✓'):v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):'✗'):v===2?'Δ':''}</td>`;
+    const v=r.v[it.id], fx=v===0&&isFixed(r,it.id); if(fx) return `<td class="o wf" title="已處理（警示）">${it.t==='y'?'ˇ':'✓'}</td>`;
+    return `<td class="${v===0?'x':v===1?'o':''}">${v===1?(it.t==='y'?'ˇ':'✓'):v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):'✗'):v===2?'Δ':''}</td>`;
   };
   h+=`<div class="tw"><table class="mt"><tr><th class="l" rowspan="${ks.length>1?2:1}">項目${f.kind==='narc'?'（未用/空瓶）':f.kind==='temp'?'（當時、最高/最低℃）':''}</th><th rowspan="${ks.length>1?2:1}">設定</th>${[...Array(D)].map((_,i)=>`<th colspan="${ks.length}">${i+1}</th>`).join('')}</tr>`;
   if(ks.length>1) h+=`<tr>${cols.map(c=>`<th>${c.k==='AM'?'9':c.k==='PM'?'17':c.k}</th>`).join('')}</tr>`;
@@ -1328,7 +1338,7 @@ const C=(v,o)=>Object.assign({v:v==null?'':String(v)},o||{});   // 一格：cs �
 function formModel(f0,mk,title){
   const f=formAt(f0,mk), ks=slotsOf(f), D=dim(mk), revs=getAt('rev/'+mk)||{}, out=[], abn=[];
   out.push({t:'h',text:`${title}　${f.full||f.name}`,sub:monLabel(mk)});
-  out.push({t:'p',text:`ˇ＝正常　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
+  out.push({t:'p',text:`ˇ＝正常（含已處理好的）　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
   const H={b:1,sh:1};
   if(slotsOf(f).includes('M')){
     const r=slotRec(`${mk}-01`,f0,'M'), rows=[{h:1,cells:[C('項目',{...H,al:'l'}),C(r?dayLabel(r._d):'本月',H),C('處理情形',{...H,al:'l'})]}];
@@ -1356,6 +1366,7 @@ function formModel(f0,mk,title){
           const v=r.v[it.id], x=r.x[it.id]||{};
           if(f.kind==='narc') return C(`${x.u==null?'':x.u}/${x.e==null?'':x.e}`,{x:v===0});
           if(f.kind==='temp') return C(`${x.now==null?'':x.now}\n${x.max==null?'':x.max}/${x.min==null?'':x.min}${x.def?'※':''}`,{x:v===0});
+          if(v===0&&isFixed(r,it.id)) return C('ˇ');   // 已處理好：打勾（原本的問題列在下面的異常與警示紀錄）
           return C(v===1?'ˇ':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0}); })]});
       });
       rows.push({cells:[...lead('點班者'),...recs.map(r=>C(r?r.by:'',{sm:1}))]});
@@ -1496,7 +1507,8 @@ async function showRec(d,fid,k,pp){
   const line=it=>{ const v=r.v[it.id], x=r.x[it.id]||{};
     let val=F.kind==='narc'?`未用 ${esc(x.u)}・空瓶 ${esc(x.e)}・總量 ${(+x.u||0)+(+x.e||0)}（設定 ${esc(it.q)}）`:F.kind==='temp'?`當時 ${esc(x.now)}℃・最高 ${esc(x.max)}℃・最低 ${esc(x.min)}℃${x.def?'・除霜中':''}`:'';
     const rs=r.res&&r.res[it.id];
-    return `<div class="abn"><div class="h"><b style="color:${v===0?'var(--bad)':'var(--ok)'}">${v===1?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
+    const fx=v===0&&isFixed(r,it.id);
+    return `<div class="abn"><div class="h"><b style="color:${v===0&&!fx?'var(--bad)':'var(--ok)'}">${v===1||fx?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
       ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-path="${esc(r._path)}" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}" data-id="${it.id}">標記已處理</button>`:''}</div>
       ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag wn">警示・已處理</span>':'<span class="tag no">異常</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
   h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
@@ -1688,7 +1700,9 @@ document.addEventListener('click',async e=>{
   if(a==='astp'&&fvs){ const dr=fvs.dr, it=fvs.f.items.find(i=>i.id===ds.id), q=/^\d+$/.test(String(it.q))?+it.q:0;
     const cur=isNum(dr.a[ds.id])?+dr.a[ds.id]:q; dr.a[ds.id]=Math.max(0,cur+(+ds.d)); refreshItem(ds.id); saveDraft(); return; }
   if(a==='restock'){ openRestock(); return; }
-  if(a==='rsdone'){ const txt=ds.txt||'已補齊'; write('PATCH',ds.path+'/res',{[ds.id]:{by:me(),at:Date.now(),txt}}); afterRestock(); toast('已登錄'+txt+'，改列警示'); return; }
+  if(a==='rsdone'){ const txt=ds.txt||'已補齊';
+    if(!confirm(`確定「${ds.name||'這一項'}」${txt}？\n確定後這一項會變成 ✓（列為警示，不算異常）。`)) return;
+    write('PATCH',ds.path+'/res',{[ds.id]:{by:me(),at:Date.now(),txt}}); afterRestock(); toast('已登錄'+txt+'，改成 ✓（列警示）'); return; }
   if(a==='rsall'){ const L=restockList(), sel=ds.sc==='mine'?L.filter(x=>x.who===me()):L.filter(x=>x.who!==me());
     if(!sel.length||!confirm(`${sel.length} 項全部登錄成「已補齊」？`)) return;
     const now=Date.now(), by={}; sel.forEach(x=>{ (by[x.path]||(by[x.path]={}))[x.id]={by:me(),at:now,txt:'已補齊'}; });
@@ -1716,11 +1730,14 @@ document.addEventListener('click',async e=>{
   if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
   if(a==='sk-q'){ soakForm.qty=Math.max(1,(+soakForm.qty||1)+(+ds.d)); renderSoak(true); return; }
   if(a==='sk-in'){ const item=SOAK_ITEMS.includes(soakForm.item)?soakForm.item:(soakForm.other||'').trim(); if(!item){ toast('請寫品名'); return; }
-    const now=Date.now(), id=now.toString(36)+Math.random().toString(36).slice(2,5);
-    write('PUT',`soak/${mkey(ymd(new Date()))}/${id}`,{item,qty:+soakForm.qty||1,inBy:me(),inAt:now}); soakForm.qty=1; renderSoak(true); toast('已登錄放入'); return; }
-  if(a==='sk-out'){ const x=soakList().find(y=>y.id===ds.id), m=x?Math.floor((Date.now()-x.inAt)/60000):99;
-    if(m<10&&!confirm(`還沒泡滿 10 分鐘（目前 ${m} 分）。確定要取出？`)) return;
-    write('PATCH',`soak/${ds.mk}/${ds.id}`,{outBy:me(),outAt:Date.now()}); renderSoak(true); toast('已登錄取出'); return; }
+    const now=Date.now(), at=hmToTs(soakForm.time||nowHM()), id=now.toString(36)+Math.random().toString(36).slice(2,5);
+    write('PUT',`soak/${mkey(ymd(new Date(at)))}/${id}`,{item,qty:+soakForm.qty||1,inBy:me(),inAt:at}); soakForm.qty=1; soakForm.time=''; renderSoak(true); toast(`已登錄 ${hm(at)} 放入`); return; }
+  if(a==='sk-out'){ soakOut[ds.id]=nowHM(); renderSoak(true); const i=document.querySelector(`input[data-in=sk-otime][data-id="${ds.id}"]`); if(i) i.focus(); return; }
+  if(a==='sk-outx'){ delete soakOut[ds.id]; renderSoak(true); return; }
+  if(a==='sk-outok'){ const x=soakList().find(y=>y.id===ds.id); if(!x) return; const at=hmToTs(soakOut[ds.id]||nowHM()), m=Math.floor((at-x.inAt)/60000);
+    if(at<x.inAt){ toast('取出時間不能早於放入時間'); return; }
+    if(m<10&&!confirm(`泡不到 10 分鐘（${m} 分）。確定要登錄取出？`)) return;
+    write('PATCH',`soak/${ds.mk}/${ds.id}`,{outBy:me(),outAt:at}); delete soakOut[ds.id]; renderSoak(true); toast(`已登錄 ${hm(at)} 取出`); return; }
   // ---- 管理頁 ----
   if(a==='close'){ closeDlg(); return; }
   if(a==='noti'){ if(!('Notification' in window)){ toast('這個瀏覽器不支援通知（iPhone 要先把管理頁加到主畫面）'); return; }
@@ -1831,6 +1848,8 @@ document.addEventListener('input',e=>{
     refreshCnt(); saveDraft(); return;
   }
   if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
+  if(ds.in==='sk-time'){ soakForm.time=t.value; return; }
+  if(ds.in==='sk-otime'){ soakOut[ds.id]=t.value; return; }
   if(ds.in==='sk-qty'){ soakForm.qty=Math.max(1,+t.value||1); return; }
   if(ds.in==='st-other'){ sterForm.other=t.value; return; }
   if(ds.in==='st-qty'){ sterForm.qty=Math.max(1,+t.value||1); return; }
