@@ -159,7 +159,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .done{background:var(--okbg);border:1px solid #bfe5cd;color:var(--ok);border-radius:12px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .done.bad{background:var(--warnbg);border-color:#f3d9a4;color:var(--warn)}
 .done b{font-size:15px}
-.done .btn{margin-left:auto}
+.done .acts{margin-left:auto;display:flex;gap:6px}
 details.notes{background:#fff;border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:13.5px}
 details.notes summary{cursor:pointer;color:var(--navy-dark);font-weight:700}
 details.notes ol{margin:6px 0 0;padding-left:20px}
@@ -231,6 +231,20 @@ table.ed td.act{white-space:nowrap}
 table.ed td.act button{border:1px solid var(--line);background:#fff;border-radius:6px;width:30px;height:30px;cursor:pointer;color:var(--mut)}
 .edrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0}
 .edrow label{font-size:13.5px;color:var(--mut)}
+.edsec{border:1px solid var(--line);border-radius:10px;margin:10px 0;overflow:hidden}
+.edsec .eh{display:flex;gap:8px;align-items:center;background:#eef5f6;padding:8px 10px}
+.edsec .eh input{flex:1;min-width:0;font-weight:700;color:var(--navy-dark);font-size:15px}
+.edi{padding:9px 10px;border-top:1px solid #edf1f3}
+.edi .nm{width:100%;font-size:15px}
+.edi .r2{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.edi .r2 label{font-size:13.5px;color:var(--mut)}
+.edi .qv{width:66px;font-size:17px;padding:5px 4px;font-weight:700;color:var(--navy-dark);border-color:#8fc4cb;background:#fbfeff;text-align:center}
+.edi .qv.chg{border-color:#f2a541;background:#fff8ea}
+.edi select{font-size:13.5px;padding:5px 2px;max-width:82px}
+.edi .r2 .mv:first-of-type{margin-left:auto}
+.edi .sp{flex:1}
+.edi .mv{border:1px solid var(--line);background:#fff;border-radius:7px;width:30px;height:34px;color:var(--mut);cursor:pointer;font-size:15px}
+.edi .subi{width:100%;margin-top:6px;font-size:13px;color:var(--mut)}
 .mask{position:fixed;inset:0;background:rgba(12,70,81,.45);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:30px 10px;overflow:auto}
 .mask.on{display:flex}
 .dlg{background:#fff;border-radius:14px;max-width:720px;width:100%;padding:16px 18px;box-shadow:0 10px 40px rgba(0,0,0,.3)}
@@ -251,6 +265,14 @@ table.tt .l{text-align:left}
 .pr .pb{flex:0 0 90px;height:7px;border-radius:4px;background:#e3eaed;overflow:hidden}
 .pr .pb span{display:block;height:100%;background:#2eb872}
 .empty{text-align:center;color:var(--mut);padding:30px 10px}
+#printArea{display:none}
+.prt{background:#f6fafb;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:12px}
+@media print{
+  body.printing>*:not(#printArea){display:none!important}
+  body.printing #printArea{display:block}
+  body.printing{background:#fff}
+  @page{size:A4 landscape;margin:10mm}
+}
 @media (max-width:640px){
   .card{padding:12px}
   .tile .v{font-size:22px}.tile.big .v{font-size:27px}.tile.big{padding:12px 8px}
@@ -271,7 +293,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，要管理密碼）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.0.0';
+const VERSION='1.1.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -577,6 +599,7 @@ function shiftStat(d,s){
 }
 
 function renderNurse(){
+  if(!$("main")) return;
   const name=me();
   if(!name){ renderWho(); renderBar(); return; }
   const {d,s}=view, cur=nowShift(), isNow=cur.d===d&&cur.s===s;
@@ -721,7 +744,9 @@ function renderForm(top){
   let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>${esc(f.full||f.name)}</b><small>${dayLabel(d)} ${k==='M'?'（每月一次）':slotLab(f,k)}${k==='AM'||k==='PM'?'（'+SHIFT[SLOT[k].sh].name+'）':''}</small></div></div><div class="fb"><div class="in">`;
   if(rec&&ro){
     const late=rec.at>slotEnd(rec._d||d,k), hist=(rec.h||[]).length;
-    h+=`<div class="done${rec.bad?' bad':''}"><b>${rec.bad?`⚠ ${rec.bad} 項異常`:'✓ 已點班'}</b><span>${esc(rec.by)}・${whenLabel(rec.at)}${late?'（補登）':''}${hist?`・改過 ${hist} 次`:''}</span>${MANAGE?'':'<button class="btn mini outline" data-act="edit">修改</button>'}</div>`;
+    const mine=!MANAGE&&!rec._stub&&rec.by===me()&&Date.now()-rec.at<24*3600e3;   // 自己點的、24 小時內：可以自己取消（點錯班、點錯單）
+    h+=`<div class="done${rec.bad?' bad':''}"><b>${rec.bad?`⚠ ${rec.bad} 項異常`:'✓ 已點班'}</b><span>${esc(rec.by)}・${whenLabel(rec.at)}${late?'（補登）':''}${hist?`・改過 ${hist} 次`:''}</span>${MANAGE?'':`<span class="acts">${mine?'<button class="btn mini ghost" data-act="cancelrec">取消這筆</button>':''}<button class="btn mini outline" data-act="edit">修改</button></span>`}</div>`;
+    if(!MANAGE&&!mine&&rec.by===me()&&!rec._stub) h+=`<div class="hint">超過 24 小時的點班要取消，請護理長在管理頁刪除。</div>`;
   } else if(rec&&!ro){
     h+=`<div class="note info">修改 ${esc(rec.by)} ${whenLabel(rec.at)} 的點班紀錄；送出後會留下修改紀錄。</div>`;
   } else {
@@ -787,6 +812,15 @@ async function submitForm(){
   delete drafts[draftKey(d,f,k)]; lsSet(LS.draft,drafts);
   closeForm();
   toast(bad?`已送出，${bad} 項異常`:'已送出 ✓');
+}
+
+// 取消一筆點班（點錯班、點錯單）：原位置清掉＝那一班變回未點；整筆紀錄搬到 del/ 留底（誰、什麼時候取消的）
+function cancelRec(d,f,k,rec,who){
+  const dd=k==='M'&&rec._d?rec._d:d, p=recPath(dd,f,k), now=Date.now(), copy=clone(rec);
+  delete copy._d; delete copy._stub;
+  write('PUT',`del/${mkey(dd)}/${now.toString(36)}${Math.random().toString(36).slice(2,5)}`,{p,rec:copy,by:who||'',at:now});
+  write('PUT',p,null);
+  if(k==='M') write('PUT',`rec/${mkey(dd)}/_m/${f.id}`,null);
 }
 
 // ---------- Virusolve 泡消登錄 ----------
@@ -948,6 +982,8 @@ function renderManage(){
     <button class="tile big" data-act="trend" data-m="bad"><span class="tg">📈</span><div class="l">異常項目</div><div class="v">${S.bad}<small> 項</small></div><div class="s">其中待追蹤 ${S.open} 項</div><div class="s">${vsPrev('bad',S,P)}</div></button>
     <button class="tile" data-act="trend" data-m="miss"><span class="tg">📈</span><div class="l">未點班次</div><div class="v">${S.miss}<small> 張</small></div><div class="s">${vsPrev('miss',S,P)}</div></button>
     <button class="tile" data-act="trend" data-m="open"><span class="tg">📈</span><div class="l">待追蹤</div><div class="v">${S.open}<small> 項</small></div><div class="s">${vsPrev('open',S,P)}</div></button></div>`;
+  // 點班項目與設定量（主任要自己調的數字，放上面）
+  h+=card('forms','點班項目與設定量',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
   // 待追蹤異常
   const opens=S.abn.filter(a=>!a.fixed).sort((a,b)=>a.d<b.d?1:-1), fixed=S.abn.filter(a=>a.fixed).sort((a,b)=>a.d<b.d?1:-1);
   const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b><span>${esc(a.it.name)}</span>${a.fixed?'<span class="tag ok">已處理</span>':`<button class="btn mini" data-act="resolve" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-id="${a.it.id}">標記已處理</button>`}</div>
@@ -962,12 +998,11 @@ function renderManage(){
   const useDays=S.days.filter(o=>!o.pre||o.done);
   h+=card('days','每日紀錄與核簽',`已核簽 ${nrev}／${useDays.length} 天`,useDays.length?[...useDays].reverse().map(dayHtml).join(''):'<div class="mut">這個月還沒有點班紀錄</div>');
   // 月表
-  h+=card('mt','點班單月表（同紙本格式）','',monthTable(S));
+  h+=card('mt','點班單月表與列印','',monthTable(S));
   // 泡消登錄
   const so=getAt('soak/'+mcur)||{}, sl=Object.keys(so).map(id=>Object.assign({id},so[id])).sort((a,b)=>a.inAt-b.inAt);
   h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
   // 設定
-  h+=card('forms','設定：點班單內容',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
   h+=card('staff','設定：名單','',staffEditor());
   h+=card('pw','設定：管理密碼','',`<div class="hint">換一個新的管理密碼（至少 8 個字，要有英文和數字）。</div><input type="password" id="npw1" placeholder="新密碼" style="width:100%;margin-bottom:8px" autocomplete="new-password"><input type="password" id="npw2" placeholder="再輸入一次" style="width:100%" autocomplete="new-password"><div class="edrow"><button class="btn" data-act="chpw" style="margin-left:auto">更換</button></div><div id="npw-msg" class="hint"></div><div class="edrow"><button class="btn ghost mini" data-act="logout">這台裝置登出</button></div>`);
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
@@ -983,8 +1018,13 @@ function dayDetail(d){
     activeForms().filter(f=>slotsOf(f).includes('M')).map(f=>{ const m=getAt(`rec/${mkey(d)}/_m/${f.id}`); return m&&m.d===d?`<div class="frm"><span class="n">${esc(f.name)}</span><button class="cell ${m.bad?'bad':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="M">本月 ${m.bad?'⚠'+m.bad:'✓'} ${esc(m.by)}</button></div>`:''; }).join('');
 }
 function monthTable(S){
-  const f=formById(mtForm)||activeForms()[0]; if(!f) return '';
-  let h=`<div class="chips" style="margin-bottom:10px">${activeForms().map(x=>`<button class="chip${x.id===f.id?' on':''}" data-act="mtf" data-f="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
+  const f0=formById(mtForm)||activeForms()[0]; if(!f0) return '';
+  const f=formAt(f0,S.mk);
+  let h=`<div class="prt"><div class="edrow"><select id="pr-scope" style="flex:1;min-width:0"><option value="one">列印這一張（${esc(f0.name)}）</option><option value="all">列印全部點班單＋泡消登錄</option><option value="soak">只印泡消登錄表</option></select></div>
+    <div class="edrow"><label>表頭</label><input type="text" id="pr-title" value="${esc(printTitle())}" style="flex:1;min-width:0" placeholder="例如：○○醫院 急診室"></div>
+    <div class="edrow"><button class="btn" data-act="print">列印／存成 PDF</button><button class="btn outline" data-act="doc">下載 Word</button></div>
+    <div class="hint">${monLabel(S.mk)}・A4 橫印，每張點班單從新的一頁開始，後面附當月異常紀錄。要 PDF：列印畫面選「另存為 PDF」。</div></div>
+    <div class="chips" style="margin-bottom:10px">${activeForms().map(x=>`<button class="chip${x.id===f0.id?' on':''}" data-act="mtf" data-f="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
   const ks=slotsOf(f), D=dim(S.mk);
   if(ks.includes('M')){
     const m=getAt(`rec/${S.mk}/_m/${f.id}`), r=m?R(getAt(recPath(m.d,f,'M'))):null;
@@ -1010,6 +1050,172 @@ function monthTable(S){
   h+=`<div class="sub2">✗＝異常（數量類寫實際數量）；空白＝沒有點。點「每日紀錄與核簽」裡的格子可以看每一筆的處理情形。</div>`;
   return h;
 }
+// 某張點班單在某個月用的是哪一版內容：取那個月紀錄裡最新的版本（改過設定量的月份，列印才對得上當時的設定）
+const fhLoading={};
+function formAt(f,mk){
+  const o=getAt('rec/'+mk)||{}; let v=-1;
+  Object.keys(o).forEach(dk=>{ if(!/^d\d\d$/.test(dk)||!o[dk]) return; Object.keys(o[dk]).forEach(key=>{ if(key.slice(0,key.lastIndexOf('_'))===f.id){ const x=+((o[dk][key]||{}).fv||0); if(x>v) v=x; } }); });
+  if(v<0||v===fver) return f;
+  if(v===0) return DEFAULT_FORMS.find(x=>x.id===f.id)||f;
+  const hv=getAt('cfg/fhist/'+v);
+  if(hv===undefined){ if(!fhLoading[v]){ fhLoading[v]=1; pull('cfg/fhist/'+v).then(()=>renderManage()); } return f; }
+  return (Array.isArray(hv)&&hv.find(x=>x&&x.id===f.id))||f;
+}
+// ---------- 列印／存成 PDF／下載 Word：同紙本格式 ----------
+// 先把每張點班單排成「版面資料」（標題、說明、表格的每一格），再分別輸出成列印用的網頁或 Word 檔（.docx），兩邊內容一樣
+const printTitle=()=>getAt('cfg/printTitle')||'急診室';
+const PSLOT={D:'D',E:'E',N:'N',AM:'9',PM:'17'};
+const MM=2.8346;   // 1mm＝2.8346pt
+const C=(v,o)=>Object.assign({v:v==null?'':String(v)},o||{});   // 一格：cs 跨欄、rs 跨列、m 被上一列合併、b 粗體、sh 底色、al 'l' 靠左、sm 小字、x 異常、sub 補充小字
+function formModel(f0,mk,title){
+  const f=formAt(f0,mk), ks=slotsOf(f), D=dim(mk), revs=getAt('rev/'+mk)||{}, out=[], abn=[];
+  out.push({t:'h',text:`${title}　${f.full||f.name}`,sub:monLabel(mk)});
+  out.push({t:'p',text:`ˇ＝正常　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
+  const H={b:1,sh:1};
+  if(slotsOf(f).includes('M')){
+    const m=getAt(`rec/${mk}/_m/${f0.id}`), r=m?R(getAt(recPath(m.d,f0,'M'))):null, rows=[{h:1,cells:[C('項目',{...H,al:'l'}),C(m?dayLabel(m.d):'本月',H),C('處理情形',{...H,al:'l'})]}];
+    f.items.forEach(it=>{ const v=r?r.v[it.id]:null; rows.push({cells:[C(it.name,{al:'l'}),C(v===1?'ˇ':v===0?'X':v===2?'Δ':'',{x:v===0}),C(r?r.n[it.id]||'':'',{al:'l'})]}); if(r&&v===0) abn.push({d:m.d,k:'M',it,r}); });
+    rows.push({cells:[C('查核者',{al:'l'}),C(m?m.by:''),C('')]});
+    out.push({t:'tbl',widths:[70,30,120],rows});
+  } else {
+    const per=ks.length===3?10:ks.length===2?16:31, blocks=[];
+    for(let a=1;a<=D;a+=per){ let b=Math.min(D,a+per-1); if(D-b>0&&D-b<per/3) b=D; blocks.push([a,b]); if(b===D) break; }
+    const hasQ=f.items.some(it=>String(it.q||'').trim()), many=secs(f).length>1;
+    blocks.forEach(([a,b])=>{
+      const days=[]; for(let i=a;i<=b;i++) days.push(i);
+      const nc=days.length*ks.length, nameW=ks.length===1?60:72, setW=hasQ?10:0, cw=(275-nameW-setW)/Math.max(nc,ks.length===1?31:24);
+      const cols=[]; days.forEach(i=>ks.forEach(k=>cols.push({d:`${mk}-${pad(i)}`,k})));
+      const recs=cols.map(c=>recOf(c.d,f0,c.k)), two=ks.length>1, rows=[];
+      const lead=(v,o)=>[C(v,{al:'l',...o}),...(hasQ?[C('',o)]:[])];
+      rows.push({h:1,cells:[C('項目',{...H,al:'l',rs:two?2:1}),...(hasQ?[C('設定',{...H,rs:two?2:1})]:[]),...days.map(i=>C(i,{...H,cs:ks.length}))]});
+      if(two) rows.push({h:1,cells:[C('',{m:1}),...(hasQ?[C('',{m:1})]:[]),...cols.map(c=>C(PSLOT[c.k]||'',H))]});
+      let lastS=null;
+      f.items.forEach(it=>{
+        if(it.s!==lastS&&many) rows.push({cells:[C(it.s,{al:'l',b:1,sh:2,cs:(hasQ?2:1)+nc})]});
+        lastS=it.s;
+        rows.push({cells:[C(it.name,{al:'l',sub:it.sub}),...(hasQ?[C(it.q)]:[]),...recs.map(r=>{
+          if(!r||r.v[it.id]===undefined) return C('');
+          const v=r.v[it.id], x=r.x[it.id]||{};
+          if(f.kind==='narc') return C(`${x.u==null?'':x.u}/${x.e==null?'':x.e}`,{x:v===0});
+          if(f.kind==='temp') return C(`${x.now==null?'':x.now}\n${x.max==null?'':x.max}/${x.min==null?'':x.min}${x.def?'※':''}`,{x:v===0});
+          return C(v===1?'ˇ':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0}); })]});
+      });
+      rows.push({cells:[...lead('點班者'),...recs.map(r=>C(r?r.by:'',{sm:1}))]});
+      if(f.kind==='narc') rows.push({cells:[...lead('交班者'),...recs.map(r=>C(r?r.x._giver||'':'',{sm:1}))]});
+      rows.push({cells:[...lead('單位主管核簽'),...days.map(i=>{ const rv=revs['d'+pad(i)]; return C(rv?rv.by:'',{cs:ks.length,sm:1}); })]});
+      out.push({t:'tbl',widths:[nameW,...(hasQ?[setW]:[]),...cols.map(()=>cw)],rows});
+    });
+    for(let i=1;i<=D;i++) ks.forEach(k=>{ const d=`${mk}-${pad(i)}`, r=recOf(d,f0,k); if(r) f.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d,k,it,r}); }); });
+  }
+  if(abn.length){
+    out.push({t:'h2',text:`異常紀錄（${abn.length} 項）`});
+    const rows=[{h:1,cells:['日期','班別','項目','實際','處理情形','追蹤','點班者'].map((v,i)=>C(v,{...H,al:[2,4,5].includes(i)?'l':''}))}];
+    abn.forEach(a=>{ const rs=a.r.res&&a.r.res[a.it.id], x=a.r.x[a.it.id]||{};
+      const act=f.kind==='narc'?`${x.u}/${x.e}`:f.kind==='temp'?`${x.now}（${x.max}/${x.min}）`:isNum(a.r.a[a.it.id])?a.r.a[a.it.id]:'';
+      rows.push({cells:[C(dayLabel(a.d)),C(a.k==='M'?'本月':slotLab(f,a.k)),C(a.it.name,{al:'l'}),C(act),C(a.r.n[a.it.id]||'',{al:'l'}),
+        C(rs?`${rs.txt||''}（${rs.by||''}）`:a.r.r[a.it.id]?'已處理':'待追蹤',{al:'l'}),C(a.r.by)]}); });
+    out.push({t:'tbl',widths:[24,14,70,18,78,48,22],rows});
+  }
+  return out;
+}
+function soakModel(mk,title){
+  const so=getAt('soak/'+mk)||{}, L=Object.keys(so).map(id=>so[id]).filter(Boolean).sort((a,b)=>a.inAt-b.inAt), H={b:1,sh:1};
+  const rows=[{h:1,cells:['日期','品名','數量','置入時間','寄消人','取出時間','取出人','浸泡（分）'].map((v,i)=>C(v,{...H,al:i===1?'l':''}))}];
+  L.forEach(x=>rows.push({cells:[C(dayLabel(ymd(new Date(x.inAt)))),C(x.item,{al:'l'}),C(x.qty),C(hm(x.inAt)),C(x.inBy),C(x.outAt?hm(x.outAt):''),C(x.outBy||''),C(x.outAt?Math.round((x.outAt-x.inAt)/60000):'')]}));
+  if(!L.length) rows.push({cells:[C('這個月沒有紀錄',{cs:8})]});
+  return [{t:'h',text:`${title}　VIRUSOLVE 泡消登錄表`,sub:monLabel(mk)},{t:'tbl',widths:[28,60,16,22,30,22,30,22],rows}];
+}
+const printModels=(mk,list,title)=>list.map(f=>f==='soak'?soakModel(mk,title):formModel(f,mk,title));
+// ---- 列印用網頁 ----
+const PFONT='"標楷體","DFKai-SB","BiauKai","Kaiti TC",serif';
+function cellHtml(c,tag){
+  if(c.m) return '';
+  const st=['border:.5pt solid #000','padding:.8pt 1.2pt',`font-size:${c.sm?7:7.5}pt`,`text-align:${c.al==='l'?'left':'center'}`,'vertical-align:middle','line-height:1.15','word-break:break-all','overflow:hidden'];
+  if(c.b||c.x) st.push('font-weight:bold'); if(c.sh) st.push(`background:${c.sh===2?'#f6f6f6':'#f0f0f0'}`);
+  return `<${tag}${c.cs>1?` colspan="${c.cs}"`:''}${c.rs>1?` rowspan="${c.rs}"`:''} style="${st.join(';')}">${esc(c.v).replace(/\n/g,'<br>')}${c.sub?`<span style="font-size:6.5pt">（${esc(c.sub)}）</span>`:''}</${tag}>`;
+}
+function modelHtml(mdl){
+  return `<div class="pf" style="font-family:${PFONT};color:#000">`+mdl.map(b=>{
+    if(b.t==='h') return `<p style="font-size:14pt;margin:0 0 2pt"><b>${esc(b.text)}</b>　　${esc(b.sub)}</p>`;
+    if(b.t==='h2') return `<p style="font-size:11pt;font-weight:bold;margin:8pt 0 2pt">${esc(b.text)}</p>`;
+    if(b.t==='p') return `<p style="font-size:8pt;margin:0 0 4pt">${esc(b.text)}</p>`;
+    const head=b.rows.filter(r=>r.h), body=b.rows.filter(r=>!r.h), tr=(r,tag)=>`<tr style="page-break-inside:avoid">${r.cells.map(c=>cellHtml(c,tag)).join('')}</tr>`;
+    return `<table style="border-collapse:collapse;table-layout:fixed;width:${b.widths.reduce((x,y)=>x+y,0)*MM}pt;margin:0 0 8pt"><colgroup>${b.widths.map(w=>`<col style="width:${w*MM}pt">`).join('')}</colgroup>`+
+      (head.length?`<thead>${head.map(r=>tr(r,'th')).join('')}</thead>`:'')+`<tbody>${body.map(r=>tr(r,'td')).join('')}</tbody></table>`;
+  }).join('')+'</div>';
+}
+function doPrint(mk,list){
+  const title=($('pr-title')||{}).value||printTitle();
+  let pa=$('printArea'); if(!pa){ pa=document.createElement('div'); pa.id='printArea'; document.body.appendChild(pa); }
+  pa.innerHTML='<style>.pf+.pf{page-break-before:always}</style>'+printModels(mk,list,title).map(modelHtml).join('');
+  document.body.classList.add('printing');
+  setTimeout(()=>window.print(),60);
+}
+window.addEventListener('afterprint',()=>document.body.classList.remove('printing'));
+// ---- Word 檔（.docx，自己組，不用外部函式庫）----
+const XE=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+const WF='標楷體';
+const wRun=(t,sz,b)=>{ const pr=(b?'<w:b/>':'')+(sz&&sz!==15?`<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`:'');
+  return String(t).split('\n').map((p,i)=>`<w:r>${pr?`<w:rPr>${pr}</w:rPr>`:''}${i?'<w:br/>':''}<w:t xml:space="preserve">${XE(p)}</w:t></w:r>`).join(''); };
+const wPara=(runs,al,after)=>{ const pr=(after?`<w:spacing w:after="${after}"/>`:'')+(al&&al!=='left'?`<w:jc w:val="${al}"/>`:''); return `<w:p>${pr?`<w:pPr>${pr}</w:pPr>`:''}${runs}</w:p>`; };
+const W_STYLES=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${WF}" w:hAnsi="${WF}" w:eastAsia="${WF}" w:cs="${WF}"/><w:sz w:val="15"/><w:szCs w:val="15"/><w:lang w:val="en-US" w:eastAsia="zh-TW"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
+function wTable(b){
+  const tw=b.widths.map(w=>Math.round(w*56.7));   // 1mm＝56.7 twips
+  let x=`<w:tbl><w:tblPr><w:tblW w:w="${tw.reduce((p,q)=>p+q,0)}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${['top','left','bottom','right','insideH','insideV'].map(s=>`<w:${s} w:val="single" w:sz="4" w:space="0" w:color="000000"/>`).join('')}</w:tblBorders><w:tblCellMar><w:top w:w="0" w:type="dxa"/><w:left w:w="22" w:type="dxa"/><w:bottom w:w="0" w:type="dxa"/><w:right w:w="22" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${tw.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`;
+  b.rows.forEach(r=>{ x+=`<w:tr><w:trPr><w:cantSplit/>${r.h?'<w:tblHeader/>':''}</w:trPr>`; let col=0;
+    r.cells.forEach(c=>{ const cs=c.cs||1, w=tw.slice(col,col+cs).reduce((p,q)=>p+q,0);
+      x+=`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${cs>1?`<w:gridSpan w:val="${cs}"/>`:''}${c.rs>1?'<w:vMerge w:val="restart"/>':c.m?'<w:vMerge/>':''}${c.sh?`<w:shd w:val="clear" w:color="auto" w:fill="${c.sh===2?'F6F6F6':'F0F0F0'}"/>`:''}${c.v||c.m?'<w:vAlign w:val="center"/>':''}</w:tcPr>`+
+        wPara(c.m?'':wRun(c.v,c.sm?13:15,c.b||c.x)+(c.sub?wRun('（'+c.sub+'）',12):''),c.al==='l'?'left':'center')+'</w:tc>';
+      col+=cs; });
+    x+='</w:tr>'; });
+  return x+'</w:tbl>';
+}
+const CRC=(()=>{ const t=new Uint32Array(256); for(let n=0;n<256;n++){ let c=n; for(let k=0;k<8;k++) c=c&1?0xEDB88320^(c>>>1):c>>>1; t[n]=c>>>0; } return t; })();
+const crc32=u=>{ let c=0xFFFFFFFF; for(let i=0;i<u.length;i++) c=CRC[(c^u[i])&255]^(c>>>8); return (c^0xFFFFFFFF)>>>0; };
+// zip（.docx 本身就是 zip）：瀏覽器支援就用 deflate 壓縮，不支援就原樣存
+async function deflateRaw(u8){
+  if(typeof CompressionStream==='undefined') return null;
+  try{ const cs=new CompressionStream('deflate-raw'), w=cs.writable.getWriter(); w.write(u8); w.close(); return new Uint8Array(await new Response(cs.readable).arrayBuffer()); }catch(e){ return null; }
+}
+async function zipFiles(files){
+  const te=new TextEncoder(), parts=[], cd=[]; let off=0;
+  for(const f of files){ const nm=te.encode(f.name), raw=typeof f.data==='string'?te.encode(f.data):f.data, c=crc32(raw), z=await deflateRaw(raw), d=z||raw, meth=z?8:0;
+    const h=new DataView(new ArrayBuffer(30)); h.setUint32(0,0x04034b50,true); h.setUint16(4,20,true); h.setUint16(6,0x0800,true); h.setUint16(8,meth,true); h.setUint16(12,0x21,true);
+    h.setUint32(14,c,true); h.setUint32(18,d.length,true); h.setUint32(22,raw.length,true); h.setUint16(26,nm.length,true);
+    parts.push(new Uint8Array(h.buffer),nm,d);
+    const ch=new DataView(new ArrayBuffer(46)); ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true); ch.setUint16(8,0x0800,true); ch.setUint16(10,meth,true); ch.setUint16(14,0x21,true);
+    ch.setUint32(16,c,true); ch.setUint32(20,d.length,true); ch.setUint32(24,raw.length,true); ch.setUint16(28,nm.length,true); ch.setUint32(42,off,true);
+    cd.push(new Uint8Array(ch.buffer),nm);
+    off+=30+nm.length+d.length; }
+  const cds=cd.reduce((a,b)=>a+b.length,0), e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,cds,true); e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
+}
+async function docxBlob(models){
+  const body=models.map((mdl,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+mdl.map(b=>{
+    if(b.t==='h') return wPara(wRun(b.text,28,1)+wRun('　　'+b.sub,24),null,40);
+    if(b.t==='h2') return wPara(wRun(b.text,22,1),null,40);
+    if(b.t==='p') return wPara(wRun(b.text,16),null,60);
+    return wTable(b)+wPara('',null,0);
+  }).join('')).join('');
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="567" w:right="567" w:bottom="567" w:left="567" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  return zipFiles([
+    {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
+    {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
+    {name:'word/_rels/document.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'word/styles.xml',data:W_STYLES},
+    {name:'word/document.xml',data:doc}]);
+}
+async function doDoc(mk,list){
+  const title=($('pr-title')||{}).value||printTitle();
+  toast('產生 Word 檔中…');
+  const blob=await docxBlob(printModels(mk,list,title));
+  const name=`急診點班_${monLabel(mk)}_${list.length===1?(list[0]==='soak'?'泡消登錄':list[0].name):'全部'}.docx`.replace(/[\\/:*?"<>|（）()\s]/g,'');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000);
+  toast('已下載 '+name);
+}
+
 // 一筆紀錄的明細（管理頁）
 async function showRec(d,fid,k){
   const f=formById(fid); let r=recOf(d,f,k);
@@ -1029,6 +1235,7 @@ async function showRec(d,fid,k){
       ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-d="${d}" data-f="${fid}" data-k="${k}" data-id="${it.id}">標記已處理</button>`:''}</div>
       ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')} ${r.r[it.id]||rs?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
   h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
+  h+=`<div class="edrow" style="margin-top:14px"><button class="btn ghost mini" data-act="mdel" data-d="${d}" data-f="${fid}" data-k="${k}">刪除這筆點班（這一班變回未點）</button></div>`;
   openDlg(h);
 }
 // 逐日累進 → 逐日 → 逐月
@@ -1107,19 +1314,28 @@ function formEditor(){
   if(!edF) edF=clone(FORMS);
   if(!edSel||!edF.find(f=>f.id===edSel)) edSel=edF[0].id;
   const f=edF.find(x=>x.id===edSel), fixedT=f.kind==='narc'||f.kind==='temp';
-  let h=`<div class="hint">改完按「儲存」才會生效，所有人的手機下次打開就會用新的內容。已經點過的紀錄照當時的內容保存，不受影響。</div>
-    <div class="edrow"><label>點班單</label><select data-ed-sel style="flex:1;min-width:0">${edF.map(x=>`<option value="${x.id}"${x.id===edSel?' selected':''}>${esc(x.name)}${x.on===false?'（停用）':''}</option>`).join('')}</select></div>
-    <div class="edrow"><label>簡稱</label><input type="text" data-ed="name" value="${esc(f.name)}" style="flex:1;min-width:120px"><label>全名</label><input type="text" data-ed="full" value="${esc(f.full||'')}" style="flex:2;min-width:160px"></div>
-    <div class="edrow"><label>頻率</label><select data-ed="freq">${Object.keys(FREQ).map(k=>`<option value="${k}"${f.freq===k?' selected':''}>${FREQ[k].lab}</option>`).join('')}</select>
-      <label><input type="checkbox" data-ed="on"${f.on===false?'':' checked'}> 使用中</label>${f.kind==='temp'?`<label>範圍</label><input type="number" data-ed="lo" value="${esc(f.lo)}" style="width:64px">～<input type="number" data-ed="hi" value="${esc(f.hi)}" style="width:64px">℃`:''}</div>
-    <div class="edrow" style="align-items:flex-start"><label>說明</label><textarea data-ed="notes" rows="3" style="flex:1;min-width:0" placeholder="一行一條">${esc((f.notes||[]).join('\n'))}</textarea></div>
-    <div class="tw" style="border:none"><table class="ed"><tr><th>區域</th><th>項目</th><th>設定量</th>${fixedT?'':'<th>方式</th>'}<th></th></tr>
-    ${f.items.map((it,i)=>`<tr><td style="width:24%"><input type="text" data-edi="s" data-i="${i}" value="${esc(it.s)}"></td><td><input type="text" data-edi="name" data-i="${i}" value="${esc(it.name)}"><input type="text" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）" style="margin-top:3px;font-size:12.5px"></td>
-      <td class="q"><input type="text" data-edi="q" data-i="${i}" value="${esc(it.q)}"></td>${fixedT?'':`<td style="width:90px"><select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select></td>`}
-      <td class="act"><button data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button data-act="eddel" data-i="${i}" title="刪除">✕</button></td></tr>`).join('')}</table></div>
-    <div class="edrow"><button class="btn outline mini" data-act="edadd">＋ 新增項目</button><button class="btn ghost mini" data-act="edreset">這張恢復成紙本原始內容</button></div>
+  const saved=(FORMS.find(x=>x.id===f.id)||{items:[]}).items;
+  // 依區域分組（記住每一項在 items 裡的位置）
+  const groups=[]; f.items.forEach((it,i)=>{ let g=groups.find(x=>x.s===it.s); if(!g) groups.push(g={s:it.s,ix:[]}); g.ix.push(i); });
+  const item=i=>{ const it=f.items[i], old=saved.find(x=>x.id===it.id), chg=!old||String(old.q)!==String(it.q);
+    return `<div class="edi"><input type="text" class="nm" data-edi="name" data-i="${i}" value="${esc(it.name)}" placeholder="項目名稱">
+      <div class="r2"><label>設定 <input type="text" class="qv${chg?' chg':''}" data-edi="q" data-i="${i}" value="${esc(it.q)}" ${it.t==='n'?'inputmode="numeric"':''}></label>
+        ${fixedT?'':`<select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select>`}
+        <button class="mv" data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button class="mv" data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button class="mv" data-act="eddel" data-i="${i}" title="刪除">✕</button></div>
+      <input type="text" class="subi" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）"></div>`; };
+  let h=`<div class="hint">改設定量、增減項目後按「儲存」才生效，所有人的手機下次打開就是新的內容。已經點過的紀錄照當時的內容保存。橘框＝改過還沒儲存。</div>
+    <div class="chips" style="margin:8px 0 10px">${edF.map(x=>`<button class="chip${x.id===edSel?' on':''}" data-act="edsel" data-f="${x.id}">${esc(x.name)}${x.on===false?'（停用）':''}</button>`).join('')}</div>
+    ${groups.map(g=>`<div class="edsec"><div class="eh"><input type="text" data-eds="${esc(g.s)}" value="${esc(g.s)}" title="區域名稱（改這裡＝整區改名）"><button class="btn mini outline" data-act="edadd" data-after="${g.ix[g.ix.length-1]}">＋ 這區加一項</button></div>${g.ix.map(item).join('')}</div>`).join('')}
+    <div class="edrow"><button class="btn outline mini" data-act="edaddsec">＋ 新增區域</button></div>
     <div class="edrow"><button class="btn" data-act="edsave"${edDirty?'':' disabled'}>儲存</button><button class="btn ghost" data-act="edcancel"${edDirty?'':' disabled'}>放棄修改</button>${edDirty?'<span class="tag w">有未儲存的修改</span>':''}</div>
-    <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；ˇ／✗／Δ＝多一個「不適用」。</div>`;
+    <details class="notes" style="margin-top:10px"><summary>這張點班單的其他設定</summary>
+      <div class="edrow"><label>簡稱</label><input type="text" data-ed="name" value="${esc(f.name)}" style="flex:1;min-width:120px"></div>
+      <div class="edrow"><label>全名</label><input type="text" data-ed="full" value="${esc(f.full||'')}" style="flex:1;min-width:160px"></div>
+      <div class="edrow"><label>頻率</label><select data-ed="freq">${Object.keys(FREQ).map(k=>`<option value="${k}"${f.freq===k?' selected':''}>${FREQ[k].lab}</option>`).join('')}</select>
+        <label><input type="checkbox" data-ed="on"${f.on===false?'':' checked'}> 使用中</label>${f.kind==='temp'?`<label>範圍</label><input type="number" data-ed="lo" value="${esc(f.lo)}" style="width:64px">～<input type="number" data-ed="hi" value="${esc(f.hi)}" style="width:64px">℃`:''}</div>
+      <div class="edrow" style="align-items:flex-start"><label>說明</label><textarea data-ed="notes" rows="3" style="flex:1;min-width:0" placeholder="一行一條">${esc((f.notes||[]).join('\n'))}</textarea></div>
+      <div class="edrow"><button class="btn ghost mini" data-act="edreset">這張恢復成紙本原始內容</button></div>
+      <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；ˇ／✗／Δ＝多一個「不適用」。</div></details>`;
   return h;
 }
 function staffEditor(){
@@ -1152,6 +1368,9 @@ document.addEventListener('click',async e=>{
   if(a==='open'){ openForm(ds.f,view.d,ds.k); return; }
   if(a==='back'){ if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
   if(a==='edit'){ openForm(fvs.f.id,fvs.d,fvs.k,true); return; }
+  if(a==='cancelrec'&&fvs&&fvs.rec){ const {f,d,k,rec}=fvs;
+    if(!confirm(`取消這筆點班？\n${dayLabel(rec._d||d)} ${k==='M'?'本月':slotLab(f,k)}「${f.name}」\n取消後這一班會變回「未點」，可以重新點。`)) return;
+    cancelRec(d,f,k,rec,me()); closeForm(); toast('已取消這筆點班'); return; }
   if(a==='iv'&&fvs){ const v=+ds.v, dr=fvs.dr; if(dr.v[ds.id]===v&&v!==1) delete dr.v[ds.id]; else dr.v[ds.id]=v;
     if(v!==0){ delete dr.n[ds.id]; delete dr.a[ds.id]; delete dr.r[ds.id]; }
     if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(x=>x!==ds.id);
@@ -1197,6 +1416,13 @@ document.addEventListener('click',async e=>{
   if(a==='trend'){ showTrend(ds.m); return; }
   if(a==='rec'){ showRec(ds.d,ds.f,ds.k); return; }
   if(a==='mtf'){ mtForm=ds.f; renderManage(); return; }
+  if(a==='mdel'){ const f=formById(ds.f), r=recOf(ds.d,f,ds.k); if(!r) return; const nm=mgrName(); if(!nm) return;
+    if(!confirm(`刪除 ${dayLabel(r._d||ds.d)} ${ds.k==='M'?'本月':slotLab(f,ds.k)}「${f.name}」${r.by} 的點班紀錄？
+這一班會變回「未點」（刪掉的紀錄會留底）。`)) return;
+    cancelRec(ds.d,f,ds.k,r,nm); closeDlg(); renderManage(); toast('已刪除這筆點班'); return; }
+  if(a==='print'||a==='doc'){ const sc=($('pr-scope')||{}).value||'one', f=formById(mtForm)||activeForms()[0];
+    const list=sc==='all'?[...activeForms(),'soak']:sc==='soak'?['soak']:[f];
+    if(a==='print') doPrint(mcur,list); else doDoc(mcur,list); return; }
   if(a==='review'){ e.preventDefault(); const nm=mgrName(); if(!nm) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
   if(a==='unreview'){ if(!confirm('取消這一天的核簽？')) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,null); renderManage(); return; }
   if(a==='resolve'){ const nm=mgrName(); if(!nm) return; const txt=prompt('處理情形（例如：已補齊、已送修完成）','已處理'); if(txt==null) return;
@@ -1205,13 +1431,21 @@ document.addEventListener('click',async e=>{
     if($('mask').classList.contains('on')) showRec(d,ds.f,ds.k); renderManage(); toast('已標記處理'); return; }
   if(a==='stadd'){ const v=($('st-in').value||'').trim(); if(!v) return; const L=[...(getAt('cfg/staff')||[])]; if(!L.includes(v)) L.push(v); write('PUT','cfg/staff',L); renderManage(); return; }
   if(a==='stdel'){ const L=[...(getAt('cfg/staff')||[])]; L.splice(+ds.i,1); write('PUT','cfg/staff',L.length?L:null); renderManage(); return; }
-  if(a==='edmv'){ const f=edF.find(x=>x.id===edSel), i=+ds.i, j=i+(+ds.d); if(j<0||j>=f.items.length) return; [f.items[i],f.items[j]]=[f.items[j],f.items[i]]; edDirty=true; renderManage(); return; }
-  if(a==='eddel'){ const f=edF.find(x=>x.id===edSel); if(!confirm(`刪除「${f.items[+ds.i].name}」？`)) return; f.items.splice(+ds.i,1); edDirty=true; renderManage(); return; }
-  if(a==='edadd'){ const f=edF.find(x=>x.id===edSel), last=f.items[f.items.length-1]; f.items.push({id:f.id+'_'+Date.now().toString(36),s:last?last.s:'項目',name:'',q:'',t:f.kind==='narc'?'n':f.kind==='temp'?'temp':'c',sub:''}); edDirty=true; renderManage(); return; }
+  if(a==='edsel'){ edSel=ds.f; renderManage(); return; }
+  if(a==='edmv'){ const f=edF.find(x=>x.id===edSel), i=+ds.i, same=f.items.map((it,ix)=>it.s===f.items[i].s?ix:-1).filter(ix=>ix>=0), p=same.indexOf(i), j=same[p+(+ds.d)];   // 只在同一區裡上下移
+    if(j==null) return; [f.items[i],f.items[j]]=[f.items[j],f.items[i]]; edDirty=true; renderManage(); return; }
+  if(a==='eddel'){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i]; if(f.items.length<2){ toast('至少要留一項'); return; } if(it.name&&!confirm(`刪除「${it.name}」？（按儲存才生效）`)) return; f.items.splice(+ds.i,1); edDirty=true; renderManage(); return; }
+  if(a==='edadd'){ const f=edF.find(x=>x.id===edSel), at=+ds.after, ref=f.items[at];
+    f.items.splice(at+1,0,{id:f.id+'_'+Date.now().toString(36),s:ref?ref.s:'項目',name:'',q:'',t:f.kind==='narc'?'n':f.kind==='temp'?'temp':'n',sub:''}); edDirty=true; renderManage();
+    const el=document.querySelector(`input[data-edi=name][data-i="${at+1}"]`); if(el) el.focus(); return; }
+  if(a==='edaddsec'){ const f=edF.find(x=>x.id===edSel), nm=(prompt('新區域的名稱（例如：第五層抽屜）','')||'').trim(); if(!nm) return;
+    f.items.push({id:f.id+'_'+Date.now().toString(36),s:nm,name:'',q:'',t:f.kind==='narc'?'n':f.kind==='temp'?'temp':'n',sub:''}); edDirty=true; renderManage(); return; }
   if(a==='edreset'){ const def=DEFAULT_FORMS.find(x=>x.id===edSel); if(!def){ toast('這張沒有原始內容'); return; } if(!confirm('這張點班單恢復成紙本原始內容？（按儲存才生效）')) return;
     const i=edF.findIndex(x=>x.id===edSel); edF[i]=clone(def); edDirty=true; renderManage(); return; }
   if(a==='edcancel'){ edF=null; edDirty=false; renderManage(); return; }
-  if(a==='edsave'){ const bad=edF.some(f=>f.items.some(it=>!String(it.name||'').trim())); if(bad){ toast('有項目沒寫名稱'); return; }
+  if(a==='edsave'){ const bad=edF.find(f=>f.items.some(it=>!String(it.name||'').trim())); if(bad){ edSel=bad.id; renderManage(); toast(`「${bad.name}」有項目沒寫名稱`); return; }
+    const nq=edF.find(f=>f.items.some(it=>it.t==='n'&&!/^\d+$/.test(String(it.q).trim()))); if(nq){ edSel=nq.id; renderManage(); toast(`「${nq.name}」方式是「數量」的項目，設定量要填數字`); return; }
+    edF.forEach(f=>f.items.forEach(it=>{ it.q=String(it.q).trim(); }));
     const nv=fver+1, data=clone(edF);
     write('PUT','cfg/forms',data); write('PUT','cfg/fhist/'+nv,data); write('PUT','cfg/fver',nv);
     applyCfg(); edF=null; edDirty=false; renderManage(); toast('點班單內容已儲存'); return; }
@@ -1248,7 +1482,6 @@ document.addEventListener('input',e=>{
   if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
   if(ds.in==='sk-qty'){ soakForm.qty=Math.max(1,+t.value||1); return; }
   // 管理頁：點班單內容編輯
-  if(t.matches('[data-ed-sel]')) return;
   if(ds.ed&&edF){ const f=edF.find(x=>x.id===edSel);
     if(ds.ed==='on') f.on=t.checked?undefined:false;
     else if(ds.ed==='notes') f.notes=t.value.split('\n').map(s=>s.trim()).filter(Boolean);
@@ -1256,12 +1489,15 @@ document.addEventListener('input',e=>{
     else f[ds.ed]=t.value;
     if(f.on===undefined) delete f.on;
     markDirty(); return; }
-  if(ds.edi&&edF){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i]; it[ds.edi]=t.value; markDirty(); return; }
+  if(ds.edi&&edF){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i]; it[ds.edi]=t.value;
+    if(ds.edi==='q'){ const old=(FORMS.find(x=>x.id===f.id)||{items:[]}).items.find(x=>x.id===it.id); t.classList.toggle('chg',!old||String(old.q)!==t.value); }
+    markDirty(); return; }
+  if(ds.eds!=null&&edF){ const f=edF.find(x=>x.id===edSel); f.items.forEach(it=>{ if(it.s===ds.eds) it.s=t.value; }); t.dataset.eds=t.value; markDirty(); return; }
 });
 document.addEventListener('change',e=>{
   const t=e.target;
-  if(t.matches('[data-ed-sel]')){ edSel=t.value; renderManage(); return; }
   if(t.id==='pk-date'&&t.value){ setView({d:t.value,s:view.s},false); return; }
+  if(t.id==='pr-title'){ const v=t.value.trim(); if(v!==printTitle()){ write('PUT','cfg/printTitle',v||null); toast('表頭已存'); } return; }
   if(t.dataset.ed==='freq'||t.dataset.edi==='t'||t.dataset.ed==='on') renderManage();
 });
 function markDirty(){ if(!edDirty){ edDirty=true; const b=document.querySelector('[data-act=edsave]'), c=document.querySelector('[data-act=edcancel]'); if(b) b.disabled=false; if(c) c.disabled=false;

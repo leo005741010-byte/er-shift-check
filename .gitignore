@@ -4,3 +4,5 @@ _mock.js
 *.bak
 desktop.ini
 Thumbs.db
+_*.html
+_*.js
