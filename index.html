@@ -314,7 +314,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.2.0';
+const VERSION='1.2.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -356,9 +356,9 @@ const shiftStart=(d,s)=>parseD(d).getTime()+({D:8,E:16,N:24}[s])*3600e3;
 const SLOT={D:{lab:'白班',sh:'D',end:16},E:{lab:'小夜',sh:'E',end:24},N:{lab:'大夜',sh:'N',end:32},
   X:{lab:'每日',sh:'*',end:32},AM:{lab:'09:00',sh:'D',end:16},PM:{lab:'17:00',sh:'E',end:24},M:{lab:'本月',sh:'*'}};
 const FREQ={shift:{lab:'每班（白班／小夜／大夜）',slots:['D','E','N']},D:{lab:'每天白班一次',slots:['D']},E:{lab:'每天小夜一次',slots:['E']},
-  N:{lab:'每天大夜一次',slots:['N']},day:{lab:'每天一次（哪一班都可以）',slots:['X']},twice:{lab:'每天兩次（09:00、17:00）',slots:['AM','PM']},month:{lab:'每月一次',slots:['M']}};
+  N:{lab:'每天大夜一次',slots:['N']},day:{lab:'每天一次（哪一班都可以）',slots:['X']},twice:{lab:'每天兩次（09:00、17:00）',slots:['AM','PM']},month:{lab:'每月一次',slots:['M']},monthN:{lab:'每月一次（大夜點）',slots:['M'],only:'N'}};
 const slotsOf=f=>(FREQ[f.freq]||FREQ.shift).slots;
-const slotIn=(f,s)=>slotsOf(f).find(k=>SLOT[k].sh===s||SLOT[k].sh==='*');
+const slotIn=(f,s)=>{ const fr=FREQ[f.freq]||FREQ.shift; if(fr.only&&fr.only!==s) return undefined; return fr.slots.find(k=>SLOT[k].sh===s||SLOT[k].sh==='*'); };
 const slotEnd=(d,k)=>k==='M'?new Date(+d.slice(0,4),+d.slice(5,7),1).getTime():parseD(d).getTime()+SLOT[k].end*3600e3;
 const slotLab=(f,k)=>k==='M'?'本月':slotsOf(f).length===1&&k!=='X'?SHIFT[k]?SHIFT[k].name:SLOT[k].lab:SLOT[k].lab;
 
@@ -668,8 +668,9 @@ function viewForms(d,s){ return activeForms().map(f=>{ const k=slotIn(f,s); retu
 function viewParts(d,s){
   const P=curPos(), all=[];
   viewForms(d,s).forEach(({f,k})=>partsOf(f,k).forEach(p=>all.push({f:partForm(f,k,p),k,p})));
-  if(!hasPos()||!P||P==='*') return {mine:all,other:[],all};
-  return {mine:all.filter(x=>x.p===P||x.p===''),other:all.filter(x=>x.p!==P&&x.p!==''),all};
+  if(!hasPos()||!P||P==='*') return {mine:all,other:[],cover:[],all};
+  const cover=all.filter(x=>x.p&&x.p!==P&&x.f.pb===P);   // 代點（那個位置不在時由我點）
+  return {mine:all.filter(x=>x.p===P||x.p===''),cover,other:all.filter(x=>x.p!==P&&x.p!==''&&!cover.includes(x)),all};
 }
 function shiftStat(d,s){
   const L=viewParts(d,s).mine.filter(x=>x.k!=='M'); let done=0,bad=0;
@@ -703,6 +704,7 @@ function renderNurse(){
   const main=VP.mine.filter(x=>x.k!=='M'), mon=VP.mine.filter(x=>x.k==='M');
   h+=`<div class="flist">${main.map(x=>row(x)).join('')||'<div class="empty" style="padding:16px">這個位置這一班沒有要點的單子</div>'}</div>`;
   if(mon.length) h+=`<div class="grp">每月一次</div><div class="flist">${mon.map(x=>row(x)).join('')}</div>`;
+  if(VP.cover.length) h+=`<div class="grp">代點（${[...new Set(VP.cover.map(x=>x.p))].map(esc).join('、')}不在時由你點）</div><div class="flist">${VP.cover.map(x=>row(x,1)).join('')}</div>`;
   if(VP.other.length){ const od=VP.other.filter(x=>shiftStatOne(d,x)).length;
     h+=`<details class="oth"><summary>其他位置的點班（${od}／${VP.other.length} 已點）</summary><div class="flist">${VP.other.map(x=>row(x,1)).join('')}</div></details>`; }
   const soakOpen=soakList().filter(x=>!x.outAt).length;
@@ -1432,6 +1434,7 @@ function posEditor(){
     <div class="mixl">${mix.map(k=>`<span><i style="background:${col(k)}"></i>${esc(lab(k))} ${cnt[k]} 項</span>`).join('')}</div>`;
   h+=`<div class="chips" style="margin:8px 0 10px">${edF.map(x=>{ const n=x.items.filter(it=>!it.p).length; return `<button class="chip${x.id===pjSel?' on':''}" data-act="pjsel" data-f="${x.id}">${esc(x.name)}${n?`（${n} 未分）`:''}</button>`; }).join('')}</div>`;
   h+=`<div class="pjq" style="border:1px solid var(--line);border-radius:10px;margin-bottom:8px">整張設成<div class="pcs">${chips(null,'data-act="pjall"')}</div></div>`;
+  h+=`<div class="pjq" style="border:1px solid var(--line);border-radius:10px;margin-bottom:8px">這張單的位置不在時，由誰代點<div class="pcs">${[...POS,''].map(pp=>`<button class="pc${(f.pb||'')===pp?' on':''}" style="--pc:${pp?POS_COLOR[pp]:'#8a98a3'}" data-act="pjpb" data-p="${esc(pp)}">${pp?esc(pp):'不用'}</button>`).join('')}</div></div>`;
   secs(f).forEach(g=>{
     h+=`<div class="edsec"><div class="eh"><b style="flex:1;color:var(--navy-dark)">${esc(g.s)}</b><small class="mut">${g.items.length} 項</small></div>
       <div class="pjq">整區設成<div class="pcs">${chips(g.items.every(it=>(it.p||'')===(g.items[0].p||''))?(g.items[0].p||''):null,`data-act="pjsec" data-s="${esc(g.s)}"`)}</div></div>
@@ -1525,6 +1528,7 @@ document.addEventListener('click',async e=>{
   if(a==='stdel'){ const L=[...(getAt('cfg/staff')||[])]; L.splice(+ds.i,1); write('PUT','cfg/staff',L.length?L:null); renderManage(); return; }
   if(a==='edsel'){ edSel=ds.f; renderManage(); return; }
   if(a==='pjsel'){ pjSel=ds.f; renderManage(); return; }
+  if(a==='pjpb'){ const f=edF.find(x=>x.id===pjSel); if(ds.p) f.pb=ds.p; else delete f.pb; markDirty(); renderManage(); return; }
   if(a==='pjset'||a==='pjsec'||a==='pjall'){ const f=edF.find(x=>x.id===pjSel), np=ds.p||'';
     const L=a==='pjset'?[f.items[+ds.i]]:a==='pjsec'?f.items.filter(it=>it.s===ds.s):f.items;
     L.forEach(it=>{ if(np) it.p=np; else delete it.p; });
