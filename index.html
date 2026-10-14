@@ -338,7 +338,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.5.0';
+const VERSION='1.6.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -389,8 +389,8 @@ const slotLab=(f,k)=>k==='M'?'本月':slotsOf(f).length===1&&k!=='X'?SHIFT[k]?SH
 // ---------- 點班單內容（預設＝紙本點班單；管理頁可以改，改過的存在雲端 cfg/forms） ----------
 // 項目：t='n' 數量（打 ✗ 時填實際數量）、'c' 打勾（設定量是「各2」這類文字）、'y' ˇ／✗／Δ（不適用）
 const sec=(s,list,t)=>list.map(r=>({id:r[0],s,name:r[1],q:r[2]==null?'':String(r[2]),t:t||(/^\d+$/.test(String(r[2]==null?'':r[2]))?'n':'c'),sub:r[3]||''}));
-const DEFAULT_FORMS=[
-{id:'cart',name:'急救車',full:'急救車點班單',freq:'shift',
+// 急救車原本一張 72 項（紙本）；主任 10/15 要在首頁分成急救車1～4：1 桌面、2 第一層抽屜、3 第二＋第三層抽屜、4 第四層抽屜＋側面
+const CART_SRC={id:'cart',name:'急救車',full:'急救車點班單',freq:'shift',
  notes:['Ambu Bag 及 Mask 功能檢測：壓擠 Ambu bag，瓣膜可張合、無漏氣；Ambu Mask 須以清潔透明塑膠袋包裝。','喉頭鏡亮度不足時，應立即更換電池及檢查燈泡，保持亮度。','請於 CPR 後 1 小時內整車完畢。'],
  items:[
  ...sec('桌面',[['c01','Ambu Bag＋Mask＋O2 雙接管（床頭處）',1],['c02','Endo 7.0／7.5 Fr','各1'],['c03','喉頭鏡柄＋葉片 3.0／4.0 Fr（亮度正常）','各2'],
@@ -413,7 +413,17 @@ const DEFAULT_FORMS=[
    ['c57','硬式抽吸管 小',1],['c58','小兒通條',2]]),
  ...sec('第四層抽屜',[['c59','電子喉頭鏡',1],['c60','電子喉頭鏡鏡葉',3],['c61','電動骨針電鑽',1],['c62','骨針 45mm',2],['c63','骨針 25mm',2],['c64','骨針 15mm',1],
    ['c65','LMA 3.0／4.0','各1'],['c66','防護裝備','1組']]),
- ...sec('側面',[['c67','聽診器（右邊）',2],['c68','急救板（急救車背面）',1],['c69','N95 口罩',5],['c70','i-Bougie（橘色）／S-guide（透明黃）','各2'],['c71','小兒血氧線',1],['c72','小兒壓脈帶',1]])]},
+ ...sec('側面',[['c67','聽診器（右邊）',2],['c68','急救板（急救車背面）',1],['c69','N95 口罩',5],['c70','i-Bougie（橘色）／S-guide（透明黃）','各2'],['c71','小兒血氧線',1],['c72','小兒壓脈帶',1]])]};
+const CART_SPLIT=[['桌面',['桌面']],['第一層抽屜',['第一層抽屜（急救藥物）']],['第二、三層抽屜',['第二層抽屜','第三層抽屜（小兒急救用品組）']],['第四層抽屜、側面',['第四層抽屜','側面']]];
+// 照區域分成四張；區域對不上的（例如後來自己加的區）放在最後一張。from:'cart'＝拆開以前的紀錄（cart_班別）照樣算
+function splitCart(c){
+  const out=CART_SPLIT.map(([desc,ss],i)=>({id:'cart'+(i+1),name:'急救車'+(i+1),full:`急救車點班單 ${i+1}：${desc}`,desc,freq:c.freq||'shift',from:'cart',notes:c.notes||[],items:c.items.filter(it=>ss.includes(it.s))}));
+  c.items.filter(it=>!CART_SPLIT.some(([,ss])=>ss.includes(it.s))).forEach(it=>out[out.length-1].items.push(it));
+  if(c.on===false) out.forEach(x=>{ x.on=false; });
+  return out;
+}
+const DEFAULT_FORMS=[
+...splitCart(CART_SRC),
 {id:'narc',name:'管制藥品',full:'管制藥品點班紀錄表',freq:'shift',kind:'narc',
  notes:['未用＋空瓶＝總量，總量要等於設定量。','交班者與接班者當面核對後送出；送出的人＝接班者。'],
  items:[{id:'n1',s:'管制藥品',name:'Pethidine 50mg',q:'1',t:'n',sub:'支'},{id:'n2',s:'管制藥品',name:'Morphine 10mg',q:'10',t:'n',sub:'支'}]},
@@ -626,15 +636,20 @@ function recOf(d,f,k){
   return legacyOf(d,f,k);
 }
 // 這一份還沒有自己的紀錄時：分位置以前已經有人點了整張（不分位置那一筆），而且那一筆涵蓋這一份的所有項目，就算點過了
+// 這一份還沒有自己的紀錄時，找以前的紀錄：①分位置以前點的整張（不分位置那一筆）②拆單以前的（f.from，例：急救車拆成四張以前的 cart_班別）
 function legacyOf(d,f,k){
-  if(!f._part||!f.items.length) return null;
-  let r=null, dd=d;
+  if(!f.items.length||(!f._part&&!f.from)) return null;
+  let dd=d;
   if(k==='M'){ const m=getAt(`rec/${mkey(d)}/_m/${f.id}`); if(!m) return null; dd=m.d; }
-  const p=`rec/${mkey(dd)}/${dkey(dd)}/${f.id}_${k}`, x=getAt(p); if(!x) return null;
-  r=R(x); if(!f.items.every(it=>r.v[it.id]!==undefined)) return null;
-  r._path=p; r._legacy=1; if(k==='M') r._d=dd;
-  r.bad=f.items.filter(it=>r.v[it.id]===0).length;   // 只算這一份的項目
-  return r;
+  const base=`rec/${mkey(dd)}/${dkey(dd)}/`, cands=[];
+  if(f._part) cands.push(`${f.id}_${k}`);
+  if(f.from){ cands.push(`${f.from}_${k}${pSuf(f)}`,`${f.from}_${k}`); POS.forEach(pp=>cands.push(`${f.from}_${k}~${pp}`)); }
+  for(const key of [...new Set(cands)]){ const x=getAt(base+key); if(!x) continue;
+    const r=R(x); if(!f.items.every(it=>r.v[it.id]!==undefined)) continue;
+    r._path=base+key; r._legacy=1; if(k==='M') r._d=dd;
+    r.bad=f.items.filter(it=>r.v[it.id]===0).length;   // 只算這一份的項目
+    return r; }
+  return null;
 }
 const special=f=>f.kind==='narc'||f.kind==='temp';
 const isFixed=(r,id)=>!!(r.r&&r.r[id])||!!(r.res&&r.res[id]);
@@ -646,8 +661,8 @@ const partBad=(f,r)=>openCount(r,f);
 function slotRec(d,f,k){
   const rs=[], seen=new Set();
   partsOf(f,k).forEach(p=>{ const r=recOf(d,partForm(f,k,p),k); if(r&&!seen.has(r._path)){ seen.add(r._path); rs.push(r); } });
-  if(k!=='M'){ const day=getAt(`rec/${mkey(d)}/${dkey(d)}`)||{}, base=`${f.id}_${k}`;   // 改分工以前／以後點的也一起算
-    Object.keys(day).forEach(key=>{ if(key===base||key.startsWith(base+'~')){ const p=`rec/${mkey(d)}/${dkey(d)}/${key}`; if(!seen.has(p)&&day[key]){ seen.add(p); const r=R(day[key]); r._path=p; rs.push(r); } } }); }
+  if(k!=='M'){ const day=getAt(`rec/${mkey(d)}/${dkey(d)}`)||{}, bases=[`${f.id}_${k}`,...(f.from?[`${f.from}_${k}`]:[])];   // 改分工、拆單以前／以後點的也一起算
+    Object.keys(day).forEach(key=>{ if(bases.some(base=>key===base||key.startsWith(base+'~'))){ const p=`rec/${mkey(d)}/${dkey(d)}/${key}`; if(!seen.has(p)&&day[key]){ seen.add(p); const r=R(day[key]); r._path=p; rs.push(r); } } }); }
   if(!rs.length) return null;
   const o=R({}); o.parts=rs;
   rs.forEach(r=>['v','a','n','r','x','res'].forEach(fl=>Object.assign(o[fl],r[fl])));
@@ -739,7 +754,7 @@ function renderNurse(){
     else if(dr&&Object.keys(dr.v||{}).length+Object.keys(dr.x||{}).length){ cls='part'; fs='點到一半'; }
     const sl=['AM','PM','X'].includes(k)?SLOT[k].lab+'・':'';
     const tg=!hasPos()?'':p?(tag||P==='*'?posTag(p):''):(P&&P!=='*'?'<span class="ptag">共同</span>':'');
-    return `<button class="frow ${cls}" data-act="open" data-f="${f.id}" data-k="${k}" data-p="${esc(p)}"><span class="dot"></span><span class="fn">${esc(f.name)}${tg}<small>${sl}${f.items.length} 項</small></span><span class="fs">${fs}</span><span class="chev">›</span></button>`;
+    return `<button class="frow ${cls}" data-act="open" data-f="${f.id}" data-k="${k}" data-p="${esc(p)}"><span class="dot"></span><span class="fn">${esc(f.name)}${tg}<small>${sl}${f.desc?esc(f.desc)+'・':''}${f.items.length} 項</small></span><span class="fs">${fs}</span><span class="chev">›</span></button>`;
   };
   const main=VP.mine.filter(x=>x.k!=='M'), mon=VP.mine.filter(x=>x.k==='M');
   h+=`<div class="flist">${main.map(x=>row(x)).join('')||'<div class="empty" style="padding:16px">這個位置這一班沒有要點的單子</div>'}</div>`;
@@ -1002,8 +1017,8 @@ function afterRestock(){ if(fvs&&fvs.restock) renderRestock(true); else if(fvs) 
 function restockList(){
   const out=[], t=ymd(new Date()), days=[...new Set([addDays(t,-2),addDays(t,-1),t,view.d])];
   days.forEach(d=>{ const day=getAt(`rec/${mkey(d)}/${dkey(d)}`)||{};
-    Object.keys(day).forEach(key=>{ const r=R(day[key]); if(!r||!r.w) return; const fid=key.slice(0,key.lastIndexOf('_')), f=formById(fid), sk=key.slice(key.lastIndexOf('_')+1).split('~')[0];
-      Object.keys(r.w).forEach(id=>{ if(r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])){ const it=f&&f.items.find(x=>x.id===id);
+    Object.keys(day).forEach(key=>{ const r=R(day[key]); if(!r||!r.w) return; const fid=key.slice(0,key.lastIndexOf('_')), f0=formById(fid), sk=key.slice(key.lastIndexOf('_')+1).split('~')[0];
+      Object.keys(r.w).forEach(id=>{ if(r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])){ const f=f0||FORMS.find(x=>x.from===fid&&x.items.some(y=>y.id===id)), it=f&&f.items.find(x=>x.id===id);
         out.push({d,k:sk,f,it,id,r,path:`rec/${mkey(d)}/${dkey(d)}/${key}`,who:r.w[id],short:it?shortOf(it,r.a[id]):0}); } }); }); });
   return out.sort((a,b)=>b.r.at-a.r.at);
 }
@@ -1094,7 +1109,7 @@ async function refreshView(){
 //  管理頁（護理長／主任）
 // ======================================================================
 let appStart=null;   // 第一筆點班紀錄的日期：之前的日子還沒開始用，不算應點
-let mcur=mkey(ymd(new Date())), mOpen={}, edF=null, edSel=null, pjSel=null, edDirty=false, mtForm='cart';
+let mcur=mkey(ymd(new Date())), mOpen={}, edF=null, edSel=null, pjSel=null, edDirty=false, mtForm='cart1';
 async function manageInit(){
   $('ttl').textContent='急診點班・管理';
   await Promise.all([pull('cfg'),loadSched([ymd(new Date())])]);
