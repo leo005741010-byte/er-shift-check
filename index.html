@@ -329,7 +329,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.4.0';
+const VERSION='1.4.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -683,6 +683,7 @@ let posSel={};   // 位置也只記在這次打開的畫面裡
 const curPos=()=>posSel[`${view.d}|${view.s}`]||'';
 function setPos(p){ posSel[`${view.d}|${view.s}`]=p; if(p!=='*') posSel.last=p;
 }
+const uiOther={};   // 哪一個選人的地方按了「其他」（只記在畫面上）
 const emptyDr=()=>({v:{},a:{},n:{},r:{},x:{},w:{}});
 
 function viewForms(d,s){ return activeForms().map(f=>{ const k=slotIn(f,s); return k?{f,k}:null; }).filter(Boolean); }
@@ -759,8 +760,10 @@ function renderWho(){
   let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">每次打開 App 都要選一次。點班送出時會用這個名字簽名。</div>`;
   if(duty.length) h+=`<div class="grp" style="margin-top:6px">現在這一班（${SHIFT[cur.s].name}）</div><div class="names">${duty.map(n=>`<button class="duty" data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(rest.length) h+=`<div class="grp">${duty.length?'其他人':'名單'}</div><div class="names">${rest.map(n=>`<button data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
-  if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請直接輸入名字。'}</div>`;
-  h+=`<div class="edrow"><input type="text" id="who-in" placeholder="名單上沒有？輸入名字" style="flex:1;min-width:0"><button class="btn" data-act="setme-in">確定</button></div></div>`;
+  if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請按「其他」輸入名字。'}</div>`;
+  h+=`<div class="names"><button class="${uiOther.who?'duty':''}" data-act="whoth">其他</button></div>`;
+  if(uiOther.who) h+=`<div class="edrow"><input type="text" id="who-in" placeholder="請輸入名字" style="flex:1;min-width:0"><button class="btn" data-act="setme-in">確定</button></div>`;
+  h+=`</div>`;
   $('main').innerHTML=h;
 }
 // 最下面：‹ 10/14（二）白班 ›，點中間可以挑日期和班別
@@ -793,7 +796,7 @@ function openForm(fid,d,k,edit,p){
   if(r&&edit) dr={v:clone(r.v),a:clone(r.a),n:clone(r.n),r:clone(r.r),x:clone(r.x),w:clone(r.w||{})};
   else dr=drafts[draftKey(d,f,k)]||emptyDr();
   if(!dr.w) dr.w={};
-  fvs={f,d,k,edit:!r||!!edit,dr};
+  fvs={f,d,k,edit:!r||!!edit,dr}; Object.keys(uiOther).forEach(x=>{ if(x!=='who') delete uiOther[x]; });
   $('fv').classList.add('on'); document.body.style.overflow='hidden';
   renderForm(true);
   if(f.kind==='clock') startClock();
@@ -836,6 +839,7 @@ function prevChecker(d,f,k,id){
   const r=slotRec(ps.d,base,pk); if(!r) return '';
   const part=r.parts.find(x=>x.v&&x.v[id]!==undefined); return part?part.by||'':'';
 }
+function prevCands(d,f,k,id){ const pc=prevChecker(d,f,k,id), ps=prevShift(d,slotSh(k)||'D'); return [...new Set([pc,...onDuty(ps.d,ps.s)].filter(Boolean))]; }
 const pendOf=r=>r?Object.keys(r.w||{}).filter(id=>r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])).length:0;
 const shortOf=(it,a)=>/^\d+$/.test(String(it.q))&&isNum(a)&&+a<+it.q?+it.q-(+a):0;
 const reasonOf=n=>n===PREV_MISS||n==='損壞送修'?n:n&&n.startsWith(OTHER)?OTHER:n?'舊':'';
@@ -847,9 +851,9 @@ function ngBody(f,it,dr,ro){
     return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}${sh?`（缺 ${sh}）`:''}・`:''}${esc(note)}${w?`・請 ${esc(w)} 補`:''} ${fixed?'<span class="tag wn">警示・已處理</span>':`<span class="tag no">${w?'待補':'異常'}</span>`}${canFix?` <button class="btn mini" data-act="rsdone" data-path="${esc(dr._path)}" data-id="${esc(it.id)}" data-txt="${fixWord(note)}">${fixWord(note)}</button>`:''}${rs?`<div class="res">${esc(rs.txt||'已處理')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
   const sh=shortOf(it,dr.a[it.id]);
   let who='';
-  if(note===PREV_MISS&&fvs){ const pc=prevChecker(fvs.d,f,fvs.k,it.id), ps=prevShift(fvs.d,slotSh(fvs.k)||'D'), cands=[...new Set([pc,...onDuty(ps.d,ps.s)].filter(Boolean))], w=(dr.w||{})[it.id]||'';
-    who=`<div class="fix" style="color:var(--txt);flex-wrap:wrap;gap:6px">請誰補：${cands.map(n=>`<button class="chip${w===n?' on':''}" data-act="wsel" data-id="${it.id}" data-n="${esc(n)}">${esc(n)}${n===pc?'（上一班點的）':''}</button>`).join('')}</div>
-      <input type="text" class="note" placeholder="請誰補（可直接打名字）" data-in="w" data-id="${it.id}" value="${esc(w)}">`; }
+  if(note===PREV_MISS&&fvs){ const cands=prevCands(fvs.d,f,fvs.k,it.id), w=(dr.w||{})[it.id]||'', oth=!!uiOther['w:'+it.id]||(!!w&&!cands.includes(w));
+    who=`<div class="fix" style="color:var(--txt);flex-wrap:wrap;gap:6px">請誰補：${cands.map(n=>`<button class="chip${w===n&&!oth?' on':''}" data-act="wsel" data-id="${it.id}" data-n="${esc(n)}">${esc(n)}</button>`).join('')}<button class="chip${oth?' on':''}" data-act="wsel" data-id="${it.id}" data-oth="1">其他</button></div>
+      ${oth?`<input type="text" class="note" placeholder="請輸入名字" data-in="w" data-id="${it.id}" value="${esc(w)}">`:''}`; }
   return `<div class="ngx">${it.t==='n'&&!special(f)?`<div class="fix" style="color:var(--txt)">實際數量 <span class="stp"><button data-act="astp" data-id="${it.id}" data-d="-1">−</button><input type="number" inputmode="numeric" min="0" data-in="a" data-id="${it.id}" value="${esc(dr.a[it.id]==null?'':dr.a[it.id])}"><button data-act="astp" data-id="${it.id}" data-d="1">＋</button></span>${sh?`<b style="color:var(--bad)">缺 ${sh}</b>`:''}</div>`:''}
     <div class="chips">${CHIPS.map(c=>`<button class="chip${rsn===c?' on':''}${c===PREV_MISS?' pm':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>${who}
     ${rsn===OTHER?`<input type="text" class="note" placeholder="請寫原因（必填）" data-in="o" data-id="${it.id}" value="${esc(note.slice(OTHER_P.length))}">`:''}
@@ -870,10 +874,10 @@ function tempBody(f,it,dr,ro,v){
 function giverHtml(f,dr,ro){
   const {d,k}=fvs, p=prevShift(d,k), duty=onDuty(p.d,p.s).filter(n=>n!==me()), g=dr.x._giver||'';
   if(ro) return `<div class="card"><b>交班者：</b>${esc(g||'—')}${dr.x._face?'（已當面核對）':''}　<b>接班者：</b>${esc(fvs.rec?fvs.rec.by:'')}</div>`;
-  const miss=fvs.showMiss&&fvs.showMiss.includes('_giver');
+  const miss=fvs.showMiss&&fvs.showMiss.includes('_giver'), oth=!!uiOther.giver||(!!g&&!duty.includes(g));
   return `<div class="card${miss?' miss':''}" id="it-_giver" style="${miss?'background:#fff8e6':''}"><b>交班者（上一班：${dayLabel(p.d)} ${SHIFT[p.s].name}）</b>
-    <div class="chips" style="margin:8px 0">${duty.map(n=>`<button class="chip${g===n?' on':''}" data-act="giver" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>
-    <input type="text" placeholder="交班者姓名" data-in="giver" value="${esc(g)}" style="width:100%">
+    <div class="chips" style="margin:8px 0">${duty.map(n=>`<button class="chip${g===n&&!oth?' on':''}" data-act="giver" data-n="${esc(n)}">${esc(n)}</button>`).join('')}<button class="chip${oth?' on':''}" data-act="giver" data-oth="1">其他</button></div>
+    ${oth?`<input type="text" placeholder="請輸入交班者名字" data-in="giver" value="${esc(g)}" style="width:100%">`:''}
     <label class="fix" style="margin-top:8px"><input type="checkbox" data-in="face"${dr.x._face?' checked':''}> 交班者已當面一起核對</label>
     <div class="hint" style="margin:6px 0 0">接班者：${esc(me())}（送出的人）</div></div>`;
 }
@@ -1566,12 +1570,13 @@ document.addEventListener('click',async e=>{
   if(!t){
     if(pickOpen&&!e.target.closest('#pick')&&!e.target.closest('#bar')){ pickOpen=false; renderBar(); }
     if(mpick&&!e.target.closest('#pick')&&!e.target.closest('#bar')){ mpick=false; renderMBar(); }
-    if(e.target.id==='mask') closeDlg();
+    if(e.target.id==='mask'){ if(MANAGE&&_pickRes) pickDone(''); else if(MANAGE&&_fxRes) fixDone(''); else closeDlg(); }
     return;
   }
   const a=t.dataset.act, ds=t.dataset;
   // ---- 護理師頁 ----
-  if(a==='setme'){ ME=ds.n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+ds.n); return; }
+  if(a==='setme'){ uiOther.who=false; ME=ds.n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+ds.n); return; }
+  if(a==='whoth'){ uiOther.who=!uiOther.who; renderNurse(); const inp=$('who-in'); if(inp) inp.focus(); return; }
   if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } ME=v; renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='who'){ ME=''; posSel={}; renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='step'){ const v=+ds.d<0?prevShift(view.d,view.s):nextShift(view.d,view.s); const c=nowShift(); setView(v,v.d===c.d&&v.s===c.s); return; }
@@ -1602,7 +1607,12 @@ document.addEventListener('click',async e=>{
     refreshItem(ds.id); saveDraft();
     if(ds.c===OTHER){ const inp=document.querySelector(`#it-${ds.id} input[data-in=o]`); if(inp) inp.focus(); }
     return; }
-  if(a==='wsel'&&fvs){ fvs.dr.w[ds.id]=ds.n; refreshItem(ds.id); saveDraft(); return; }
+  if(a==='wsel'&&fvs){ if(!fvs.dr.w) fvs.dr.w={};
+    if(ds.oth){ uiOther['w:'+ds.id]=true; if(prevCands(fvs.d,fvs.f,fvs.k,ds.id).includes(fvs.dr.w[ds.id])) fvs.dr.w[ds.id]=''; }
+    else { uiOther['w:'+ds.id]=false; fvs.dr.w[ds.id]=ds.n; }
+    refreshItem(ds.id); saveDraft();
+    if(ds.oth){ const inp=document.querySelector(`#it-${ds.id} input[data-in=w]`); if(inp) inp.focus(); }
+    return; }
   if(a==='astp'&&fvs){ const dr=fvs.dr, it=fvs.f.items.find(i=>i.id===ds.id), q=/^\d+$/.test(String(it.q))?+it.q:0;
     const cur=isNum(dr.a[ds.id])?+dr.a[ds.id]:q; dr.a[ds.id]=Math.max(0,cur+(+ds.d)); refreshItem(ds.id); saveDraft(); return; }
   if(a==='restock'){ openRestock(); return; }
@@ -1615,7 +1625,11 @@ document.addEventListener('click',async e=>{
     x[ds.fld]=Math.max(0,cur+(+ds.d)); if(ds.fld==='u'&&!isNum(x.e)&&+ds.d>0&&x.u>=+fvs.f.items.find(i=>i.id===ds.id).q) x.e=0;
     if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
     refreshItem(ds.id); saveDraft(); return; }
-  if(a==='giver'&&fvs){ fvs.dr.x._giver=ds.n; renderForm(); saveDraft(); return; }
+  if(a==='giver'&&fvs){ const p=prevShift(fvs.d,fvs.k), duty=onDuty(p.d,p.s);
+    if(ds.oth){ uiOther.giver=true; if(duty.includes(fvs.dr.x._giver)) fvs.dr.x._giver=''; } else { uiOther.giver=false; fvs.dr.x._giver=ds.n; }
+    renderForm(); saveDraft();
+    if(ds.oth){ const inp=document.querySelector('input[data-in=giver]'); if(inp) inp.focus(); }
+    return; }
   if(a==='submit'&&fvs){ submitForm(); return; }
   if(a==='soak'){ openSoak(); return; }
   if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
@@ -1639,18 +1653,27 @@ document.addEventListener('click',async e=>{
   if(a==='trend'){ showTrend(ds.m); return; }
   if(a==='rec'){ showRec(ds.d,ds.f,ds.k,ds.p||''); return; }
   if(a==='mtf'){ mtForm=ds.f; renderManage(); return; }
-  if(a==='mdel'){ const f=partForm(formById(ds.f),ds.k,ds.p||''), r=recOf(ds.d,f,ds.k); if(!r) return; const nm=mgrName(); if(!nm) return;
+  if(a==='pkname'){ pickDone(ds.n); return; }
+  if(a==='pkoth'){ renderPick(true); return; }
+  if(a==='pkok'){ const v=($('pk-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } pickDone(v); return; }
+  if(a==='pkcancel'){ pickDone(''); return; }
+  if(a==='mdel'){ const f=partForm(formById(ds.f),ds.k,ds.p||''), r=recOf(ds.d,f,ds.k); if(!r) return; const nm=await mgrName(); if(!nm) return;
     if(!confirm(`刪除 ${dayLabel(r._d||ds.d)} ${ds.k==='M'?'本月':slotLab(f,ds.k)}「${f.name}」${r.by} 的點班紀錄？
 這一班會變回「未點」（刪掉的紀錄會留底）。`)) return;
     cancelRec(ds.d,f,ds.k,r,nm); closeDlg(); renderManage(); toast('已刪除這筆點班'); return; }
   if(a==='print'||a==='doc'){ const sc=($('pr-scope')||{}).value||'one', f=formById(mtForm)||activeForms()[0];
     const list=sc==='all'?[...activeForms(),'soak']:sc==='soak'?['soak']:[f];
     if(a==='print') doPrint(mcur,list); else doDoc(mcur,list); return; }
-  if(a==='review'){ e.preventDefault(); const nm=mgrName(); if(!nm) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
+  if(a==='review'){ e.preventDefault(); const nm=await mgrName(); if(!nm) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
   if(a==='unreview'){ if(!confirm('取消這一天的核簽？')) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,null); renderManage(); return; }
-  if(a==='resolve'){ const nm=mgrName(); if(!nm) return; const txt=prompt('處理情形（例如：已補齊、已送修完成）','已處理'); if(txt==null) return;
-    write('PATCH',ds.path+'/res',{[ds.id]:{by:nm,at:Date.now(),txt:txt.trim()||'已處理'}});
-    if($('mask').classList.contains('on')) showRec(ds.d,ds.f,ds.k,ds.p||''); renderManage(); toast('已標記處理'); return; }
+  if(a==='resolve'){ const fromDlg=$('mask').classList.contains('on'); const nm=await mgrName(); if(!nm) return;
+    const txt=await askFix(fixWord(getAt(ds.path+'/n/'+ds.id)||'')); if(!txt) return;
+    write('PATCH',ds.path+'/res',{[ds.id]:{by:nm,at:Date.now(),txt}});
+    if(fromDlg) showRec(ds.d,ds.f,ds.k,ds.p||''); renderManage(); toast('已標記處理，改列警示'); return; }
+  if(a==='fxpick'){ fixDone(ds.t); return; }
+  if(a==='fxoth'){ renderFixAsk(_fxDef,true); return; }
+  if(a==='fxok'){ const v=($('fx-in').value||'').trim(); if(!v){ toast('請寫處理情形'); return; } fixDone(v); return; }
+  if(a==='fxcancel'){ fixDone(''); return; }
   if(a==='stadd'){ const v=($('st-in').value||'').trim(); if(!v) return; const L=[...(getAt('cfg/staff')||[])]; if(!L.includes(v)) L.push(v); write('PUT','cfg/staff',L); renderManage(); return; }
   if(a==='stdel'){ const L=[...(getAt('cfg/staff')||[])]; L.splice(+ds.i,1); write('PUT','cfg/staff',L.length?L:null); renderManage(); return; }
   if(a==='edsel'){ edSel=ds.f; renderManage(); return; }
@@ -1678,11 +1701,29 @@ document.addEventListener('click',async e=>{
     write('PUT','cfg/forms',data); write('PUT','cfg/fhist/'+nv,data); write('PUT','cfg/fver',nv);
     applyCfg(); edF=null; edDirty=false; renderManage(); toast('點班單內容已儲存'); return; }
 });
+let _pickRes=null;
 function mgrName(){
-  let n=me();
-  if(!n){ n=(prompt('核簽用的名字','')||'').trim(); if(!n) return ''; ME=n; }
-  return n;
+  if(me()) return Promise.resolve(me());
+  return new Promise(res=>{ _pickRes=res; renderPick(false); });
 }
+function renderPick(oth){
+  const names=staffNames().sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  openDlg(`<h2>你是哪一位？<button class="btn mini ghost" data-act="pkcancel">取消</button></h2><div class="hint">核簽、標記已處理會記下這個名字（這次打開管理頁只問一次）。</div>
+    <div class="names">${names.map(n=>`<button data-act="pkname" data-n="${esc(n)}">${esc(n)}</button>`).join('')}<button class="${oth?'duty':''}" data-act="pkoth">其他</button></div>
+    ${oth?`<div class="edrow"><input type="text" id="pk-in" placeholder="請輸入名字" style="flex:1;min-width:0"><button class="btn" data-act="pkok">確定</button></div>`:''}`);
+  if(oth){ const i=$('pk-in'); if(i) i.focus(); }
+}
+// 處理情形：已補齊／已修好／已處理，按「其他」才打字
+let _fxRes=null, _fxDef='';
+function askFix(def){ _fxDef=def; return new Promise(res=>{ _fxRes=res; renderFixAsk(def,false); }); }
+function renderFixAsk(def,oth){
+  openDlg(`<h2>處理情形<button class="btn mini ghost" data-act="fxcancel">取消</button></h2><div class="hint">標記之後這一項改列「警示」，不算異常。</div>
+    <div class="names">${['已補齊','已修好','已處理'].map(t=>`<button class="${t===def&&!oth?'duty':''}" data-act="fxpick" data-t="${t}">${t}</button>`).join('')}<button class="${oth?'duty':''}" data-act="fxoth">其他</button></div>
+    ${oth?`<div class="edrow"><input type="text" id="fx-in" placeholder="請寫處理情形" style="flex:1;min-width:0"><button class="btn" data-act="fxok">確定</button></div>`:''}`);
+  if(oth){ const i=$('fx-in'); if(i) i.focus(); }
+}
+function fixDone(t){ closeDlg(); const r=_fxRes; _fxRes=null; if(r) r(t||''); }
+function pickDone(n){ closeDlg(); const r=_pickRes; _pickRes=null; if(n) ME=n; if(r) r(n||''); }
 document.addEventListener('input',e=>{
   const t=e.target, ds=t.dataset;
   if(ds.in&&fvs&&!fvs.soak){
@@ -1734,7 +1775,7 @@ function markDirty(){ if(!edDirty){ edDirty=true; const b=document.querySelector
 // 卡片收合狀態只記在記憶體（每次打開都是收起來的）
 document.addEventListener('toggle',e=>{ const t=e.target; if(t.dataset&&t.dataset.tg) mOpen[t.dataset.tg]=t.open; },true);
 window.addEventListener('beforeunload',e=>{ if(MANAGE&&edDirty){ e.preventDefault(); e.returnValue=''; } });
-document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); if(e.target.id==='pk-in') document.querySelector('[data-act="pkok"]')?.click(); if(e.target.id==='fx-in') document.querySelector('[data-act="fxok"]')?.click(); } });
 
 // ---------- 啟動 ----------
 applyCfg();
