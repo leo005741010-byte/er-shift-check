@@ -140,6 +140,15 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid #c4dade;background:#f2f8f9;color:var(--navy-dark);border-radius:999px;padding:4px 12px;font-size:13.5px;cursor:pointer}
 .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.chip.pm{border-color:#f0b98a;background:#fff4ea;color:#a85800;font-weight:700}
+.chip.pm.on{background:#e8912d;border-color:#e8912d;color:#fff}
+.rsrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #edf1f3}
+.rsrow:last-child{border-bottom:none}
+.rsrow .w{flex:1;min-width:0}
+.rsrow .w small{display:block;color:var(--mut);font-size:12.5px}
+.rsrow .sh{color:var(--bad);font-weight:700;white-space:nowrap}
+.rsrow.me{background:#fff8ec}
+button.note{display:block;width:100%;text-align:left;cursor:pointer;font:inherit;font-size:14px}
 .fix{font-size:13.5px;color:var(--mut);display:flex;align-items:center;gap:6px}
 .fix input{width:18px;height:18px}
 .ngro{font-size:13px;color:var(--bad);margin-top:3px}
@@ -314,7 +323,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.2.1';
+const VERSION='1.3.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -341,12 +350,12 @@ const shiftMonth=(k,n)=>{ const [y,m]=k.split('-').map(Number), d=new Date(y,m-1
 // 班別時間照護理班表：白班 08–16、小夜 16–24、大夜 00–08（大夜算前一天的，跟紙本點班單一樣：同一天 D→E→N）
 const SHIFT={D:{name:'白班',t:'08:00–16:00'},E:{name:'小夜',t:'16:00–24:00'},N:{name:'大夜',t:'00:00–08:00'}};
 const SHIFTS=['D','E','N'];
-// 現在是哪一班：接班前 30 分鐘就算下一班（先到先點）
+// 現在是哪一班：接班前 1 小時就算下一班（07:00 起白班、15:00 起小夜、23:00 起大夜）
 function nowShift(){
   const n=new Date(), m=n.getHours()*60+n.getMinutes(), t=ymd(n);
-  if(m<7*60+30) return {d:addDays(t,-1),s:'N'};
-  if(m<15*60+30) return {d:t,s:'D'};
-  if(m<23*60+30) return {d:t,s:'E'};
+  if(m<7*60) return {d:addDays(t,-1),s:'N'};
+  if(m<15*60) return {d:t,s:'D'};
+  if(m<23*60) return {d:t,s:'E'};
   return {d:t,s:'N'};
 }
 const prevShift=(d,s)=>s==='D'?{d:addDays(d,-1),s:'N'}:s==='E'?{d,s:'D'}:{d,s:'E'};
@@ -446,7 +455,8 @@ const DEFAULT_FORMS=[
  items:sec('儀器時間（誤差 ≤ 1 分鐘）',[['k1','電擊器（DFM100）'],['k2','電擊器（XL+）'],['k3','12 導程 EKG'],['k4','超音波'],['k5','留觀區三合一血壓機（1）'],['k6','留觀區三合一血壓機（2）']],'c')}
 ];
 const SOAK_ITEMS=['喉頭鏡葉片'];
-const CHIPS=['已補齊','已更換','已通知補貨','已通知醫工','已送修'];
+const CHIPS=['上一班未補','已補齊','已更換','已通知補貨','已通知醫工','已送修'];
+const PREV_MISS='上一班未補';   // 接班時發現少了、要請上一班補：記下請誰補，進「待補」清單，補好再按已補齊
 const AUTO_FIX={'已補齊':1,'已更換':1};
 
 // ---------- 雲端（Firebase REST，匿名登入；與其他急診 App 同一個資料庫） ----------
@@ -589,7 +599,7 @@ const partForm=(f,k,p)=>Object.assign({},f,{items:f.items.filter(it=>effPos(it,s
 const pSuf=f=>f._part?'~'+f._part:'';
 
 // ---------- 紀錄 ----------
-const R=r=>r?Object.assign({v:{},a:{},n:{},r:{},x:{},res:{}},r):null;
+const R=r=>r?Object.assign({v:{},a:{},n:{},r:{},x:{},w:{},res:{}},r):null;   // w＝請誰補（上一班未補）
 const recPath=(d,f,k)=>`rec/${mkey(d)}/${dkey(d)}/${f.id}_${k}${pSuf(f)}`;
 const mPath=(mk,f)=>`rec/${mk}/_m/${f.id}${pSuf(f)}`;   // 每月一次的標記（記在哪一天點的）
 function recOf(d,f,k){
@@ -627,7 +637,9 @@ function slotRec(d,f,k){
 }
 
 // ---------- 共用 ----------
-const me=()=>lsGet(LS.me,'');
+let ME='';   // 點班者：只記在這次打開的畫面裡，每次打開 App 都要重新選（主任 10/14 要求，不存在手機上）
+const me=()=>ME;
+try{ localStorage.removeItem(LS.me); localStorage.removeItem(LS.pos); }catch(e){}
 let dev=lsGet(LS.dev,''); if(!dev){ dev=Math.random().toString(36).slice(2,10); lsSet(LS.dev,dev); }
 let _toastT=null;
 function toast(t){ const el=$('toast'); el.textContent=t; el.classList.add('on'); clearTimeout(_toastT); _toastT=setTimeout(()=>el.classList.remove('on'),2600); }
@@ -656,12 +668,11 @@ const drafts=lsGet(LS.draft,{});
 (function pruneDrafts(){ const lim=addDays(ymd(new Date()),-3); Object.keys(drafts).forEach(k=>{ if(k.split('|')[0]<lim) delete drafts[k]; }); lsSet(LS.draft,drafts); })();
 const draftKey=(d,f,k)=>`${d}|${f.id}_${k}${pSuf(f)}`;
 // 這一班選的位置：{'2026-10-14|E':'A1', last:'A1'}；'*'＝先看全部
-let posSel=lsGet(LS.pos,{});
+let posSel={};   // 位置也只記在這次打開的畫面裡
 const curPos=()=>posSel[`${view.d}|${view.s}`]||'';
 function setPos(p){ posSel[`${view.d}|${view.s}`]=p; if(p!=='*') posSel.last=p;
-  const ks=Object.keys(posSel).filter(k=>k!=='last').sort(); while(ks.length>12) delete posSel[ks.shift()];
-  lsSet(LS.pos,posSel); }
-const emptyDr=()=>({v:{},a:{},n:{},r:{},x:{}});
+}
+const emptyDr=()=>({v:{},a:{},n:{},r:{},x:{},w:{}});
 
 function viewForms(d,s){ return activeForms().map(f=>{ const k=slotIn(f,s); return k?{f,k}:null; }).filter(Boolean); }
 // 這一班的每一份（每張單 × 每個位置）；mine＝我的位置的＋不分位置的，other＝別的位置的
@@ -692,6 +703,8 @@ function renderNurse(){
   if(hasPos()) h+=`<div class="posbar">我的位置 <b style="background:${P==='*'?'#8a98a3':POS_COLOR[P]||'#8a98a3'}">${P==='*'?'全部':esc(posLab(P,s))}</b><button class="lk" data-act="pos" style="background:none;border:none;color:var(--navy);text-decoration:underline;cursor:pointer;font-size:13.5px">換位置</button></div>`;
   h+=`<div class="prog"><div class="bar"><span style="width:${st.n?Math.round(st.done/st.n*100):0}%"></span></div><b>${st.done}／${st.n}</b> 張已點${st.bad?`・<span style="color:var(--warn);font-weight:700">${st.bad} 張有異常</span>`:''}</div>`;
   if(duty.length) h+=`<div class="duty">本班（班表）：${duty.map(esc).join('、')}</div>`;
+  const RS=restockList(), RSme=RS.filter(x=>x.who===name);
+  if(RS.length) h+=`<button class="note warn" data-act="restock">⚠ <b>待補 ${RS.length} 項</b>（上一班未補）${RSme.length?`・<b>其中 ${RSme.length} 項請你補</b>`:''} ›</button>`;
   const row=({f,k,p},tag)=>{
     const r=recOf(d,f,k), dr=drafts[draftKey(d,f,k)];
     let cls='',fs='未點';
@@ -726,7 +739,7 @@ function renderPosPick(){
 }
 function renderWho(){
   const names=staffNames(), cur=nowShift(), duty=onDuty(cur.d,cur.s), rest=names.filter(n=>!duty.includes(n)).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
-  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">選一次就好，這支手機會記住。點班送出時會用這個名字簽名。</div>`;
+  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">每次打開 App 都要選一次。點班送出時會用這個名字簽名。</div>`;
   if(duty.length) h+=`<div class="grp" style="margin-top:6px">現在這一班（${SHIFT[cur.s].name}）</div><div class="names">${duty.map(n=>`<button class="duty" data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(rest.length) h+=`<div class="grp">${duty.length?'其他人':'名單'}</div><div class="names">${rest.map(n=>`<button data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請直接輸入名字。'}</div>`;
@@ -760,8 +773,9 @@ function openForm(fid,d,k,edit,p){
   const r=recOf(d,f,k);
   if(k==='M'&&r&&r._stub) pull(r._path).then(()=>{ if(fvs&&fvs.f&&fvs.f.id===fid) renderForm(); });
   let dr;
-  if(r&&edit) dr={v:clone(r.v),a:clone(r.a),n:clone(r.n),r:clone(r.r),x:clone(r.x)};
+  if(r&&edit) dr={v:clone(r.v),a:clone(r.a),n:clone(r.n),r:clone(r.r),x:clone(r.x),w:clone(r.w||{})};
   else dr=drafts[draftKey(d,f,k)]||emptyDr();
+  if(!dr.w) dr.w={};
   fvs={f,d,k,edit:!r||!!edit,dr};
   $('fv').classList.add('on'); document.body.style.overflow='hidden';
   renderForm(true);
@@ -779,7 +793,8 @@ function evalItem(f,it,dr){
 function progressOf(f,dr){
   let ans=0,need=0,miss=[];
   f.items.forEach(it=>{ const v=evalItem(f,it,dr); if(v!=null) ans++; else miss.push(it.id);
-    if(v===0&&!String(dr.n[it.id]||'').trim()) { need++; miss.push(it.id); } });
+    if(v===0&&!String(dr.n[it.id]||'').trim()) { need++; miss.push(it.id); }
+    else if(v===0&&dr.n[it.id]===PREV_MISS&&!String((dr.w||{})[it.id]||'').trim()) { need++; miss.push(it.id); } });   // 上一班未補：要寫請誰補
   if(f.kind==='narc'&&!String(dr.x._giver||'').trim()) miss.push('_giver');
   return {ans,tot:f.items.length,need,miss};
 }
@@ -797,14 +812,28 @@ function itemHtml(f,it,dr,ro){
   const miss=fvs&&fvs.showMiss&&fvs.showMiss.includes(it.id);
   return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${right}</div>${body}</div>`;
 }
+// 上一班點這一項的人：上一個時段同一張單、有點到這一項的那一份
+function prevChecker(d,f,k,id){
+  const sh=slotSh(k); if(!SHIFT[sh]) return '';
+  const ps=prevShift(d,sh), base=f._base||f, pk=slotIn(base,ps.s); if(!pk) return '';
+  const r=slotRec(ps.d,base,pk); if(!r) return '';
+  const part=r.parts.find(x=>x.v&&x.v[id]!==undefined); return part?part.by||'':'';
+}
+const shortOf=(it,a)=>/^\d+$/.test(String(it.q))&&isNum(a)&&+a<+it.q?+it.q-(+a):0;
 function ngBody(f,it,dr,ro){
   const note=dr.n[it.id]||'', fixed=!!dr.r[it.id]||!!(dr.res&&dr.res[it.id]);
   if(ro){ const rs=dr.res&&dr.res[it.id];
-    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}・`:''}${esc(note)} ${fixed?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<div class="res">管理者處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
-  return `<div class="ngx">${it.t==='n'&&!special(f)?`<label>實際數量 <input type="number" inputmode="numeric" min="0" data-in="a" data-id="${it.id}" value="${esc(dr.a[it.id]==null?'':dr.a[it.id])}"></label>`:''}
-    <div class="chips">${CHIPS.map(c=>`<button class="chip${note===c?' on':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>
-    <input type="text" class="note" placeholder="處理情形（必填）" data-in="n" data-id="${it.id}" value="${esc(note)}">
-    <label class="fix"><input type="checkbox" data-in="r" data-id="${it.id}"${dr.r[it.id]?' checked':''}> 已處理完畢（沒勾＝待追蹤，會出現在護理長的追蹤清單）</label></div>`;
+    const w=dr.w&&dr.w[it.id], sh=shortOf(it,dr.a[it.id]);
+    return `<div class="ngro">${it.t==='n'&&isNum(dr.a[it.id])&&!special(f)?`實際 ${esc(dr.a[it.id])}${sh?`（缺 ${sh}）`:''}・`:''}${esc(note)}${w?`・請 ${esc(w)} 補`:''} ${fixed?'<span class="tag ok">已處理</span>':`<span class="tag no">${w?'待補':'待追蹤'}</span>`}${rs?`<div class="res">${esc(rs.txt||'已處理')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）</div>`:''}</div>`; }
+  const sh=shortOf(it,dr.a[it.id]);
+  let who='';
+  if(note===PREV_MISS&&fvs){ const pc=prevChecker(fvs.d,f,fvs.k,it.id), ps=prevShift(fvs.d,slotSh(fvs.k)||'D'), cands=[...new Set([pc,...onDuty(ps.d,ps.s)].filter(Boolean))], w=(dr.w||{})[it.id]||'';
+    who=`<div class="fix" style="color:var(--txt);flex-wrap:wrap;gap:6px">請誰補：${cands.map(n=>`<button class="chip${w===n?' on':''}" data-act="wsel" data-id="${it.id}" data-n="${esc(n)}">${esc(n)}${n===pc?'（上一班點的）':''}</button>`).join('')}</div>
+      <input type="text" class="note" placeholder="請誰補（可直接打名字）" data-in="w" data-id="${it.id}" value="${esc(w)}">`; }
+  return `<div class="ngx">${it.t==='n'&&!special(f)?`<div class="fix" style="color:var(--txt)">實際數量 <span class="stp"><button data-act="astp" data-id="${it.id}" data-d="-1">−</button><input type="number" inputmode="numeric" min="0" data-in="a" data-id="${it.id}" value="${esc(dr.a[it.id]==null?'':dr.a[it.id])}"><button data-act="astp" data-id="${it.id}" data-d="1">＋</button></span>${sh?`<b style="color:var(--bad)">缺 ${sh}</b>`:''}</div>`:''}
+    <div class="chips">${CHIPS.map(c=>`<button class="chip${note===c?' on':''}${c===PREV_MISS?' pm':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>${who}
+    ${note===PREV_MISS?'<div class="hint" style="margin:0">會列在首頁的「待補」，補好了在那裡按「已補齊」。</div>':`<input type="text" class="note" placeholder="處理情形（必填）" data-in="n" data-id="${it.id}" value="${esc(note)}">
+    <label class="fix"><input type="checkbox" data-in="r" data-id="${it.id}"${dr.r[it.id]?' checked':''}> 已處理完畢（沒勾＝待追蹤，會出現在護理長的追蹤清單）</label>`}</div>`;
 }
 const stp=(id,fld,val,ro,dec)=>ro?`<b style="font-size:18px">${esc(val==null||val===''?'—':val)}</b>`
   :`<span class="stp"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="-1">−</button><input type="number" inputmode="${dec?'decimal':'numeric'}" data-in="x" data-id="${id}" data-fld="${fld}" value="${esc(val==null?'':val)}"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="1">＋</button></span>`;
@@ -884,7 +913,7 @@ async function submitForm(){
   if(p.miss.length){
     fvs.showMiss=p.miss; renderForm();
     const el=$('it-'+p.miss[0]); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
-    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'異常的項目要寫處理情形':'請填交班者');
+    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'異常的項目要寫處理情形（上一班未補要選請誰補）':'請填交班者');
     return;
   }
   // 送出前再看一次雲端：別人剛好也點了同一張，先問再蓋
@@ -900,7 +929,7 @@ async function submitForm(){
   const bad=Object.values(v).filter(x=>x===0).length;
   const keep=o=>{ const r={}; Object.keys(o||{}).forEach(id=>{ if(v[id]===0||id.startsWith('_')||special(f)) r[id]=o[id]; }); return r; };
   const old=fvs.rec, now=Date.now();
-  const rec={by:me(),at:now,dev,fv:fver,v,a:keep(dr.a),n:keep(dr.n),r:keep(dr.r),x:keep(dr.x),bad};
+  const rec={by:me(),at:now,dev,fv:fver,v,a:keep(dr.a),n:keep(dr.n),r:keep(dr.r),x:keep(dr.x),w:keep(dr.w),bad};
   if(f._part) rec.p=f._part;
   if(old&&old.by) rec.h=[...(old.h||[]),{by:old.by,at:old.at,bad:old.bad||0}];
   if(old&&old.res){ const rs={}; Object.keys(old.res).forEach(id=>{ if(v[id]!==undefined) rs[id]=old.res[id]; }); if(Object.keys(rs).length) rec.res=rs; }
@@ -920,6 +949,28 @@ function cancelRec(d,f,k,rec,who){
   write('PUT',`del/${mkey(dd)}/${now.toString(36)}${Math.random().toString(36).slice(2,5)}`,{p,rec:copy,by:who||'',at:now});
   write('PUT',p,null);
   if(k==='M') write('PUT',rec._legacy?`rec/${mkey(dd)}/_m/${f.id}`:mPath(mkey(dd),f),null);
+}
+
+// ---------- 待補（接班時發現上一班沒補的）----------
+function restockList(){
+  const out=[], t=ymd(new Date()), days=[...new Set([addDays(t,-2),addDays(t,-1),t,view.d])];
+  days.forEach(d=>{ const day=getAt(`rec/${mkey(d)}/${dkey(d)}`)||{};
+    Object.keys(day).forEach(key=>{ const r=R(day[key]); if(!r||!r.w) return; const fid=key.slice(0,key.lastIndexOf('_')), f=formById(fid), sk=key.slice(key.lastIndexOf('_')+1).split('~')[0];
+      Object.keys(r.w).forEach(id=>{ if(r.v[id]===0&&!r.r[id]&&!(r.res&&r.res[id])){ const it=f&&f.items.find(x=>x.id===id);
+        out.push({d,k:sk,f,it,id,r,path:`rec/${mkey(d)}/${dkey(d)}/${key}`,who:r.w[id],short:it?shortOf(it,r.a[id]):0}); } }); }); });
+  return out.sort((a,b)=>b.r.at-a.r.at);
+}
+function openRestock(){ fvs={restock:1}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderRestock(); }
+function renderRestock(keep){
+  const L=restockList(), mine=L.filter(x=>x.who&&x.who===me()), old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0;
+  const row=x=>`<div class="rsrow${x.who===me()?' me':''}"><div class="w"><b>${esc(x.it?x.it.name:x.id)}</b>${x.short?` <span class="sh">缺 ${x.short}</span>`:''}<small>${esc(x.f?x.f.name:'')}・${dayLabel(x.d)} ${x.f?slotLab(x.f,x.k):''}・${esc(x.r.by)} ${hm(x.r.at)} 發現・請 <b>${esc(x.who||'—')}</b> 補</small></div><button class="btn mini" data-act="rsdone" data-path="${esc(x.path)}" data-id="${esc(x.id)}">已補齊</button></div>`;
+  let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>待補（上一班未補）</b><small>補好了按「已補齊」，誰按都可以</small></div></div><div class="fb"><div class="in">`;
+  if(mine.length) h+=`<div class="secb"><div class="sh2"><b>請你（${esc(me())}）補<small>${mine.length} 項</small></b></div>${mine.map(row).join('')}</div>`;
+  const rest=L.filter(x=>!mine.includes(x));
+  h+=`<div class="secb"><div class="sh2"><b>${mine.length?'其他待補':'待補'}<small>${rest.length} 項</small></b></div>${rest.length?rest.map(row).join(''):'<div class="rsrow mut">沒有</div>'}</div>`;
+  h+=`<div class="hint">只列最近三天點班時記成「上一班未補」、還沒補齊的項目。</div></div></div>`;
+  $('fv').innerHTML=h;
+  const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
 }
 
 // ---------- Virusolve 泡消登錄 ----------
@@ -959,11 +1010,12 @@ async function refreshView(){
       applyCfg();
     }
     const ps=prevShift(d,s);
-    await Promise.all([pull(`rec/${mkey(d)}/${dkey(d)}`),pull(`rec/${mkey(d)}/_m`),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),
+    const rd=[...new Set([d,ps.d,t,addDays(t,-1)])];
+    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),pull(`rec/${mkey(d)}/_m`),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),
       loadSched([...new Set([d,ps.d,nowShift().d])])]);
     flush();
   } finally{ _busy=false; }
-  if(fvs&&fvs.soak) renderSoak(true); else if(fvs) renderForm(); else renderNurse();
+  if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
 }
 
 // ======================================================================
@@ -994,8 +1046,12 @@ async function loadMonth(mk,render){
   if(render) renderManage();
 }
 // 這個月每天各班：應點／已點／異常。只算已經過完的班（或已經點了的），進行中的班不算未點
+// 上班時間（冰箱是 09:00／17:00 那一次）；每天一次、每月一次的不算延遲
+const SLOT_START={D:8,E:16,N:24,AM:9,PM:17};
+const firstAt=r=>r.h&&r.h.length?r.h[0].at:r.at;   // 改過的以第一次送出為準
+function lateMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((firstAt(r)-(parseD(d).getTime()+SLOT_START[k]*3600e3))/60000); return m>60?m:0; }
 function monthStats(mk){
-  const D=dim(mk), now=Date.now(), today=ymd(new Date()), days=[], abn=[], byForm={};
+  const D=dim(mk), now=Date.now(), today=ymd(new Date()), days=[], abn=[], byForm={}, late=[], lateSeen=new Set();
   let due=0,done=0,bad=0,open=0;
   const last=mk===mkey(today)?+today.slice(8):mk>mkey(today)?0:D;
   for(let i=1;i<=last;i++){
@@ -1007,6 +1063,7 @@ function monthStats(mk){
         const bf=byForm[f.id]||(byForm[f.id]={f,due:0,done:0,bad:0});
         if(isDue){ o.due++; bf.due++; }
         if(r){ const b=partBad(pf,r); o.done++; bf.done++; o.bad+=b; bf.bad+=b; o.open+=openCount(r,pf);
+          const lm=lateMin(d,k,r); if(lm&&!lateSeen.has(r._path)){ lateSeen.add(r._path); late.push({d,k,f,p:pp,r,min:lm,key:r._path+'|'+firstAt(r)}); }
           pf.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d,k,f,p:pp,it,r,fixed:!!r.r[it.id]||!!(r.res&&r.res[it.id])}); }); }
         else if(isDue) o.miss++;
       });
@@ -1023,7 +1080,8 @@ function monthStats(mk){
     else if(ended){ const o=days[last-1]; if(o) o.miss++; }
   }));
   const miss=days.reduce((a,o)=>a+o.miss,0);
-  return {mk,days,due,done,bad,open,miss,abn,byForm,last};
+  late.sort((a,b)=>firstAt(b.r)-firstAt(a.r));
+  return {mk,days,due,done,bad,open,miss,abn,byForm,last,late};
 }
 const rate=S=>S.due?S.done/S.due*100:null;
 const TR={
@@ -1055,6 +1113,10 @@ function renderManage(){
   const S=monthStats(mcur), P=mLoaded.has(pk)?monthStats(pk):null;   // 上個月：開始使用以前的月份 due＝0，不比
   const r=rate(S), isCur=mcur===mkey(ymd(new Date()));
   let h=cloudAlert();
+  const lateLine=x=>`${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.f.name)}${x.p?`（${esc(x.p)}）`:''}・${esc(x.r.by)} ${hm(firstAt(x.r))} 才點（晚 ${x.min} 分）`;
+  if(isCur){ const L24=S.late.filter(x=>Date.now()-firstAt(x.r)<24*3600e3);
+    if(L24.length) h+=`<div class="note warn"><b>⏰ 最近 24 小時有 ${L24.length} 筆上班超過 1 小時才點班</b><br>${L24.slice(0,5).map(lateLine).join('<br>')}${L24.length>5?`<br>…還有 ${L24.length-5} 筆，見「延遲點班」`:''}</div>`;
+    notifyLate(S); }
   h+=`<div class="mhead"><h2>${monLabel(mcur)}</h2><span class="mut">${isCur?`到今天（${dayLabel(ymd(new Date()))}）`:'整月'}</span></div>`;
   h+=`<div class="tiles">
     <button class="tile big" data-act="trend" data-m="rate"><span class="tg">📈</span><div class="l">點班完成率</div><div class="v">${r==null?'—':fmt(r)+'<small>%</small>'}</div><div class="pbar"><span style="width:${r||0}%"></span></div><div class="s">已點 ${S.done}／應點 ${S.due}</div><div class="s">${vsPrev('rate',S,P)}</div></button>
@@ -1069,9 +1131,16 @@ function renderManage(){
   // 待追蹤異常
   const opens=S.abn.filter(a=>!a.fixed).sort((a,b)=>a.d<b.d?1:-1), fixed=S.abn.filter(a=>a.fixed).sort((a,b)=>a.d<b.d?1:-1);
   const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}</span>${a.fixed?'<span class="tag ok">已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
-    <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}</div></div>`;
+    <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${a.r.w&&a.r.w[a.it.id]?`・請 ${esc(a.r.w[a.it.id])} 補`:''}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}</div></div>`;
   h+=card('abn',`異常追蹤`,`待追蹤 ${opens.length}・已處理 ${fixed.length}`,
     (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有待追蹤的異常</div>')+(fixed.length?`<div class="grp">已處理</div>${fixed.map(abnRow).join('')}`:''));
+  // 延遲點班
+  const notiOn=lsGet(LS_NOTI,0)&&'Notification' in window&&Notification.permission==='granted';
+  h+=card('late','延遲點班（上班超過 1 小時才點）',`${S.late.length} 筆`,
+    `<div class="hint">點班時間比上班時間（白班 08:00、小夜 16:00、大夜 00:00；冰箱 09:00／17:00）晚超過 1 小時的。改過的以第一次送出的時間算；每天一次、每月一次的單子不算。</div>
+     <div class="edrow"><button class="btn mini ${notiOn?'ghost':'outline'}" data-act="noti">${notiOn?'這台裝置的通知已開啟':'開啟這台裝置的通知'}</button></div>
+     <div class="hint">管理頁開著（或再打開）的時候，有新的延遲點班會跳通知；關掉的時候收不到。iPhone 要把管理頁加到主畫面才能跳通知。</div>`+
+    (S.late.length?S.late.map(x=>`<div class="abn"><div class="h"><b>${esc(x.f.name)}</b>${posTag(x.p)}<span class="tag w">晚 ${x.min} 分</span></div><div class="t">${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.r.by)} ${whenLabel(firstAt(x.r))} 點</div></div>`).join(''):'<div class="mut">這個月沒有</div>'));
   // 每日紀錄與核簽
   const revs=getAt('rev/'+mcur)||{}, nrev=S.days.filter(o=>revs[dkey(o.d)]).length;
   const dayHtml=o=>{ const rv=revs[dkey(o.d)];
@@ -1089,6 +1158,22 @@ function renderManage(){
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderMBar();
+}
+const LS_LATE='erCheck_lateSeen', LS_NOTI='erCheck_notify';
+// 有新的延遲點班：管理頁上跳提示，允許通知的裝置另跳系統通知。第一次打開時只記下來、不通知舊的
+function notifyLate(S){
+  const seen=lsGet(LS_LATE,null), keys=S.late.map(x=>x.key);
+  if(seen===null){ lsSet(LS_LATE,keys.slice(0,300)); return; }
+  const fresh=S.late.filter(x=>!seen.includes(x.key)); if(!fresh.length) return;
+  lsSet(LS_LATE,[...fresh.map(x=>x.key),...seen].slice(0,300));
+  toast(`有 ${fresh.length} 筆延遲點班`);
+  if(lsGet(LS_NOTI,0)) showNoti(`急診點班：${fresh.length} 筆超過上班 1 小時才點班`,fresh.slice(0,3).map(x=>`${x.r.by}・${dayLabel(x.d)} ${slotLab(x.f,x.k)} ${x.f.name}${x.p?'（'+x.p+'）':''}・晚 ${x.min} 分`).join('\n'));
+}
+async function showNoti(title,body){
+  try{ if(!('Notification' in window)||Notification.permission!=='granted') return;
+    const reg=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();
+    if(reg&&reg.showNotification){ await reg.showNotification(title,{body,icon:'icon-192.png',tag:'late-'+Date.now()}); return; }
+    new Notification(title,{body,icon:'icon-192.png'}); }catch(e){}
 }
 const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':''} data-tg="${id}"><summary>${title}<span class="r">${right}</span></summary>${body}</details>`;
 function dayDetail(d){
@@ -1194,7 +1279,7 @@ function formModel(f0,mk,title){
     const rows=[{h:1,cells:['日期','班別','項目','實際','處理情形','追蹤','點班者'].map((v,i)=>C(v,{...H,al:[2,4,5].includes(i)?'l':''}))}];
     abn.forEach(a=>{ const rs=a.r.res&&a.r.res[a.it.id], x=a.r.x[a.it.id]||{};
       const act=f.kind==='narc'?`${x.u}/${x.e}`:f.kind==='temp'?`${x.now}（${x.max}/${x.min}）`:isNum(a.r.a[a.it.id])?a.r.a[a.it.id]:'';
-      rows.push({cells:[C(dayLabel(a.d)),C(a.k==='M'?'本月':slotLab(f,a.k)),C(a.it.name,{al:'l'}),C(act),C(a.r.n[a.it.id]||'',{al:'l'}),
+      rows.push({cells:[C(dayLabel(a.d)),C(a.k==='M'?'本月':slotLab(f,a.k)),C(a.it.name,{al:'l'}),C(act),C((a.r.n[a.it.id]||'')+(a.r.w&&a.r.w[a.it.id]?`（請${a.r.w[a.it.id]}補）`:''),{al:'l'}),
         C(rs?`${rs.txt||''}（${rs.by||''}）`:a.r.r[a.it.id]?'已處理':'待追蹤',{al:'l'}),C(a.r.by)]}); });
     out.push({t:'tbl',widths:[24,14,70,18,78,48,22],rows});
   }
@@ -1315,7 +1400,7 @@ async function showRec(d,fid,k,pp){
     const rs=r.res&&r.res[it.id];
     return `<div class="abn"><div class="h"><b style="color:${v===0?'var(--bad)':'var(--ok)'}">${v===1?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
       ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-path="${esc(r._path)}" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}" data-id="${it.id}">標記已處理</button>`:''}</div>
-      ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')} ${r.r[it.id]||rs?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
+      ${val?`<div class="t">${val}</div>`:''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag ok">已處理</span>':'<span class="tag no">待追蹤</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
   h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
   h+=`<div class="edrow" style="margin-top:14px"><button class="btn ghost mini" data-act="mdel" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}">刪除這筆點班（這一班變回未點）</button></div>${r._legacy?'<div class="hint">這筆是分位置以前點的整張單，刪除會整張一起刪。</div>':''}`;
   openDlg(h);
@@ -1463,9 +1548,9 @@ document.addEventListener('click',async e=>{
   }
   const a=t.dataset.act, ds=t.dataset;
   // ---- 護理師頁 ----
-  if(a==='setme'){ lsSet(LS.me,ds.n); renderNurse(); toast('你好，'+ds.n); return; }
-  if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } lsSet(LS.me,v); renderNurse(); return; }
-  if(a==='who'){ if(confirm('要換成別人嗎？（這支手機會改用新的名字簽名）')){ lsSet(LS.me,''); renderNurse(); } return; }
+  if(a==='setme'){ ME=ds.n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+ds.n); return; }
+  if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } ME=v; renderNurse(); window.scrollTo({top:0}); return; }
+  if(a==='who'){ ME=''; posSel={}; renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='step'){ const v=+ds.d<0?prevShift(view.d,view.s):nextShift(view.d,view.s); const c=nowShift(); setView(v,v.d===c.d&&v.s===c.s); return; }
   if(a==='pick'){ pickOpen=!pickOpen; renderBar(); return; }
   if(a==='pksh'){ const d=($('pk-date')||{}).value||view.d; setView({d,s:ds.s},false); return; }
@@ -1473,7 +1558,8 @@ document.addEventListener('click',async e=>{
   if(a==='open'){ openForm(ds.f,view.d,ds.k,false,ds.p||''); return; }
   if(a==='setpos'){ setPos(ds.p); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='pos'){ posSel[`${view.d}|${view.s}`]=''; renderNurse(); return; }
-  if(a==='back'){ if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
+  if(a==='back'){ if(fvs&&fvs.restock){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
+    if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
   if(a==='edit'){ openForm(fvs.f.id,fvs.d,fvs.k,true,fvs.f._part); return; }
   if(a==='cancelrec'&&fvs&&fvs.rec){ const {f,d,k,rec}=fvs;
     if(!confirm(`取消這筆點班？\n${dayLabel(rec._d||d)} ${k==='M'?'本月':slotLab(f,k)}「${f.name}」\n取消後這一班會變回「未點」，可以重新點。`)) return;
@@ -1487,7 +1573,15 @@ document.addEventListener('click',async e=>{
   if(a==='secok'&&fvs){ const dr=fvs.dr, v=fvs.f.items.find(it=>it.s===ds.s); fvs.f.items.forEach(it=>{ if(it.s===ds.s&&dr.v[it.id]==null) dr.v[it.id]=1; });
     if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(id=>!fvs.f.items.some(it=>it.id===id&&it.s===ds.s&&dr.v[id]===1));
     renderForm(); saveDraft(); return; }
-  if(a==='chip'&&fvs){ const dr=fvs.dr; dr.n[ds.id]=ds.c; if(AUTO_FIX[ds.c]) dr.r[ds.id]=1; refreshItem(ds.id); saveDraft(); return; }
+  if(a==='chip'&&fvs){ const dr=fvs.dr; dr.n[ds.id]=ds.c; if(!dr.w) dr.w={};
+    if(AUTO_FIX[ds.c]) dr.r[ds.id]=1;
+    if(ds.c===PREV_MISS){ dr.r[ds.id]=0; if(!dr.w[ds.id]) dr.w[ds.id]=prevChecker(fvs.d,fvs.f,fvs.k,ds.id); } else delete dr.w[ds.id];
+    refreshItem(ds.id); saveDraft(); return; }
+  if(a==='wsel'&&fvs){ fvs.dr.w[ds.id]=ds.n; refreshItem(ds.id); saveDraft(); return; }
+  if(a==='astp'&&fvs){ const dr=fvs.dr, it=fvs.f.items.find(i=>i.id===ds.id), q=/^\d+$/.test(String(it.q))?+it.q:0;
+    const cur=isNum(dr.a[ds.id])?+dr.a[ds.id]:q; dr.a[ds.id]=Math.max(0,cur+(+ds.d)); refreshItem(ds.id); saveDraft(); return; }
+  if(a==='restock'){ openRestock(); return; }
+  if(a==='rsdone'){ write('PATCH',ds.path+'/res',{[ds.id]:{by:me(),at:Date.now(),txt:'已補齊'}}); renderRestock(true); toast('已登錄補齊'); return; }
   if(a==='stp'&&fvs){ const dr=fvs.dr, x=dr.x[ds.id]||(dr.x[ds.id]={}); const cur=isNum(x[ds.fld])?+x[ds.fld]:(ds.fld==='u'&&+ds.d>0?(+fvs.f.items.find(i=>i.id===ds.id).q-1):0);
     x[ds.fld]=Math.max(0,cur+(+ds.d)); if(ds.fld==='u'&&!isNum(x.e)&&+ds.d>0&&x.u>=+fvs.f.items.find(i=>i.id===ds.id).q) x.e=0;
     if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
@@ -1505,6 +1599,10 @@ document.addEventListener('click',async e=>{
     write('PATCH',`soak/${ds.mk}/${ds.id}`,{outBy:me(),outAt:Date.now()}); renderSoak(true); toast('已登錄取出'); return; }
   // ---- 管理頁 ----
   if(a==='close'){ closeDlg(); return; }
+  if(a==='noti'){ if(!('Notification' in window)){ toast('這個瀏覽器不支援通知（iPhone 要先把管理頁加到主畫面）'); return; }
+    const pm=await Notification.requestPermission();
+    if(pm==='granted'){ lsSet(LS_NOTI,1); showNoti('急診點班','通知已開啟：有人超過上班 1 小時才點班時會通知你'); toast('已開啟通知'); } else toast('沒有允許通知，請到瀏覽器設定打開');
+    renderManage(); return; }
   if(a==='mstep'){ switchMonth(shiftMonth(mcur,+ds.d)); return; }
   if(a==='mpick'){ mpick=!mpick; mpickY=null; renderMBar(); return; }
   if(a==='myear'){ mpickY+=(+ds.d); renderMBar(); return; }
@@ -1553,7 +1651,7 @@ document.addEventListener('click',async e=>{
 });
 function mgrName(){
   let n=me();
-  if(!n){ n=(prompt('核簽用的名字','')||'').trim(); if(!n) return ''; lsSet(LS.me,n); }
+  if(!n){ n=(prompt('核簽用的名字','')||'').trim(); if(!n) return ''; ME=n; }
   return n;
 }
 document.addEventListener('input',e=>{
@@ -1561,7 +1659,8 @@ document.addEventListener('input',e=>{
   if(ds.in&&fvs&&!fvs.soak){
     const dr=fvs.dr;
     if(ds.in==='n') dr.n[ds.id]=t.value;
-    else if(ds.in==='a') dr.a[ds.id]=t.value===''?null:+t.value;
+    else if(ds.in==='a'){ dr.a[ds.id]=t.value===''?null:+t.value; const it=fvs.f.items.find(i=>i.id===ds.id), el=$('it-'+ds.id), b=el&&el.querySelector('.ngx .fix b'), sh=shortOf(it,dr.a[ds.id]);
+      if(b) b.textContent=sh?`缺 ${sh}`:''; else if(sh&&el){ const st=el.querySelector('.ngx .stp'); if(st) st.insertAdjacentHTML('afterend',`<b style="color:var(--bad)">缺 ${sh}</b>`); } }
     else if(ds.in==='r') dr.r[ds.id]=t.checked?1:0;
     else if(ds.in==='x'){ const x=dr.x[ds.id]||(dr.x[ds.id]={}); x[ds.fld]=t.type==='checkbox'?(t.checked?1:0):(t.value===''?'':+t.value);
       if(t.type!=='checkbox'){ // 數字改了：只更新狀態那一塊，不重畫輸入框（免得鍵盤收起來）
@@ -1573,6 +1672,7 @@ document.addEventListener('input',e=>{
           if((v===0)!==hasNg){ el.outerHTML=itemHtml(fvs.f,it,dr,false); const ne=$('it-'+ds.id), inp=ne&&ne.querySelector(`input[data-fld="${ds.fld}"]`); if(inp){ inp.focus(); const L=inp.value.length; try{ inp.setSelectionRange(L,L); }catch(_){} } } }
         refreshCnt(); saveDraft(); return; } }
     else if(ds.in==='giver') dr.x._giver=t.value;
+    else if(ds.in==='w'){ if(!dr.w) dr.w={}; dr.w[ds.id]=t.value; }
     else if(ds.in==='face') dr.x._face=t.checked?1:0;
     else if(ds.in==='chg') dr.x._chg=t.checked?1:0;
     else if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
@@ -1615,6 +1715,13 @@ if(MANAGE){
   manageInit().catch(e=>{ $('main').innerHTML=`<div class="note bad">載入失敗：${esc(e.message)}</div>`; });
   // 回到這一頁時重讀這個月（點班單內容有沒儲存的修改時不重畫，免得改到一半被蓋掉）
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden&&!edDirty) loadMonth(mcur,true); });
+  setInterval(async()=>{   // 開著的時候每分鐘讀今天和昨天的紀錄；正在打字或改設定時不重畫
+    if(document.hidden||edDirty) return; const t=ymd(new Date()), y=addDays(t,-1);
+    await Promise.all([pull(`rec/${mkey(t)}/${dkey(t)}`),pull(`rec/${mkey(y)}/${dkey(y)}`)]);
+    const ae=document.activeElement; if(ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) return;
+    if(mcur===mkey(t)&&!$('mask').classList.contains('on')) renderManage();
+  },60000);
+  if('serviceWorker' in navigator&&location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 } else {
   renderNurse();
   refreshView();

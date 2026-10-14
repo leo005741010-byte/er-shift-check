@@ -1,6 +1,6 @@
 // 急診點班 Service Worker
 // 改版後手機還看到舊畫面：把 CACHE 版本號 +1 再推
-const CACHE='er-shift-check-v5';
+const CACHE='er-shift-check-v6';
 const CORE=['./','./index.html','./manage.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 
 self.addEventListener('install', e=>{
@@ -41,4 +41,13 @@ self.addEventListener('fetch', e=>{
       return res;
     }).catch(()=>cached))
   );
+});
+
+// 點通知（延遲點班）：管理頁已經開著就切回去，否則打開管理頁
+self.addEventListener('notificationclick', e=>{
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{
+    for(const c of cs){ if(/manage\.html/.test(c.url)&&'focus' in c) return c.focus(); }
+    return self.clients.openWindow('./manage.html');
+  }));
 });
