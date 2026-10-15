@@ -368,7 +368,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.9.1';
+const VERSION='1.9.2';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1127,6 +1127,9 @@ async function submitForm(){
     toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
     return;
   }
+  // 重要按鍵一律再確認（主任 10/15）
+  const nb=f.items.filter(it=>evalItem(f,it,dr)===0).length;
+  if(!confirm(`確定${fvs.rec?'送出修改':'送出'}「${f.name}」？\n${dayLabel(d)} ${slotLab(f,k)}${f._part?'・'+posLab(f._part,slotSh(k)):''}\n簽名：${me()}\n${nb?`其中 ${nb} 項打 ✗（異常）`:'全部正常'}`)) return;
   // 送出前再看一次雲端：別人剛好也點了同一張，先問再蓋
   _submitting=true;
   const before=fvs.rec;
@@ -1853,7 +1856,7 @@ document.addEventListener('click',async e=>{
   // ---- 護理師頁 ----
   if(a==='setme'){ confirmMe(ds.n); return; }
   if(a==='setme-ok'){ closeDlg(); uiOther.who=false; ME=ds.n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+ds.n); checkMisSign(ds.n); return; }
-  if(a==='rnok'&&_rnL){ const {L,name}=_rnL; _rnL=null; renameSigs(L,name); closeDlg(); renderNurse(); toast(`已把 ${L.length} 筆改成「${name}」`); return; }
+  if(a==='rnok'&&_rnL){ const {L,name}=_rnL; if(!confirm(`確定把這 ${L.length} 筆的簽名改成「${name}」？`)) return; _rnL=null; renameSigs(L,name); closeDlg(); renderNurse(); toast(`已把 ${L.length} 筆改成「${name}」`); return; }
   if(a==='rnskip'&&_rnL){ const now=Date.now(), old=(lsGet(LS.rnskip,[])||[]).filter(x=>now-x.at<3*864e5);
     lsSet(LS.rnskip,[...old,..._rnL.L.map(o=>({k:o.p+'|'+o.fld,at:now}))]); _rnL=null; closeDlg(); return; }
   if(a==='whoth'){ uiOther.who=!uiOther.who; renderNurse(); const inp=$('who-in'); if(inp) inp.focus(); return; }
@@ -1923,18 +1926,22 @@ document.addEventListener('click',async e=>{
   if(a==='st-q'){ sterForm.qty=Math.max(1,(+sterForm.qty||1)+(+ds.d)); renderSter(true); return; }
   if(a==='st-out'){ const item=sterForm.oth?(sterForm.other||'').trim():sterForm.item; if(!item){ toast(sterForm.oth?'請寫品名':'請選要送消的物品'); return; }
     const now=Date.now(), id=now.toString(36)+Math.random().toString(36).slice(2,5);
+    if(!confirm(`確定登記送消？\n${item} ×${+sterForm.qty||1}\n送出人：${me()}`)) return;
     write('PUT',`ster/${mkey(ymd(new Date()))}/${id}`,{item,qty:+sterForm.qty||1,outBy:me(),outAt:now,outDev:dev}); sterForm={item:'',other:'',qty:1,oth:false}; renderSter(true); toast('已登記送消'); return; }
-  if(a==='st-in'){ write('PATCH',`ster/${ds.mk}/${ds.id}`,{inBy:me(),inAt:Date.now(),inDev:dev}); renderSter(true); toast('已簽收'); return; }
+  if(a==='st-in'){ const x=sterList().find(y=>y.id===ds.id);
+    if(!confirm(`確定簽收？\n${x?`${x.item} ×${x.qty}（${x.outBy} ${whenLabel(x.outAt)} 送出）`:''}\n簽收人：${me()}`)) return;
+    write('PATCH',`ster/${ds.mk}/${ds.id}`,{inBy:me(),inAt:Date.now(),inDev:dev}); renderSter(true); toast('已簽收'); return; }
   if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
   if(a==='sk-q'){ soakForm.qty=Math.max(1,(+soakForm.qty||1)+(+ds.d)); renderSoak(true); return; }
   if(a==='sk-in'){ const item=SOAK_ITEMS.includes(soakForm.item)?soakForm.item:(soakForm.other||'').trim(); if(!item){ toast('請寫品名'); return; }
     const now=Date.now(), at=hmToTs(soakForm.time||nowHM()), id=now.toString(36)+Math.random().toString(36).slice(2,5);
+    if(!confirm(`確定登錄放入？\n${item} ×${+soakForm.qty||1}\n放入時間 ${hm(at)}・${me()}`)) return;
     write('PUT',`soak/${mkey(ymd(new Date(at)))}/${id}`,{item,qty:+soakForm.qty||1,inBy:me(),inAt:at,inDev:dev}); soakForm.qty=1; soakForm.time=''; renderSoak(true); toast(`已登錄 ${hm(at)} 放入`); return; }
   if(a==='sk-out'){ soakOut[ds.id]=nowHM(); renderSoak(true); const i=document.querySelector(`input[data-in=sk-otime][data-id="${ds.id}"]`); if(i) i.focus(); return; }
   if(a==='sk-outx'){ delete soakOut[ds.id]; renderSoak(true); return; }
   if(a==='sk-outok'){ const x=soakList().find(y=>y.id===ds.id); if(!x) return; const at=hmToTs(soakOut[ds.id]||nowHM()), m=Math.floor((at-x.inAt)/60000);
     if(at<x.inAt){ toast('取出時間不能早於放入時間'); return; }
-    if(m<10&&!confirm(`泡不到 10 分鐘（${m} 分）。確定要登錄取出？`)) return;
+    if(!confirm(`確定登錄取出？\n${x.item} ×${x.qty}\n取出時間 ${hm(at)}（泡了 ${m} 分）・${me()}${m<10?'\n⚠ 還沒泡滿 10 分鐘':''}`)) return;
     write('PATCH',`soak/${ds.mk}/${ds.id}`,{outBy:me(),outAt:at,outDev:dev}); delete soakOut[ds.id]; renderSoak(true); toast(`已登錄 ${hm(at)} 取出`); return; }
   // ---- 管理頁 ----
   if(a==='close'){ closeDlg(); return; }
@@ -1969,17 +1976,20 @@ document.addEventListener('click',async e=>{
   if(a==='print'||a==='doc'){ const sc=($('pr-scope')||{}).value||'one', f=formById(mtForm)||activeForms()[0];
     const list=sc==='all'?[...activeForms(),'soak','ster']:sc==='soak'?['soak']:sc==='ster'?['ster']:[f];
     if(a==='print') doPrint(mcur,list); else doDoc(mcur,list); return; }
-  if(a==='review'){ e.preventDefault(); const nm=await mgrName(); if(!nm) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
+  if(a==='review'){ e.preventDefault(); const nm=await mgrName(); if(!nm) return;
+    if(!confirm(`確定核簽 ${dayLabel(ds.d)}？\n核簽人：${nm}`)) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
   if(a==='unreview'){ if(!confirm('取消這一天的核簽？')) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,null); renderManage(); return; }
   if(a==='resolve'){ const fromDlg=$('mask').classList.contains('on'); const nm=await mgrName(); if(!nm) return;
     const txt=await askFix(fixWord(getAt(ds.path+'/n/'+ds.id)||'')); if(!txt) return;
+    const fi=formById(ds.f), iti=fi&&fi.items.find(x=>x.id===ds.id);
+    if(!confirm(`確定把「${iti?iti.name:'這一項'}」標記為「${txt}」？\n標記後改列警示，不算異常。處理人：${nm}`)) return;
     write('PATCH',ds.path+'/res',{[ds.id]:{by:nm,at:Date.now(),txt}});
     if(fromDlg) showRec(ds.d,ds.f,ds.k,ds.p||''); renderManage(); toast('已標記處理，改列警示'); return; }
   if(a==='fxpick'){ fixDone(ds.t); return; }
   if(a==='fxoth'){ renderFixAsk(_fxDef,true); return; }
   if(a==='fxok'){ const v=($('fx-in').value||'').trim(); if(!v){ toast('請寫處理情形'); return; } fixDone(v); return; }
   if(a==='fxcancel'){ fixDone(''); return; }
-  if(a==='stadd'){ const v=($('st-in').value||'').trim(); if(!v) return; const hd=[...hiddenStaff()];
+  if(a==='stadd'){ const v=($('st-in').value||'').trim(); if(!v) return; if(!confirm(`把「${v}」加入名單？`)) return; const hd=[...hiddenStaff()];
     if(hd.includes(v)) write('PUT','cfg/staffHide',hd.filter(x=>x!==v).length?hd.filter(x=>x!==v):null);
     if(!sched.nurses.some(n=>n.name===v)){ const L=(getAt('cfg/staff')||[]).filter(Boolean); if(!L.includes(v)){ L.push(v); write('PUT','cfg/staff',L); } }
     renderManage(); toast(`已加入「${v}」`); return; }
@@ -1987,7 +1997,7 @@ document.addEventListener('click',async e=>{
     if(a==='stdel'){ const L=(getAt('cfg/staff')||[]).filter(x=>x&&x!==n); write('PUT','cfg/staff',L.length?L:null); }
     else { const hd=[...hiddenStaff()]; if(!hd.includes(n)) hd.push(n); write('PUT','cfg/staffHide',hd); }
     renderManage(); toast(`已移除「${n}」`); return; }
-  if(a==='stshow'){ const hd=[...hiddenStaff()].filter(x=>x!==ds.n); write('PUT','cfg/staffHide',hd.length?hd:null); renderManage(); toast(`已恢復「${ds.n}」`); return; }
+  if(a==='stshow'){ if(!confirm(`把「${ds.n}」恢復到名單？`)) return; const hd=[...hiddenStaff()].filter(x=>x!==ds.n); write('PUT','cfg/staffHide',hd.length?hd:null); renderManage(); toast(`已恢復「${ds.n}」`); return; }
   if(a==='edsel'){ edSel=ds.f; renderManage(); return; }
   if(a==='pjsel'){ pjSel=ds.f; renderManage(); return; }
   if(a==='pjpb'){ const f=edF.find(x=>x.id===pjSel); if(ds.p) f.pb=ds.p; else delete f.pb; markDirty(); renderManage(); return; }
@@ -2005,9 +2015,10 @@ document.addEventListener('click',async e=>{
     f.items.push({id:f.id+'_'+Date.now().toString(36),s:nm,name:'',q:'',t:f.kind==='narc'?'n':f.kind==='temp'?'temp':'n',sub:''}); edDirty=true; renderManage(); return; }
   if(a==='edreset'){ const def=DEFAULT_FORMS.find(x=>x.id===edSel); if(!def){ toast('這張沒有原始內容'); return; } if(!confirm('這張點班單恢復成紙本原始內容？（按儲存才生效）')) return;
     const i=edF.findIndex(x=>x.id===edSel); edF[i]=clone(def); edDirty=true; renderManage(); return; }
-  if(a==='edcancel'){ edF=null; edDirty=false; renderManage(); return; }
+  if(a==='edcancel'){ if(!confirm('放棄還沒儲存的修改？')) return; edF=null; edDirty=false; renderManage(); return; }
   if(a==='edsave'){ const bad=edF.find(f=>f.items.some(it=>!String(it.name||'').trim())); if(bad){ edSel=bad.id; renderManage(); toast(`「${bad.name}」有項目沒寫名稱`); return; }
     const nq=edF.find(f=>f.items.some(it=>it.t==='n'&&!/^\d+$/.test(String(it.q).trim()))); if(nq){ edSel=nq.id; renderManage(); toast(`「${nq.name}」方式是「數量」的項目，設定量要填數字`); return; }
+    if(!confirm('確定儲存點班單的修改？\n儲存後所有人的手機下次打開就是新的內容（已經點過的紀錄不受影響）。')) return;
     edF.forEach(f=>f.items.forEach(it=>{ it.q=String(it.q).trim(); }));
     const nv=fver+1, data=clone(edF);
     write('PUT','cfg/forms',data); write('PUT','cfg/fhist/'+nv,data); write('PUT','cfg/fver',nv);
