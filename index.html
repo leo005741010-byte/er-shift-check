@@ -148,6 +148,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .note.nbx{display:flex;gap:10px;align-items:flex-start}.note.nbx .nb{flex:1;min-width:0}
 .e1{display:inline-flex;align-items:center;gap:6px}
 .e1 small{color:var(--mut);font-size:12.5px;min-width:6.5em}
+.e2{display:inline-flex;align-items:flex-start;gap:6px 10px}.e2>small{color:var(--mut);font-size:12.5px;min-width:6.5em;padding-top:8px}
+.e2r{display:flex;flex-wrap:wrap;gap:6px 12px}
+.edi .odl{display:inline-flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;border-radius:6px;padding:0 4px}.edi .odl.chg{outline:2px solid #f2a541}
 .expm{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:6px 16px;margin:6px 0 2px;font-size:13px;color:var(--mut)}
 .expm .el{grid-column:1/-1;font-size:12.5px}
 .expm b{color:var(--txt);font-weight:600}
@@ -368,7 +371,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.0.1';
+const VERSION='2.1.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -640,6 +643,9 @@ function staffNames(){
   return [...s].filter(n=>n&&!hd.has(n));
 }
 
+// 開封後可以用一段時間的藥（RI、NTG、Heparin）：點班時多填「開封日」，到期日照樣算過期／快到期
+['c31','h1','h3'].forEach(id=>DEFAULT_FORMS.forEach(f=>f.items.forEach(it=>{ if(it.id===id) it.od=1; })));
+
 // ---------- 點班單設定 ----------
 let FORMS=clone(DEFAULT_FORMS), fver=0;
 function applyCfg(){
@@ -670,7 +676,7 @@ const partForm=(f,k,p)=>Object.assign({},f,{items:f.items.filter(it=>effPos(it,s
 const pSuf=f=>f._part?'~'+f._part:'';
 
 // ---------- 紀錄 ----------
-const R=r=>r?Object.assign({v:{},a:{},n:{},r:{},x:{},w:{},res:{},e:{}},r):null;   // e＝到期日   // w＝請誰補（上一班未補）
+const R=r=>r?Object.assign({v:{},a:{},n:{},r:{},x:{},w:{},res:{},e:{},op:{}},r):null;   // e＝到期日、op＝開封日   // w＝請誰補（上一班未補）
 const recPath=(d,f,k)=>`rec/${mkey(d)}/${dkey(d)}/${f.id}_${k}${pSuf(f)}`;
 const mPath=(mk,f)=>`rec/${mk}/_m/${f.id}${pSuf(f)}`;   // 每月一次的標記（記在哪一天點的）
 function recOf(d,f,k){
@@ -697,6 +703,9 @@ function legacyOf(d,f,k){
 }
 const special=f=>f.kind==='narc'||f.kind==='temp';
 const isFixed=(r,id)=>!!(r.r&&r.r[id])||!!(r.res&&r.res[id]);
+// 到期日：整張單開了「到期日」，或這一項要填「開封日」（RI、NTG、Heparin 這類開封後可以用一段時間的藥）
+const hasExp=(f,it)=>!special(f)&&(!!f.exp||!!it.od);
+const anyExp=f=>!special(f)&&(!!f.exp||f.items.some(it=>it.od));
 const xIds=(r,f)=>(f?f.items.map(it=>it.id):Object.keys(r.v)).filter(id=>r.v[id]===0);
 const openCount=(r,f)=>xIds(r,f).filter(id=>!isFixed(r,id)).length;   // 異常（還沒處理）
 const warnCount=(r,f)=>xIds(r,f).filter(id=>isFixed(r,id)).length;    // 警示（打過 ✗、已經處理好）
@@ -709,7 +718,7 @@ function slotRec(d,f,k){
     Object.keys(day).forEach(key=>{ if(bases.some(base=>key===base||key.startsWith(base+'~'))){ const p=`rec/${mkey(d)}/${dkey(d)}/${key}`; if(!seen.has(p)&&day[key]){ seen.add(p); const r=R(day[key]); r._path=p; rs.push(r); } } }); }
   if(!rs.length) return null;
   const o=R({}); o.parts=rs;
-  rs.forEach(r=>['v','a','n','r','x','res','e'].forEach(fl=>Object.assign(o[fl],r[fl])));
+  rs.forEach(r=>['v','a','n','r','x','res','e','op'].forEach(fl=>Object.assign(o[fl],r[fl])));
   o.by=[...new Set(rs.map(r=>r.by).filter(Boolean))].join('/'); o.at=Math.max(...rs.map(r=>r.at||0)); o._d=rs[0]._d;
   o.bad=Object.values(o.v).filter(v=>v===0).length;
   return o;
@@ -754,7 +763,7 @@ function setPos(p){ posSel[`${view.d}|${view.s}`]=p; if(p!=='*') posSel.last=p;
 const uiOther={};   // 哪一個選人的地方按了「其他」（只記在畫面上）
 // 正在打字（輸入框有游標）：自動更新先不重畫，免得鍵盤收起來、打到一半的字不見
 const typing=()=>{ const ae=document.activeElement; return !!ae&&/^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)&&!/^(checkbox|radio|button)$/.test(ae.type||''); };
-const emptyDr=()=>({v:{},a:{},n:{},r:{},x:{},w:{},e:{}});
+const emptyDr=()=>({v:{},a:{},n:{},r:{},x:{},w:{},e:{},op:{}});
 
 function viewForms(d,s){ return activeForms().map(f=>{ const k=slotIn(f,s); return k?{f,k}:null; }).filter(Boolean); }
 // 這一班的每一份（每張單 × 每個位置）；mine＝我的位置的＋不分位置的，other＝別的位置的
@@ -922,12 +931,13 @@ function openForm(fid,d,k,edit,p){
   const r=recOf(d,f,k);
   if(k==='M'&&r&&r._stub) pull(r._path).then(()=>{ if(fvs&&fvs.f&&fvs.f.id===fid) renderForm(); });
   let dr;
-  if(r&&edit) dr={v:clone(r.v),a:clone(r.a),n:clone(r.n),r:clone(r.r),x:clone(r.x),w:clone(r.w||{}),e:clone(r.e||{})};
+  if(r&&edit) dr={v:clone(r.v),a:clone(r.a),n:clone(r.n),r:clone(r.r),x:clone(r.x),w:clone(r.w||{}),e:clone(r.e||{}),op:clone(r.op||{})};
   else dr=drafts[draftKey(d,f,k)]||emptyDr();
   if(!dr.w) dr.w={};
   if(!dr.e) dr.e={};
-  if(f.exp&&!r&&!Object.keys(dr.e).length) dr.e=lastExp(f);   // 到期日：先帶上一次填的
-  if(f.exp&&(!r||edit)) f.items.forEach(it=>syncExp(f,it,dr));   // 過期的自動打 ✗
+  if(!dr.op) dr.op={};
+  if(anyExp(f)&&!r&&!Object.keys(dr.e).length&&!Object.keys(dr.op).length){ const L=lastExp(f); dr.e=L.e; dr.op=L.op; }   // 到期日、開封日：先帶上一次填的
+  if(anyExp(f)&&(!r||edit)) f.items.forEach(it=>syncExp(f,it,dr));   // 過期的自動打 ✗
   fvs={f,d,k,edit:!r||!!edit,dr}; Object.keys(uiOther).forEach(x=>{ if(x!=='who') delete uiOther[x]; });
   $('fv').classList.add('on'); document.body.style.overflow='hidden';
   renderForm(true);
@@ -947,8 +957,10 @@ function progressOf(f,dr){
   f.items.forEach(it=>{ const v=evalItem(f,it,dr); if(v!=null) ans++; else miss.push(it.id);
     if(v===0&&(!String(dr.n[it.id]||'').trim()||(reasonOf(dr.n[it.id])===OTHER&&!String(dr.n[it.id]).slice(OTHER_P.length).trim()))) { need++; miss.push(it.id); }
     else if(v===0&&dr.n[it.id]===PREV_MISS&&!String((dr.w||{})[it.id]||'').trim()) { need++; miss.push(it.id); } });   // 上一班未補：要寫請誰補
+  const od=[]; f.items.forEach(it=>{ if(!it.od||special(f)) return; const O=toArr((dr.op||{})[it.id]), E=toArr((dr.e||{})[it.id]);   // 填了開封日就要填到期日；到期日不能早於開封日
+    if(O.some((x,i)=>x&&(!E[i]||E[i]<x))){ need++; miss.push(it.id); od.push(it.id); } });
   if(f.kind==='narc'&&!String(dr.x._giver||'').trim()) miss.push('_giver');
-  return {ans,tot:f.items.length,need,miss};
+  return {ans,tot:f.items.length,need,miss,od};
 }
 // 到期日：帶出這張單最近一次填的（包盤、物資通常好幾班都一樣，有換才改）
 // 紀錄裡每一項的到期日是陣列（一個一格）；v1.9.0 時是單一字串，照樣讀
@@ -962,19 +974,20 @@ function expSlots(it){
 }
 function lastExp(f){
   const id=(f._base||f).id, R0=getAt('rec')||{}; let best=null;
+  const has=r=>r&&((r.e&&Object.keys(r.e).length)||(r.op&&Object.keys(r.op).length));
   Object.keys(R0).forEach(mk=>{ const M=R0[mk]||{}; Object.keys(M).forEach(dk=>{ if(dk[0]==='_') return; const D=M[dk]||{};
-    Object.keys(D).forEach(key=>{ if(key.slice(0,key.lastIndexOf('_'))!==id) return; const r=D[key]; if(r&&r.e&&Object.keys(r.e).length&&(!best||r.at>best.at)) best=r; }); }); });
-  const o={}; if(best) f.items.forEach(it=>{ let a=toArr(best.e[it.id]);
-    if(isFixed(R(best),it.id)) a=a.map(v=>v&&expDays(v)<0?'':v);   // 上一班過期、已經換新（按過已更換）：舊日期不帶，請填新的
-    if(a.some(Boolean)) o[it.id]=a; });
-  return o;
+    Object.keys(D).forEach(key=>{ if(key.slice(0,key.lastIndexOf('_'))!==id) return; const r=D[key]; if(has(r)&&(!best||r.at>best.at)) best=r; }); }); });
+  const e={}, op={}; if(best) f.items.forEach(it=>{ const a=toArr((best.e||{})[it.id]), b=toArr((best.op||{})[it.id]);
+    if(isFixed(R(best),it.id)) a.forEach((v,i)=>{ if(v&&expDays(v)<0){ a[i]=''; b[i]=''; } });   // 上一班過期、已經換新（按過已更換）：舊日期（連開封日）不帶，請填新的
+    if(a.some(Boolean)) e[it.id]=a; if(b.some(Boolean)) op[it.id]=b; });
+  return {e,op};
 }
 const fmtExp=v=>String(v||'').replace(/-/g,'/');
 function expTag(v){ if(!v) return ''; const dd=expDays(v);
   return dd<0?'<span class="tag no">已過期</span>':dd===0?'<span class="tag no">今天到期</span>':dd===1?'<span class="tag no">明天到期</span>':dd<=30?`<span class="tag w">${dd} 天後到期</span>`:''; }
 const hasExpired=v=>toArr(v).some(x=>x&&expDays(x)<0);
 // 有一個過期：自動打 ✗、理由「其他：已過期」（列異常）；把日期改成新的（換新了）就取消，再自己按 ✓
-function syncExp(f,it,dr){ if(!f.exp||special(f)) return; const id=it.id;
+function syncExp(f,it,dr){ if(!hasExp(f,it)) return; const id=it.id;
   if(hasExpired((dr.e||{})[id])){ dr.v[id]=0; if(!String(dr.n[id]||'').trim()) dr.n[id]=EXPIRED; }
   else if(dr.n[id]===EXPIRED){ delete dr.v[id]; delete dr.n[id]; } }
 // 1 天內到期、已過期的（看每張單每一份最近一次的紀錄）。only＝只看這些單子（護理師首頁只看自己位置的）
@@ -984,8 +997,8 @@ function expAlerts(only){
     Object.keys(D).forEach(key=>{ const r=D[key]; if(!r||typeof r!=='object'||!r.e) return; const fid=key.slice(0,key.lastIndexOf('_')), bk=fid+'|'+(key.split('~')[1]||'');
       if(!best[bk]||r.at>best[bk].r.at) best[bk]={r,fid}; }); }); });
   const out=[];
-  Object.values(best).forEach(({r,fid})=>{ const f=formById(fid); if(!f||!f.exp||f.on===false||(only&&!only.has(fid))) return; const rr=R(r);
-    f.items.forEach(it=>{ const fx=isFixed(rr,it.id), SL=expSlots(it);   // 已經換新（按過已更換）的：過期那個不再提醒，其他快到期的照樣提醒
+  Object.values(best).forEach(({r,fid})=>{ const f=formById(fid); if(!f||!anyExp(f)||f.on===false||(only&&!only.has(fid))) return; const rr=R(r);
+    f.items.forEach(it=>{ if(!hasExp(f,it)) return; const fx=isFixed(rr,it.id), SL=expSlots(it);   // 已經換新（按過已更換）的：過期那個不再提醒，其他快到期的照樣提醒
       toArr(r.e[it.id]).forEach((v,i)=>{ if(!v) return; const dd=expDays(v); if(dd<=1&&!(fx&&dd<0)) out.push({f,it,lab:SL.length>1?SL[i]||'':'',v,dd,key:`X|${fid}|${it.id}|${i}|${v}`}); }); }); });
   return out.sort((a,b)=>a.dd-b.dd||a.f.name.localeCompare(b.f.name));
 }
@@ -1002,13 +1015,15 @@ function itemHtml(f,it,dr,ro){
   else { right=`<div class="ib"><button class="b ok${v===1?' on':''}" data-act="iv" data-id="${it.id}" data-v="1" aria-label="正常">${it.t==='y'?'ˇ':'✓'}</button><button class="b ng${v===0?' on':''}" data-act="iv" data-id="${it.id}" data-v="0" aria-label="異常">✗</button>${it.t==='y'?`<button class="b na${v===2?' on':''}" data-act="iv" data-id="${it.id}" data-v="2" aria-label="不適用">Δ</button>`:''}</div>`; }
   if(v===0) body+=ngBody(f,it,dr,ro);
   const miss=fvs&&fvs.showMiss&&fvs.showMiss.includes(it.id);
-  const SL=f.exp&&!special(f)?expSlots(it):[], EV=SL.length?toArr((dr.e||{})[it.id]):[], fxd=ro&&isFixed(dr,it.id);
-  const one=(i,lab)=>{ const v=EV[i]||'', L=lab?`<small>${esc(lab)}</small>`:'';
-    return ro?(v?`<span class="e1">${L}<b>${esc(fmtExp(v))}</b>${fxd&&expDays(v)<0?'':expTag(v)}</span>`:'')
-      :`<label class="e1">${L}<input type="date" data-in="e" data-id="${it.id}" data-i="${i}" value="${esc(v)}"><span class="expt">${expTag(v)}</span></label>`; };
+  const od=!!it.od&&!special(f), SL=hasExp(f,it)?expSlots(it):[], EV=SL.length?toArr((dr.e||{})[it.id]):[], OV=od?toArr((dr.op||{})[it.id]):[], fxd=ro&&isFixed(dr,it.id);
+  const one=(i,lab)=>{ const v=EV[i]||'', ov=OV[i]||'', L=lab?`<small>${esc(lab)}</small>`:'';
+    if(ro){ if(!v&&!ov) return ''; return `<span class="e1">${L}${od?(ov?`開封 <b>${esc(fmtExp(ov))}</b>・到期 `:'未開封・到期 '):''}${v?`<b>${esc(fmtExp(v))}</b>${fxd&&expDays(v)<0?'':expTag(v)}`:'—'}</span>`; }
+    const ein=`<input type="date" data-in="e" data-id="${it.id}" data-i="${i}" value="${esc(v)}"><span class="expt">${expTag(v)}</span>`;
+    if(!od) return `<label class="e1">${L}${ein}</label>`;
+    return `<span class="e2">${L}<span class="e2r"><label class="e1">開封日<input type="date" data-in="op" data-id="${it.id}" data-i="${i}" value="${esc(ov)}" max="${ymd(new Date())}"></label><label class="e1">到期日${ein}</label></span></span>`; };
   let expH='', expB='';
-  if(SL.length===1){ const x=one(0,''); if(x) expH=`<div class="exp">到期日 ${x}</div>`; }
-  else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">到期日（${SL.length} 個）</div>${xs.join('')}</div>`; }
+  if(SL.length===1){ const x=one(0,''); if(x) expH=`<div class="exp">${od?'':'到期日 '}${x}</div>`; }
+  else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">${od?'開封日、到期日':'到期日'}（${SL.length} 個）${od&&!ro?'；還沒開封的，開封日空著':''}</div>${xs.join('')}</div>`; }
   return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${expB}${body}</div>`;
 }
 // 上一班點這一項的人：上一個時段同一張單、有點到這一項的那一份
@@ -1129,7 +1144,7 @@ async function submitForm(){
     if(isPaged(f)){ const G=secs(f), gi=G.findIndex(g=>g.items.some(it=>it.id===p.miss[0])); if(gi>=0) fvs.pg=gi; }   // 分頁的：跳到第一個沒點的那一區
     renderForm();
     const el=$('it-'+p.miss[0]); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
-    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
+    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.od.length?'填了開封日的，也要填到期日（到期日不能早於開封日）':p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
     return;
   }
   // 重要按鍵一律再確認（主任 10/15）
@@ -1144,14 +1159,17 @@ async function submitForm(){
   const cur=recOf(d,f,k);
   if(cur&&(!before||cur.at!==before.at)&&!confirm(`${cur.by} 在 ${whenLabel(cur.at)} 已經點過這一張了。\n要用你的紀錄取代嗎？（原本那筆會留在修改紀錄裡）`)) return;
   fvs.rec=cur;
-  if(f.exp) f.items.forEach(it=>syncExp(f,it,dr));   // 點到一半跨過半夜：送出前再看一次有沒有過期
+  if(anyExp(f)) f.items.forEach(it=>syncExp(f,it,dr));   // 點到一半跨過半夜：送出前再看一次有沒有過期
   const v={}; f.items.forEach(it=>{ v[it.id]=evalItem(f,it,dr); });
   const bad=Object.values(v).filter(x=>x===0).length;
   const keep=o=>{ const r={}; Object.keys(o||{}).forEach(id=>{ if(v[id]===0||id.startsWith('_')||special(f)) r[id]=o[id]; }); return r; };
   const old=fvs.rec, now=Date.now();
   const rec={by:me(),at:now,dev,fv:fver,v,a:keep(dr.a),n:keep(dr.n),r:keep(dr.r),x:keep(dr.x),w:keep(dr.w),bad};
   if(f._part) rec.p=f._part;
-  if(f.exp){ const ee={}; f.items.forEach(it=>{ const x=toArr((dr.e||{})[it.id]); while(x.length&&!x[x.length-1]) x.pop(); if(x.some(Boolean)) ee[it.id]=x; }); if(Object.keys(ee).length) rec.e=ee; }
+  if(anyExp(f)){ const ee={}, oo={}, cut=a=>{ while(a.length&&!a[a.length-1]) a.pop(); return a; };
+    f.items.forEach(it=>{ if(!hasExp(f,it)) return; const x=cut(toArr((dr.e||{})[it.id])); if(x.some(Boolean)) ee[it.id]=x;
+      if(it.od){ const y=cut(toArr((dr.op||{})[it.id])); if(y.some(Boolean)) oo[it.id]=y; } });
+    if(Object.keys(ee).length) rec.e=ee; if(Object.keys(oo).length) rec.op=oo; }
   let cid=null;   // 修改：改之前那一份整份存到 chg/（評鑑時看得到改了什麼）
   if(old&&old.by){ cid=old._stub?null:now.toString(36)+Math.random().toString(36).slice(2,5); rec.h=[...(old.h||[]),Object.assign({by:old.by,at:old.at,bad:old.bad||0},cid?{c:cid}:{})]; }
   if(old&&old.res){ const rs={}; Object.keys(old.res).forEach(id=>{ if(v[id]!==undefined) rs[id]=old.res[id]; }); if(Object.keys(rs).length) rec.res=rs; }
@@ -1627,9 +1645,10 @@ function formModel(f0,mk,title){
       f.items.forEach(it=>{
         if(it.s!==lastS&&many) rows.push({cells:[C(it.s,{al:'l',b:1,sh:2,cs:(hasQ?2:1)+nc})]});
         lastS=it.s;
-        const le=(f.exp||f0.exp)?(()=>{ let b=null; recs.forEach(r=>{ if(r&&r.e&&r.e[it.id]&&(!b||r.at>b.at)) b={at:r.at,v:r.e[it.id],r}; });
-          const A=b?toArr(b.v).filter(x=>x&&!(isFixed(b.r,it.id)&&x<ymd(new Date(b.at)))).sort():[];   // 點的時候已過期、後來換新的不印
-          return A.length?`${A.length>1?'最早到期':'到期'} ${fmtExp(A[0])}`:''; })():'';
+        const le=(f.exp||f0.exp||it.od)?(()=>{ let b=null; recs.forEach(r=>{ if(r&&r.e&&r.e[it.id]&&(!b||r.at>b.at)) b={at:r.at,v:r.e[it.id],r}; });
+          const O=b?toArr((b.r.op||{})[it.id]):[];
+          const A=b?toArr(b.v).map((x,i)=>({x,o:O[i]||''})).filter(q=>q.x&&!(isFixed(b.r,it.id)&&q.x<ymd(new Date(b.at)))).sort((p,q)=>p.x<q.x?-1:p.x>q.x?1:0):[];   // 點的時候已過期、後來換新的不印
+          return A.length?`${A.length>1?'最早到期':'到期'} ${fmtExp(A[0].x)}${A[0].o?`（開封 ${fmtExp(A[0].o)}）`:''}`:''; })():'';
         rows.push({cells:[C(it.name,{al:'l',sub:[it.sub,le].filter(Boolean).join('　')}),...(hasQ?[C(it.q)]:[]),...recs.map(r=>{
           if(!r||r.v[it.id]===undefined) return C('');
           const v=r.v[it.id], x=r.x[it.id]||{};
@@ -1780,7 +1799,7 @@ async function showRec(d,fid,k,pp){
     const fx=v===0&&isFixed(r,it.id);
     return `<div class="abn"><div class="h"><b style="color:${v===0&&!fx?'var(--bad)':'var(--ok)'}">${v===1||fx?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
       ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-path="${esc(r._path)}" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}" data-id="${it.id}">標記已處理</button>`:''}</div>
-      ${val?`<div class="t">${val}</div>`:''}${toArr(r.e&&r.e[it.id]).some(Boolean)?(()=>{ const SL=expSlots(it), A=toArr(r.e[it.id]); return `<div class="t">到期日 ${A.map((x,i)=>x?`${A.length>1&&SL[i]?esc(SL[i])+' ':''}${esc(fmtExp(x))} ${isFixed(r,it.id)&&expDays(x)<0?'':expTag(x)}`:'').filter(Boolean).join('；')}</div>`; })():''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag wn">警示・已處理</span>':'<span class="tag no">異常</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
+      ${val?`<div class="t">${val}</div>`:''}${toArr(r.e&&r.e[it.id]).some(Boolean)?(()=>{ const SL=expSlots(it), A=toArr(r.e[it.id]), O=toArr((r.op||{})[it.id]); return `<div class="t">到期日 ${A.map((x,i)=>x?`${A.length>1&&SL[i]?esc(SL[i])+' ':''}${O[i]?'開封 '+esc(fmtExp(O[i]))+'・到期 ':''}${esc(fmtExp(x))} ${isFixed(r,it.id)&&expDays(x)<0?'':expTag(x)}`:'').filter(Boolean).join('；')}</div>`; })():''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag wn">警示・已處理</span>':'<span class="tag no">異常</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
   h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
   h+=`<div class="edrow" style="margin-top:14px"><button class="btn outline mini" data-act="mren" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}">改點班者（簽錯名字）</button><button class="btn ghost mini" data-act="mdel" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}">刪除這筆點班（這一班變回未點）</button></div>${r._legacy?'<div class="hint">這筆是分位置以前點的整張單，刪除會整張一起刪。</div>':''}`;
   openDlg(h);
@@ -1789,8 +1808,8 @@ async function showRec(d,fid,k,pp){
 function stTxt(F,it,x){ if(!x) return '—'; const v=(x.v||{})[it.id], g=o=>o==null?'':o;
   if(F.kind==='narc'){ const y=(x.x||{})[it.id]||{}; return `未用 ${g(y.u)}／空瓶 ${g(y.e)}`; }
   if(F.kind==='temp'){ const y=(x.x||{})[it.id]||{}; return `${g(y.now)}℃（${g(y.max)}/${g(y.min)}）`; }
-  const n=(x.n||{})[it.id], a=(x.a||{})[it.id], e=toArr((x.e||{})[it.id]).filter(Boolean).map(fmtExp).join('、');
-  return (v===1?'✓':v===0?`✗${n?'（'+n+(isNum(a)?`，實際 ${a}`:'')+'）':''}`:v===2?'Δ':'沒點')+(e?`・到期 ${e}`:''); }
+  const n=(x.n||{})[it.id], a=(x.a||{})[it.id], e=toArr((x.e||{})[it.id]).filter(Boolean).map(fmtExp).join('、'), op=toArr((x.op||{})[it.id]).filter(Boolean).map(fmtExp).join('、');
+  return (v===1?'✓':v===0?`✗${n?'（'+n+(isNum(a)?`，實際 ${a}`:'')+'）':''}`:v===2?'Δ':'沒點')+(op?`・開封 ${op}`:'')+(e?`・到期 ${e}`:''); }
 function histHtml(r,F){
   const H=r.h||[], mk=String(r._path||'').split('/')[1]||'', V=H.map(x=>x.c?getAt(`chg/${mk}/${x.c}`):null);
   const rows=H.map((x,i)=>{ const a=V[i]&&V[i].old, nx=i+1<H.length?H[i+1]:{by:r.by,at:r.at}, b=i+1<H.length?(V[i+1]&&V[i+1].old):r;
@@ -1883,7 +1902,7 @@ function formEditor(){
   const item=i=>{ const it=f.items[i], old=saved.find(x=>x.id===it.id), chg=!old||String(old.q)!==String(it.q);
     return `<div class="edi"><input type="text" class="nm" data-edi="name" data-i="${i}" value="${esc(it.name)}" placeholder="項目名稱">
       <div class="r2"><label>設定 <input type="text" class="qv${chg?' chg':''}" data-edi="q" data-i="${i}" value="${esc(it.q)}" ${it.t==='n'?'inputmode="numeric"':''}></label>
-        ${fixedT?'':`<select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select>`}
+        ${fixedT?'':`<select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select><label class="odl${!!it.od!==!!(old&&old.od)?' chg':''}" title="開封後可以用一段時間的藥（例如 RI、NTG、Heparin）：點班時多填開封日"><input type="checkbox" data-edi="od" data-i="${i}"${it.od?' checked':''}> 開封日</label>`}
         <button class="mv" data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button class="mv" data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button class="mv" data-act="eddel" data-i="${i}" title="刪除">✕</button></div>
       <input type="text" class="subi" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）"></div>`; };
   let h=`<div class="hint">改設定量、增減項目後按「儲存」才生效，所有人的手機下次打開就是新的內容。已經點過的紀錄照當時的內容保存。橘框＝改過還沒儲存。</div>
@@ -1901,7 +1920,7 @@ function formEditor(){
       ${special(f)?'':`<div class="edrow"><label><input type="checkbox" data-ed="exp"${f.exp?' checked':''}> 每一項可以填「到期日」</label></div>`}
       <div class="edrow" style="align-items:flex-start"><label>說明</label><textarea data-ed="notes" rows="3" style="flex:1;min-width:0" placeholder="一行一條">${esc((f.notes||[]).join('\n'))}</textarea></div>
       <div class="edrow"><button class="btn ghost mini" data-act="edreset">這張恢復成紙本原始內容</button></div>
-      <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；ˇ／✗／Δ＝多一個「不適用」。</div></details>`;
+      <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；ˇ／✗／Δ＝多一個「不適用」。勾「開封日」＝開封後可以用一段時間的藥（RI、NTG、Heparin）：點班時這一項要填開封日和到期日，過期一樣自動列異常。</div></details>`;
   return h;
 }
 // 點班分工：每一項點一下歸哪個位置（和「點班項目與設定量」共用同一份修改，按儲存才生效）
@@ -1973,7 +1992,7 @@ document.addEventListener('click',async e=>{
   if(a==='cancelrec'&&fvs&&fvs.rec){ const {f,d,k,rec}=fvs;
     if(!confirm(`取消這筆點班？\n${dayLabel(rec._d||d)} ${slotLab(f,k)}「${f.name}」\n取消後這一班會變回「未點」，可以重新點。`)) return;
     cancelRec(d,f,k,rec,me()); closeForm(); toast('已取消這筆點班'); return; }
-  if(a==='iv'&&fvs&&fvs.f.exp&&hasExpired((fvs.dr.e||{})[ds.id])){ toast('有到期日已經過期：換新以後把到期日改成新的，才能打 ✓'); return; }
+  if(a==='iv'&&fvs&&anyExp(fvs.f)&&hasExpired((fvs.dr.e||{})[ds.id])){ toast('有到期日已經過期：換新以後把到期日改成新的，才能打 ✓'); return; }
   if(a==='iv'&&fvs){ const v=+ds.v, dr=fvs.dr; if(dr.v[ds.id]===v&&v!==1) delete dr.v[ds.id]; else dr.v[ds.id]=v;
     if(v!==0){ delete dr.n[ds.id]; delete dr.a[ds.id]; delete dr.r[ds.id]; }
     if(fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(x=>x!==ds.id);
@@ -2188,12 +2207,14 @@ document.addEventListener('input',e=>{
       if(bv!==dr.v[ds.id]||bn!==dr.n[ds.id]){ refreshItem(ds.id); const ne=$('it-'+ds.id), inp=ne&&ne.querySelector(`input[data-in=e][data-i="${ix}"]`); if(inp) inp.focus();
         if(dr.v[ds.id]===0&&dr.n[ds.id]===EXPIRED) toast('已過期：這一項自動打 ✗。換新以後把到期日改成新的'); }
       else { const tg=t.parentNode.querySelector('.expt'); if(tg) tg.innerHTML=expTag(t.value); } }
+    else if(ds.in==='op'){ if(!dr.op) dr.op={}; const it=fvs.f.items.find(x=>x.id===ds.id), n=expSlots(it).length, arr=toArr(dr.op[ds.id]), ix=+ds.i||0;   // 開封日
+      while(arr.length<n) arr.push(''); arr[ix]=t.value; if(arr.some(Boolean)) dr.op[ds.id]=arr; else delete dr.op[ds.id]; }
     else if(ds.in==='giver') dr.x._giver=t.value;
     else if(ds.in==='w'){ if(!dr.w) dr.w={}; dr.w[ds.id]=t.value; }
     else if(ds.in==='face') dr.x._face=t.checked?1:0;
     else if(ds.in==='chg') dr.x._chg=t.checked?1:0;
     else if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
-    if((ds.in==='n'||ds.in==='o')&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
+    if((ds.in==='n'||ds.in==='o'||ds.in==='op'||ds.in==='e')&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
     refreshCnt(); saveDraft(); return;
   }
   if(t.id==='who-in'){ uiOther.whoText=t.value; return; }
@@ -2213,7 +2234,9 @@ document.addEventListener('input',e=>{
     else f[ds.ed]=t.value;
     if(f.on===undefined) delete f.on;
     markDirty(); return; }
-  if(ds.edi&&edF){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i]; it[ds.edi]=t.value;
+  if(ds.edi&&edF){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i];
+    if(ds.edi==='od'){ if(t.checked) it.od=1; else delete it.od; const o0=((FORMS.find(x=>x.id===f.id)||{items:[]}).items.find(x=>x.id===it.id)||{}); t.parentNode.classList.toggle('chg',!!it.od!==!!o0.od); markDirty(); return; }
+    it[ds.edi]=t.value;
     if(ds.edi==='q'){ const old=(FORMS.find(x=>x.id===f.id)||{items:[]}).items.find(x=>x.id===it.id); t.classList.toggle('chg',!old||String(old.q)!==t.value); }
     markDirty(); return; }
   if(ds.eds!=null&&edF){ const f=edF.find(x=>x.id===edSel); f.items.forEach(it=>{ if(it.s===ds.eds) it.s=t.value; }); t.dataset.eds=t.value; markDirty(); return; }
