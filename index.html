@@ -349,7 +349,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='1.7.0';
+const VERSION='1.7.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1279,11 +1279,6 @@ function renderManage(){
     <button class="tile big" data-act="trend" data-m="bad"><span class="tg">📈</span><div class="l">異常項目</div><div class="v">${S.bad}<small> 項</small></div><div class="s">還沒處理好的</div><div class="s">${vsPrev('bad',S,P)}</div></button>
     <button class="tile" data-act="trend" data-m="miss"><span class="tg">📈</span><div class="l">未點班次</div><div class="v">${S.miss}<small> 張</small></div><div class="s">${vsPrev('miss',S,P)}</div></button>
     <button class="tile" data-act="trend" data-m="warn"><span class="tg">📈</span><div class="l">警示（已處理）</div><div class="v">${S.warn}<small> 項</small></div><div class="s">${vsPrev('warn',S,P)}</div></button></div>`;
-  // 點班分工（哪個位置點哪些項目）
-  const una=FORMS.filter(f=>f.on!==false).reduce((a,f)=>a+f.items.filter(it=>!it.p).length,0);
-  h+=card('pos','點班分工（哪個位置點）',edDirty?'<span class="tag w">有未儲存的修改</span>':una?`${una} 項還沒分`:'全部分好了',posEditor());
-  // 點班項目與設定量（主任要自己調的數字，放上面）
-  h+=card('forms','點班項目與設定量',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
   // 待追蹤異常
   const opens=S.abn.filter(a=>!a.fixed).sort((a,b)=>a.d<b.d?1:-1), fixed=S.abn.filter(a=>a.fixed).sort((a,b)=>a.d<b.d?1:-1);
   const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}</span>${a.fixed?'<span class="tag wn">警示・已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
@@ -1298,6 +1293,12 @@ function renderManage(){
      <div class="edrow"><button class="btn mini ${notiOn?'ghost':'outline'}" data-act="noti">${notiOn?'這台裝置的通知已開啟':'開啟這台裝置的通知'}</button></div>
      <div class="hint">管理頁開著（或再打開）的時候，有新的延遲點班會跳通知；關掉的時候收不到。iPhone 要把管理頁加到主畫面才能跳通知。</div>`+
     (S.late.length?S.late.map(x=>`<div class="abn"><div class="h"><b>${esc(x.f.name)}</b>${posTag(x.p)}<span class="tag w">晚 ${x.min} 分</span></div><div class="t">${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.r.by)} ${whenLabel(firstAt(x.r))} 點</div></div>`).join(''):'<div class="mut">這個月沒有</div>'));
+  // 泡消登錄
+  const so=getAt('soak/'+mcur)||{}, sl=Object.keys(so).map(id=>Object.assign({id},so[id])).sort((a,b)=>a.inAt-b.inAt);
+  h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
+  // 送消登記
+  const st=getAt('ster/'+mcur)||{}, stl=Object.keys(st).map(id=>Object.assign({id},st[id])).filter(x=>x.outAt).sort((a,b)=>a.outAt-b.outAt), stOpen=stl.filter(x=>!x.inAt).length;
+  h+=card('ster','送消登記',`${stl.length} 筆${stOpen?`・送消中 ${stOpen}`:''}`,stl.length?`<div class="tw"><table class="tt"><tr><th class="l">送出</th><th class="l">品名</th><th>數量</th><th class="l">送出人</th><th class="l">簽收</th><th class="l">簽收人</th></tr>${stl.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送消中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
   // 每日紀錄與核簽
   const revs=getAt('rev/'+mcur)||{}, nrev=S.days.filter(o=>revs[dkey(o.d)]).length;
   const dayHtml=o=>{ const rv=revs[dkey(o.d)];
@@ -1307,14 +1308,13 @@ function renderManage(){
   h+=card('days','每日紀錄與核簽',`已核簽 ${nrev}／${useDays.length} 天`,useDays.length?[...useDays].reverse().map(dayHtml).join(''):'<div class="mut">這個月還沒有點班紀錄</div>');
   // 月表
   h+=card('mt','點班單月表與列印','',monthTable(S));
-  // 泡消登錄
-  const so=getAt('soak/'+mcur)||{}, sl=Object.keys(so).map(id=>Object.assign({id},so[id])).sort((a,b)=>a.inAt-b.inAt);
-  h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
-  // 送消登記
-  const st=getAt('ster/'+mcur)||{}, stl=Object.keys(st).map(id=>Object.assign({id},st[id])).filter(x=>x.outAt).sort((a,b)=>a.outAt-b.outAt), stOpen=stl.filter(x=>!x.inAt).length;
-  h+=card('ster','送消登記',`${stl.length} 筆${stOpen?`・送消中 ${stOpen}`:''}`,stl.length?`<div class="tw"><table class="tt"><tr><th class="l">送出</th><th class="l">品名</th><th>數量</th><th class="l">送出人</th><th class="l">簽收</th><th class="l">簽收人</th></tr>${stl.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送消中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
   // 設定
   h+=card('staff','設定：名單','',staffEditor());
+  // 點班分工（哪個位置點哪些項目）
+  const una=FORMS.filter(f=>f.on!==false).reduce((a,f)=>a+f.items.filter(it=>!it.p).length,0);
+  h+=card('pos','點班分工（哪個位置點）',edDirty?'<span class="tag w">有未儲存的修改</span>':una?`${una} 項還沒分`:'全部分好了',posEditor());
+  // 點班項目與設定量
+  h+=card('forms','點班項目與設定量',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderMBar();
