@@ -375,7 +375,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.3.1';
+const VERSION='2.3.2';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -2019,7 +2019,9 @@ document.addEventListener('click',async e=>{
   if(a==='back'&&fvs&&fvs.ster){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'){ if(fvs&&fvs.restock){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
     if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
-  if(a==='edit'){ openForm(fvs.f.id,fvs.d,fvs.k,true,fvs.f._part); return; }
+  if(a==='edit'){ const {f,d,k,rec}=fvs;   // 按修改先確認一次，送出修改時再確認一次（主任 10/16：修改要雙重確認）
+    if(rec&&!confirm(`確定要修改這張點班單？\n「${f.name}」${dayLabel(d)} ${slotLab(f,k)}\n原本：${rec.by} ${whenLabel(rec.at)} 點的${rec.by!==me()?'（不是你點的）':''}\n改完送出前會再確認一次，並留下修改紀錄。`)) return;
+    openForm(f.id,d,k,true,f._part); return; }
   if(a==='cancelrec'&&fvs&&fvs.rec){ const {f,d,k,rec}=fvs;
     if(!confirm(`取消這筆點班？\n${dayLabel(rec._d||d)} ${slotLab(f,k)}「${f.name}」\n取消後這一班會變回「未點」，可以重新點。`)) return;
     cancelRec(d,f,k,rec,me()); closeForm(); toast('已取消這筆點班'); return; }
