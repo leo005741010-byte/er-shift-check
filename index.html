@@ -376,7 +376,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.6.0';
+const VERSION='2.7.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -535,7 +535,8 @@ const EXPIRED='其他：已過期';   // 到期日過了：自動打 ✗（列�
 const PREV_MISS='上一班未補';   // 接班時發現少了、要請上一班補：記下請誰補，進「待補」清單，補好再按已補齊
 // 處理好了用什麼字：上一班未補→已補齊、損壞送修→已修好、其他→已處理
 const STERING='其他：送消中';   // 送消登記還沒簽收：點班時自動打 ✗（主任 10/17）；簽收回來自動改成 ✓
-const fixWord=n=>n===PREV_MISS?'已補齊':n==='損壞送修'?'已修好':n===EXPIRED?'已更換':n===STERING?'已送回':'已處理';
+const isSterN=n=>n===STERING||/^其他：[ML](、[ML])? 送消$/.test(String(n||''));   // 送消自動打的 ✗（含面罩的「M 送消」）
+const fixWord=n=>n===PREV_MISS?'已補齊':n==='損壞送修'?'已修好':n===EXPIRED?'已更換':isSterN(n)?'已送回':'已處理';
 
 // ---------- 雲端（Firebase REST，匿名登入；與其他急診 App 同一個資料庫） ----------
 const FB_DB='https://tenchener-488d2-default-rtdb.firebaseio.com', NODE='erShiftCheckData', SCHED='erNurseScheduleData';
@@ -1058,20 +1059,23 @@ const sNorm=v=>String(v||'').replace(/（.*?）|\(.*?\)/g,'').replace(/[\s　]/g
 function sterHits(itemName,sterName){ const a=sNorm(itemName), b=sNorm(sterName); if(!b) return false; if(a===b) return true;
   const parts=String(sterName).trim().split(/\s+/); if(parts.length>1){ const base=sNorm(parts[0]), vr=parts.slice(1).join(''); return base.length>=2&&a.includes(base)&&String(itemName).includes(vr); }
   return b.length>=2&&a.includes(b); }
-function sterTargets(name){ const out=[]; activeForms().forEach(f=>{ if(special(f)) return; f.items.forEach(it=>{ if(sterHits(it.name,name)) out.push({f,it}); }); }); return out; }
+function sterTargets(name){ const m=STER_MAP[name];
+  if(m){ const f=formById(m.f), it=f&&f.on!==false&&f.items.find(x=>String(x.s).includes(m.s)&&/面罩/.test(x.name)); return it?[{f,it,tag:m.tag}]:[]; }
+  const out=[]; activeForms().forEach(f=>{ if(special(f)) return; f.items.forEach(it=>{ if(sterHits(it.name,name)) out.push({f,it}); }); }); return out; }
 // 這一項現在送消中（還沒簽收）的：sure＝只對得到這一項 → 自動打 ✗；maybe＝對到好幾項（例：呼吸器面罩 M 兩台都有）→ 只提醒
 function sterOut(it){ const sure=[], maybe=[]; if(!it) return {sure,maybe};
-  sterList().filter(x=>!x.inAt&&x.outAt<=Date.now()).forEach(x=>{ const T=sterTargets(x.item); if(!T.some(t=>t.it.id===it.id)) return; (T.length===1?sure:maybe).push(x); });
+  sterList().filter(x=>!x.inAt&&x.outAt<=Date.now()).forEach(x=>{ const T=sterTargets(x.item), hit=T.find(t=>t.it.id===it.id); if(!hit) return; (T.length===1?sure:maybe).push(Object.assign({},x,{tag:hit.tag||''})); });
   return {sure,maybe}; }
 function syncSter(f,it,dr){ if(special(f)) return; const id=it.id, {sure}=sterOut(it);
   if(sure.length){ dr.v[id]=0;
-    if(!String(dr.n[id]||'').trim()||dr.n[id]===STERING){ dr.n[id]=STERING; const q=/^\d+$/.test(String(it.q))?+it.q:null, out=sure.reduce((a,x)=>a+(+x.qty||1),0); if(it.t==='n'&&q!=null) dr.a[id]=Math.max(0,q-out); } }
-  else if(dr.n[id]===STERING){ delete dr.v[id]; delete dr.n[id]; delete dr.a[id]; } }
+    const tags=['M','L'].filter(t=>sure.some(x=>x.tag===t)).concat([...new Set(sure.map(x=>x.tag).filter(t=>t&&t!=='M'&&t!=='L'))]), why=tags.length?`${OTHER_P}${tags.join('、')} 送消`:STERING;
+    if(!String(dr.n[id]||'').trim()||isSterN(dr.n[id])){ dr.n[id]=why; const q=/^\d+$/.test(String(it.q))?+it.q:null, out=sure.reduce((a,x)=>a+(+x.qty||1),0); if(it.t==='n'&&q!=null) dr.a[id]=Math.max(0,q-out); } }
+  else if(isSterN(dr.n[id])){ delete dr.v[id]; delete dr.n[id]; delete dr.a[id]; } }
 // 簽收回來：最近三天因為這一件「送消中」打 ✗ 的點班，自動改成 ✓（警示・送消回來）；同一項還有別件沒回來就先不改
 function sterBack(x){ const T=sterTargets(x.item); if(T.length!==1) return 0; const it=T[0].it, id=it.id, now=Date.now(); let n=0;
   if(sterOut(it).sure.some(y=>y.id!==x.id)) return 0;
   const t=ymd(new Date()); [addDays(t,-2),addDays(t,-1),t].forEach(d=>{ const base=`rec/${mkey(d)}/${dkey(d)}`, day=getAt(base)||{};
-    Object.keys(day).forEach(key=>{ const r=day[key]; if(!r||!r.v||r.v[id]!==0||!r.n||r.n[id]!==STERING||(r.res&&r.res[id])||(r.r&&r.r[id])||r.at<x.outAt) return;
+    Object.keys(day).forEach(key=>{ const r=day[key]; if(!r||!r.v||r.v[id]!==0||!r.n||!isSterN(r.n[id])||(r.res&&r.res[id])||(r.r&&r.r[id])||r.at<x.outAt) return;
       write('PATCH',`${base}/${key}/res`,{[id]:{by:me(),at:now,txt:'送消回來（已簽收）',dev}}); n++; }); });
   return n; }
 // 1 天內到期、已過期的（看每張單每一份最近一次的紀錄）。only＝只看這些單子（護理師首頁只看自己位置的）
@@ -1370,7 +1374,9 @@ function sterList(){
   return out.sort((a,b)=>b.outAt-a.outAt);
 }
 let sterForm={item:'',other:'',qty:1,oth:false};
-const STER_EXTRA=['喉頭鏡葉片','呼吸器面罩 M','呼吸器面罩 L','張口器','托舌鉗 大','托舌鉗 小','大 Kelly'];   // 器械（A）以外也會送消的（主任 10/16 加）
+const STER_EXTRA=['喉頭鏡葉片','V60 面罩 M','V60 面罩 L','Astral 面罩 M','Astral 面罩 L','張口器','托舌鉗 大','托舌鉗 小','大 Kelly'];
+// 送消品名直接對到哪一張單的哪一項（tag＝點班時 ✗ 的理由寫「M 送消」）：面罩要選哪一台，才知道是哪一項（主任 10/17）
+const STER_MAP={'V60 面罩 M':{f:'vent',s:'V60',tag:'M'},'V60 面罩 L':{f:'vent',s:'V60',tag:'L'},'Astral 面罩 M':{f:'vent',s:'Astral',tag:'M'},'Astral 面罩 L':{f:'vent',s:'Astral',tag:'L'}};   // 器械（A）以外也會送消的（主任 10/16 加）
 const sterItems=()=>{ const f=formById('inst'); return [...new Set([...(f?f.items.map(it=>it.name):[]),...STER_EXTRA])]; };
 function openSter(){ fvs={ster:1}; sterForm={item:'',other:'',qty:1,oth:false}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSter(); }
 function renderSter(keep){
