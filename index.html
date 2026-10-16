@@ -377,7 +377,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.8.0';
+const VERSION='2.9.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -852,7 +852,7 @@ function renderNurse(){
   const soakOpen=soakList().filter(x=>!x.outAt).length, soakBad=soakList().filter(x=>soakShort(x)&&!soakRes(x)&&Date.now()-x.outAt<24*3600e3).length;
   h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakBad?' bad':soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄<small>寄消物品放入／取出</small></span><span class="fs">${soakBad?`⚠ ${soakBad} 件未滿 ${SOAK_MIN} 分${soakOpen?'・':''}`:''}${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button>${(()=>{ const O=sterList().filter(x=>!x.inAt).reverse(), so=O.length, g={}; O.forEach(x=>{ g[x.item]=(g[x.item]||0)+(+x.qty||1); });
     const lst=Object.keys(g).map(k=>esc(k)+(g[k]>1?` ×${g[k]}`:'')).join('、');
-    return `<button class="frow${so?' part':''}" data-act="ster"><span class="dot"></span><span class="fn">送消登記<small>${so?`<span class="sow">送消中：${lst}</span>`:'送去消毒／回來簽收'}</small></span><span class="fs">${so?`送消中 ${so} 件`:''}</span><span class="chev">›</span></button>`; })()}</div>`;
+    return `<button class="frow${so?' part':''}" data-act="ster"><span class="dot"></span><span class="fn">送消登記<small>${so?`<span class="sow">送消中：${lst}</span>`:'送去消毒／回來簽收'}</small></span><span class="fs">${so?`送消中 ${so} 件`:''}</span><span class="chev">›</span></button>`; })()}${repRow()}</div>`;
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderBar();
@@ -927,6 +927,9 @@ function devSigs(name){
   sterList().forEach(x=>{ const p=`ster/${x.mk}/${x.id}`;
     if(x.outDev===dev) add({p,fld:'outBy',lab:`送消送出 ${x.item}`},x.outBy,x.outAt);
     if(x.inDev===dev) add({p,fld:'inBy',lab:`送消簽收 ${x.item}`},x.inBy,x.inAt); });
+  repList().forEach(x=>{ const p=`rep/${x.id}`;
+    if(x.outDev===dev) add({p,fld:'outBy',lab:`送修 ${x.item}`},x.outBy,x.outAt);
+    if(x.inDev===dev) add({p,fld:'inBy',lab:`送修簽收 ${x.item}`},x.inBy,x.inAt); });
   return out.sort((a,b)=>a.at-b.at);
 }
 let _rnL=null;
@@ -993,6 +996,7 @@ function openForm(fid,d,k,edit,p){
   if(anyExp(f)&&(!r||edit)) f.items.forEach(it=>{ syncOd(f,it,dr); syncExp(f,it,dr); });   // 過期的自動打 ✗
   const cn=nowShift(), cur=cn.d===d&&(!slotSh(k)||slotSh(k)===cn.s);   // 現在這一班
   if(cur&&(!r||edit)) f.items.forEach(it=>syncSter(f,it,dr));   // 送消中的自動打 ✗
+  if(cur&&!r) f.items.forEach(it=>syncRep(f,it,dr));   // 送修中的（還沒點的）自動打 ✗「損壞送修」
   fvs={f,d,k,edit:!r||!!edit,dr,cur}; Object.keys(uiOther).forEach(x=>{ if(x!=='who') delete uiOther[x]; });
   $('fv').classList.add('on'); document.body.style.overflow='hidden';
   renderForm(true);
@@ -1123,7 +1127,9 @@ function itemHtml(f,it,dr,ro){
   else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">${od?'開封日、到期日':'到期日'}（${SL.length} 個）${od&&!ro?'；還沒開封的勾「未開封」':''}</div>${xs.join('')}</div>`; }
   const SO=!ro&&fvs&&fvs.cur?sterOut(it):null, SA=SO?[...SO.sure,...SO.maybe]:[];
   const soH=SA.length?`<div class="soh">🧺 送消中：${SA.map(x=>`${esc(x.item)} ×${esc(x.qty)}（${esc(x.outBy)} ${whenLabel(x.outAt)} 送出）`).join('、')}${SO.sure.length?'；回來後先到「送消登記」按簽收':'；是不是這一項的？請自己確認'}</div>`:'';
-  return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${soH}${expB}${body}</div>`;
+  const RP=!ro&&fvs&&fvs.cur&&fvs.f?repOut(fvs.f,it):[];
+  const rpH=RP.length?`<div class="soh">🔧 送修中：${RP.map(x=>`${esc(x.item)} ×${esc(x.qty)}（${esc(x.outBy)} ${whenLabel(x.outAt)} 送修${x.why?'・'+esc(x.why):''}）`).join('、')}；修好回來先到「損壞送修」按簽收</div>`:'';
+  return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${soH}${rpH}${expB}${body}</div>`;
 }
 // 上一班點這一項的人：上一個時段同一張單、有點到這一項的那一份
 function prevChecker(d,f,k,id){
@@ -1150,7 +1156,7 @@ function ngBody(f,it,dr,ro){
   return `<div class="ngx">${it.t==='n'&&!special(f)?`<div class="fix" style="color:var(--txt)">實際數量 <span class="stp"><button data-act="astp" data-id="${it.id}" data-d="-1">−</button><input type="number" inputmode="numeric" min="0" data-in="a" data-id="${it.id}" value="${esc(dr.a[it.id]==null?'':dr.a[it.id])}"><button data-act="astp" data-id="${it.id}" data-d="1">＋</button></span>${sh?`<b style="color:var(--bad)">缺 ${sh}</b>`:''}</div>`:''}
     <div class="chips">${CHIPS.map(c=>`<button class="chip${rsn===c?' on':''}${c===PREV_MISS?' pm':''}" data-act="chip" data-id="${it.id}" data-c="${c}">${c}</button>`).join('')}</div>${who}
     ${rsn===OTHER?`<input type="text" class="note" placeholder="請寫原因（必填）" data-in="o" data-id="${it.id}" value="${esc(note.slice(OTHER_P.length))}">`:''}
-    ${rsn===PREV_MISS?'<div class="hint" style="margin:0">會列在首頁的「待補」，補好了按「已補齊」。</div>':rsn==='損壞送修'?'<div class="hint" style="margin:0">修好了打開這張單按「已修好」，或由護理長在後台標記。</div>':''}</div>`;
+    ${rsn===PREV_MISS?'<div class="hint" style="margin:0">會列在首頁的「待補」，補好了按「已補齊」。</div>':rsn==='損壞送修'?(fvs&&fvs.cur&&fvs.f&&repOut(fvs.f,it).length?'':'<div class="hint" style="margin:0">記得到首頁「損壞送修」登記；修好了打開這張單按「已修好」，或由護理長在後台標記。</div>'):''}</div>`;
 }
 const stp=(id,fld,val,ro,dec)=>ro?`<b style="font-size:18px">${esc(val==null||val===''?'—':val)}</b>`
   :`<span class="stp"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="-1">−</button><input type="number" inputmode="${dec?'decimal':'numeric'}" data-in="x" data-id="${id}" data-fld="${fld}" value="${esc(val==null?'':val)}"><button data-act="stp" data-id="${id}" data-fld="${fld}" data-d="1">＋</button></span>`;
@@ -1264,7 +1270,7 @@ async function submitForm(){
   if(cur&&(!before||cur.at!==before.at)&&!confirm(`${cur.by} 在 ${whenLabel(cur.at)} 已經點過這一張了。\n要用你的紀錄取代嗎？（原本那筆會留在修改紀錄裡）`)) return;
   fvs.rec=cur;
   if(anyExp(f)) f.items.forEach(it=>{ syncOd(f,it,dr); syncExp(f,it,dr); });   // 點到一半跨過半夜：送出前再看一次有沒有過期
-  if(fvs.cur) f.items.forEach(it=>syncSter(f,it,dr));   // 送出前再看一次送消（剛好有人簽收／送出）
+  if(fvs.cur) f.items.forEach(it=>{ syncSter(f,it,dr); syncRep(f,it,dr); });   // 送出前再看一次送消、送修（剛好有人簽收／送出）
   const v={}; f.items.forEach(it=>{ v[it.id]=evalItem(f,it,dr); });
   const bad=Object.values(v).filter(x=>x===0).length;
   const keep=o=>{ const r={}; Object.keys(o||{}).forEach(id=>{ if(v[id]===0||id.startsWith('_')||special(f)) r[id]=o[id]; }); return r; };
@@ -1280,6 +1286,8 @@ async function submitForm(){
   let cid=null;   // 修改：改之前那一份整份存到 chg/（評鑑時看得到改了什麼）
   if(old&&old.by){ cid=old._stub?null:now.toString(36)+Math.random().toString(36).slice(2,5); rec.h=[...(old.h||[]),Object.assign({by:old.by,at:old.at,bad:old.bad||0},cid?{c:cid}:{})]; }
   if(old&&old.res){ const rs={}; Object.keys(old.res).forEach(id=>{ if(v[id]!==undefined) rs[id]=old.res[id]; }); if(Object.keys(rs).length) rec.res=rs; }
+  // 已經登記送修的「損壞送修」：算處理中（警示），不要每一班都變成異常
+  if(fvs.cur) f.items.forEach(it=>{ if(v[it.id]!==0||String(dr.n[it.id]||'')!==REP_N||(rec.res&&rec.res[it.id])||!repOut(f,it).length) return; (rec.res||(rec.res={}))[it.id]={by:me(),at:now,txt:REP_ING,dev}; });
   const dd=k==='M'&&old&&old._d?old._d:d;   // 每月一次的改紀錄：寫回原本那一天
   write('PUT',recPath(dd,f,k),rec);
   if(cid){ const copy=clone(old); ['_d','_stub','_path','_legacy','parts'].forEach(x=>delete copy[x]); write('PUT',`chg/${mkey(dd)}/${cid}`,{p:old._path||recPath(dd,f,k),old:copy,by:me(),at:now}); }
@@ -1400,6 +1408,69 @@ function renderSter(keep){
   const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
 }
 
+// ---------- 損壞送修（壞了送修、修好回來簽收）（主任 10/17）----------
+// 雲端 rep/<id>（不分月份，送修可能很久）＝{item,qty,why,tg:['表單id/項目id'],tl:對到哪裡,outBy,outAt,outDev,inBy,inAt,inDev,bk,ub}
+// 登記畫面上的品項：cfg/rep.list（管理頁可以自己增減；沒設定過用預設）
+const REP_DEFAULT=['電擊器 DFM100','電擊器 XL+','呼吸器 V60','呼吸器 Astral 100','移動生理監視器','十二導程 EKG','超音波','IV Pump','輸血加溫器','電子喉頭鏡','喉頭鏡柄','電動骨針電鑽','抽吸負壓表','O2 流量表','血糖機','耳溫槍','電子血壓機','三合一血壓機','血氧機'];
+const REP_N='損壞送修', REP_ING='送修中（已登記送修）', REP_BACK='修好回來（已簽收）';
+const repItems=()=>{ const c=getAt('cfg/rep'); return c&&typeof c==='object'?toArr(c.list).filter(Boolean).map(String):REP_DEFAULT.slice(); };
+function repList(){ const o=getAt('rep')||{}; return Object.keys(o).filter(id=>o[id]&&o[id].outAt).map(id=>Object.assign({id},o[id])).sort((a,b)=>b.outAt-a.outAt); }
+const repInMonth=(x,mk)=>{ const a=mkey(ymd(new Date(x.outAt))), b=x.inAt?mkey(ymd(new Date(x.inAt))):mkey(ymd(new Date())); return a<=mk&&mk<=b; };
+// 品名對到點班單：整張單（電擊器 DFM100）或一個區塊（呼吸器 V60）＝那些項目全部；否則找名稱對得到的項目，好幾個就讓護理師選是哪一個
+function repCands(name){ const N=sNorm(name), FS=activeForms().filter(f=>!special(f)&&f.kind!=='clock'&&f.kind!=='virus');
+  if(!N) return {grp:null,list:[]};
+  for(const f of FS){ if(sNorm(f.name)===N) return {grp:{lab:`${f.name}（整張）`,ids:f.items.map(it=>`${f.id}/${it.id}`)},list:[]};
+    const ss=[...new Set(f.items.map(it=>it.s))].find(x=>sNorm(x)===N); if(ss) return {grp:{lab:`${f.name}・${ss}`,ids:f.items.filter(it=>it.s===ss).map(it=>`${f.id}/${it.id}`)},list:[]}; }
+  const list=[]; FS.forEach(f=>f.items.forEach(it=>{ if(sterHits(it.name,name)) list.push({id:`${f.id}/${it.id}`,ex:sNorm(it.name)===N,base:`${f.name}・${it.s}`,nm:it.name}); }));
+  list.forEach(c=>{ c.lab=c.base+(!c.ex||list.filter(o=>o.base===c.base).length>1?'・'+c.nm:''); });   // 同一區有兩個像的（電子喉頭鏡／鏡葉）就寫出品名
+  return {grp:null,list}; }
+// 這一項現在送修中（還沒修好回來）的登記
+const repOut=(f,it)=>f&&it?repList().filter(x=>!x.inAt&&x.outAt<=Date.now()&&toArr(x.tg).includes(`${f.id}/${it.id}`)):[];
+// 開單／送出：送修中的、還沒點的，自動打 ✗「損壞送修」（數量類扣掉送修的）；護理師可以自己改
+function syncRep(f,it,dr){ if(special(f)||dr.v[it.id]!=null) return; const R=repOut(f,it); if(!R.length) return;
+  dr.v[it.id]=0; dr.n[it.id]=REP_N; const q=/^\d+$/.test(String(it.q))?+it.q:null; if(it.t==='n'&&q!=null) dr.a[it.id]=Math.max(0,q-R.reduce((a,x)=>a+(+x.qty||1),0)); }
+// 修好回來簽收：送修前一天起，因為這件打 ✗「損壞送修」還沒處理的點班，自動改成 ✓（警示・修好回來）；同一項還有別件沒回來就先不改
+async function repBack(x){ const T=toArr(x.tg); if(!T.length) return [];
+  const still=new Set(); repList().filter(y=>!y.inAt&&y.id!==x.id).forEach(y=>toArr(y.tg).forEach(t=>still.add(t)));
+  const ok=T.filter(t=>!still.has(t)); if(!ok.length) return [];
+  const t=ymd(new Date()), ds=[]; for(let d=ymd(new Date(x.outAt-864e5)); d<=t&&ds.length<70; d=addDays(d,1)) ds.push(d);
+  await Promise.all(ds.map(d=>getAt(`rec/${mkey(d)}/${dkey(d)}`)===undefined?pull(`rec/${mkey(d)}/${dkey(d)}`):null));
+  const now=Date.now(), out=[];
+  ds.forEach(d=>{ const base=`rec/${mkey(d)}/${dkey(d)}`, day=getAt(base)||{};
+    Object.keys(day).forEach(key=>{ const r=day[key]; if(!r||!r.v||!r.n||r.at<x.outAt-864e5) return; const fid=key.split('_')[0];
+      ok.forEach(t=>{ const [tf,ti]=t.split('/'); if(tf!==fid||r.v[ti]!==0||r.n[ti]!==REP_N||(r.res&&r.res[ti])||(r.r&&r.r[ti])) return;
+        write('PATCH',`${base}/${key}/res`,{[ti]:{by:me(),at:now,txt:REP_BACK,dev}}); out.push(`${base}/${key}/res/${ti}`); }); }); });
+  return out; }
+let repForm={item:'',other:'',qty:1,oth:false,why:'',pick:null};
+function openRep(){ fvs={rep:1}; repForm={item:'',other:'',qty:1,oth:false,why:'',pick:null}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderRep(); }
+const repAge=t=>{ const h=Math.floor((Date.now()-t)/3600e3); return h<24?`${h} 小時`:`${Math.floor(h/24)} 天`; };
+function renderRep(keep){
+  const L=repList(), open=L.filter(x=>!x.inAt), done=L.filter(x=>x.inAt&&Date.now()-x.inAt<3*864e5);
+  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0, its=repItems();
+  const C=!repForm.oth&&repForm.item?repCands(repForm.item):null;
+  let tgH='';
+  if(C&&C.grp) tgH=`<div class="hint">點班時會對到：<b>${esc(C.grp.lab)}</b></div>`;
+  else if(C&&C.list.length===1) tgH=`<div class="hint">點班時會對到：<b>${esc(C.list[0].lab)}</b></div>`;
+  else if(C&&C.list.length>1) tgH=`<div class="hint" style="margin-bottom:4px">是哪一個？（點班時只有這一項自動打 ✗）</div><div class="chips" style="margin-bottom:8px">${C.list.map((c,i)=>`<button class="chip${repForm.pick===i?' on':''}" data-act="rp-pick" data-i="${i}">${esc(c.lab)}</button>`).join('')}<button class="chip${repForm.pick===-1?' on':''}" data-act="rp-pick" data-i="-1">都不是／不確定</button></div>`;
+  else if(C) tgH=`<div class="hint">點班單上沒有這一項（不會自動打 ✗）</div>`;
+  const row=x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${x.tl?esc(x.tl)+'・':''}${x.why?'故障：'+esc(x.why)+'・':''}${esc(x.outBy)} ${whenLabel(x.outAt)} 送修${x.inAt?` → ${esc(x.inBy)} ${whenLabel(x.inAt)} 修好簽收`:`・已 ${repAge(x.outAt)}`}${x.ub&&!x.inAt?`・${esc(x.ub.by)} 已復原簽收`:''}</small></div>${x.inAt?`<button class="btn mini ghost" data-act="rp-undo" data-id="${x.id}">復原</button>`:`<button class="btn mini ghost" data-act="rp-cx" data-id="${x.id}">取消</button><button class="btn mini" data-act="rp-in" data-id="${x.id}">簽收</button>`}</div>`;
+  let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>損壞送修</b><small>東西壞了送修時登記，修好回來按「簽收」</small></div></div><div class="fb"><div class="in">`;
+  h+=`<div class="card"><b>送修</b><div class="chips" style="margin:8px 0">${its.map(x=>`<button class="chip${!repForm.oth&&repForm.item===x?' on':''}" data-act="rp-item" data-n="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip${repForm.oth?' on':''}" data-act="rp-item" data-oth="1">其他</button></div>
+    ${repForm.oth?`<input type="text" placeholder="請寫品名" data-in="rp-other" value="${esc(repForm.other)}" style="width:100%;margin-bottom:8px">`:''}${tgH}
+    <input type="text" placeholder="哪裡壞了（可不填），例：螢幕不亮" data-in="rp-why" value="${esc(repForm.why)}" style="width:100%;margin-bottom:8px">
+    <div class="edrow"><span>數量</span><span class="stp"><button data-act="rp-q" data-d="-1">−</button><input type="number" inputmode="numeric" data-in="rp-qty" value="${repForm.qty}"><button data-act="rp-q" data-d="1">＋</button></span>
+    <button class="btn" data-act="rp-out" style="margin-left:auto">送修（${esc(me())}）</button></div></div>`;
+  h+=`<div class="secb"><div class="sh2"><b>送修中<small>${open.length} 件</small></b></div>${open.length?open.map(row).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
+  h+=`<div class="secb"><div class="sh2"><b>最近三天修好回來<small>${done.length} 件</small></b></div>${done.length?done.map(row).join(''):'<div class="soakrow mut">還沒有</div>'}</div>`;
+  h+=`<div class="hint" style="margin:10px 4px">送修中的東西，點班時那一項自動打 ✗「損壞送修」（算警示，不算異常）；修好回來按「簽收」，之前因為它打 ✗ 的會自動改成 ✓。按錯了：送修中的按「取消」，簽收按錯按「復原」。</div>`;
+  h+=`</div></div>`;
+  $('fv').innerHTML=h;
+  const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
+}
+function repRow(){ const O=repList().filter(x=>!x.inAt).reverse(), g={}; O.forEach(x=>{ g[x.item]=(g[x.item]||0)+(+x.qty||1); });
+  const lst=Object.keys(g).map(k=>esc(k)+(g[k]>1?` ×${g[k]}`:'')).join('、');
+  return `<button class="frow${O.length?' part':''}" data-act="rep"><span class="dot"></span><span class="fn">損壞送修<small>${O.length?`<span class="sow">送修中：${lst}</span>`:'壞了送修／修好回來簽收'}</small></span><span class="fs">${O.length?`送修中 ${O.length} 件`:''}</span><span class="chev">›</span></button>`; }
+
 // ---------- 讀資料 ----------
 let _busy=false, _cfgAt=0;
 function applyWipe(){
@@ -1415,17 +1486,17 @@ async function refreshView(){
     const {d,s}=view, t=ymd(new Date());
     if(await pull('cfg/wipeAt')) applyWipe();
     if(Date.now()-_cfgAt>10*60e3||cloud.st!=='ok'){   // 點班單內容十分鐘讀一次就好
-      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null]); _cfgAt=Date.now(); }
+      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),pull('cfg/rep'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null]); _cfgAt=Date.now(); }
       applyCfg();
     }
     const ps=prevShift(d,s);
     const rd=[...new Set([d,ps.d,t,addDays(t,-1)])];
-    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),...rd.map(x=>pull(`tk/${mkey(x)}/${dkey(x)}`)),...qMonthsTo(mkey(d)).map(m=>pull(`rec/${m}/_m`)),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),pull('ster/'+mkey(t)),pull('ster/'+shiftMonth(mkey(t),-1)),
+    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),...rd.map(x=>pull(`tk/${mkey(x)}/${dkey(x)}`)),...qMonthsTo(mkey(d)).map(m=>pull(`rec/${m}/_m`)),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),pull('ster/'+mkey(t)),pull('ster/'+shiftMonth(mkey(t),-1)),pull('rep'),
       loadSched([...new Set([d,ps.d,nowShift().d])])]);
     flush();
   } finally{ _busy=false; }
   if(typing()) return;   // 下一次（一分鐘後）再重畫
-  if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.ster) renderSter(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
+  if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.ster) renderSter(true); else if(fvs&&fvs.rep) renderRep(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
 }
 
 // ======================================================================
@@ -1451,7 +1522,7 @@ async function findStart(){
 const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
 async function loadMonth(mk,render){
   if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
-  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('chg/'+mk),pull('tk/'+mk)]);
+  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk)]);
   const qf=activeForms().filter(isQ), pm=qMonthsTo(mk).filter(m=>m!==mk);
   if(qf.length&&pm.length){ await Promise.all(pm.map(m=>getAt(`rec/${m}/_m`)===undefined?pull(`rec/${m}/_m`):null));
     const need=[]; pm.forEach(m=>{ const M=getAt(`rec/${m}/_m`)||{}; Object.keys(M).forEach(key=>{ const fid=key.split('~')[0], x=M[key];
@@ -1608,6 +1679,16 @@ function renderManage(){
   // 送消登記
   const st=getAt('ster/'+mcur)||{}, stl=Object.keys(st).map(id=>Object.assign({id},st[id])).filter(x=>x.outAt).sort((a,b)=>a.outAt-b.outAt), stOpen=stl.filter(x=>!x.inAt).length;
   h+=card('ster','送消登記',`${stl.length} 筆${stOpen?`・送消中 ${stOpen}`:''}`,stl.length?`<div class="tw"><table class="tt"><tr><th class="l">送出</th><th class="l">品名</th><th>數量</th><th class="l">送出人</th><th class="l">簽收</th><th class="l">簽收人</th></tr>${stl.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送消中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
+  // 損壞送修
+  const RL=repList(), rOpen=RL.filter(x=>!x.inAt), rMon=RL.filter(x=>repInMonth(x,mcur)).sort((a,b)=>a.outAt-b.outAt), rIt=repItems();
+  const rpChip=n=>`<span class="chip on" style="display:inline-flex;gap:6px;align-items:center">${esc(n)}<button data-act="rpdel" data-n="${esc(n)}" title="拿掉" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button></span>`;
+  h+=card('rep','損壞送修',`${rMon.length} 筆${rOpen.length?`・送修中 ${rOpen.length}`:''}`,
+    (rOpen.length?`<div class="grp">送修中（${rOpen.length} 件）</div>${rOpen.map(x=>`<div class="abn"><div class="h"><b>${esc(x.item)} ×${esc(x.qty)}</b>${x.tl?`<span>${esc(x.tl)}</span>`:''}<span class="tag w">已 ${repAge(x.outAt)}</span></div><div class="t">${esc(x.outBy)} ${whenLabel(x.outAt)} 送修${x.why?`・故障：${esc(x.why)}`:''}</div></div>`).join('')}`:'')+
+    `<div class="grp">${monLabel(mcur)}</div>`+(rMon.length?`<div class="tw"><table class="tt"><tr><th class="l">送修</th><th class="l">品名</th><th>數量</th><th class="l">故障</th><th class="l">送修人</th><th class="l">修好回來</th><th class="l">簽收人</th></tr>${rMon.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.why||'')}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送修中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>')+
+    `<div class="grp" style="margin-top:12px">登記畫面上的品項（${rIt.length} 項）</div><div class="hint">護理師在「損壞送修」選品名的按鈕。按 ✕ 拿掉、下面打品名加入；不在上面的，護理師可以按「其他」自己打。</div>
+    <div class="chips" style="margin:6px 0">${rIt.map(rpChip).join('')||'<span class="mut">沒有</span>'}</div>
+    <div class="edrow"><input type="text" id="rp-add" placeholder="品名，例如：烤燈" style="flex:1;min-width:0"><button class="btn" data-act="rpadd">加入</button></div>
+    <div class="edrow"><button class="btn mini ghost" data-act="rpdef">恢復預設品項</button></div>`);
   // 每日紀錄與核簽
   const revs=getAt('rev/'+mcur)||{}, nrev=S.days.filter(o=>revs[dkey(o.d)]).length;
   const dayHtml=o=>{ const rv=revs[dkey(o.d)];
@@ -1675,7 +1756,7 @@ async function showNoti(title,body){
 // 備份：把這個 App 在雲端的全部資料下載成一個檔案
 // 10/16 小夜正式上線：之前的測試紀錄已清除，cfg/wipeAt＝上線時間（之前的班次不算應點）；手機看到 wipeAt 會清掉本機的舊副本（applyWipe）
 // 管理頁的「一鍵清空」已拿掉（主任 10/16 指定），正式上線後不再提供
-const WIPE_PATHS=['rec','rev','soak','ster','del','chg','virus','tk'];
+const WIPE_PATHS=['rec','rev','soak','ster','rep','del','chg','virus','tk'];
 function dlBlob(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000); }
 async function backupAll(nm){
   const data=await fb('GET',''), n=new Date(), stamp=`${ymd(n).replace(/-/g,'')}_${pad(n.getHours())}${pad(n.getMinutes())}`;
@@ -1699,7 +1780,7 @@ function dayDetail(d){
 function monthTable(S){
   const f0=formById(mtForm)||activeForms()[0]; if(!f0) return '';
   const f=formAt(f0,S.mk);
-  let h=`<div class="prt"><div class="edrow"><select id="pr-scope" style="flex:1;min-width:0"><option value="one">列印這一張（${esc(f0.name)}）</option><option value="all">列印全部點班單＋泡消登錄＋送消登記</option><option value="soak">只印泡消登錄表</option><option value="ster">只印送消登記表</option></select></div>
+  let h=`<div class="prt"><div class="edrow"><select id="pr-scope" style="flex:1;min-width:0"><option value="one">列印這一張（${esc(f0.name)}）</option><option value="all">列印全部點班單＋泡消登錄＋送消登記＋損壞送修</option><option value="soak">只印泡消登錄表</option><option value="ster">只印送消登記表</option><option value="rep">只印損壞送修表</option></select></div>
     <div class="edrow"><label>表頭</label><input type="text" id="pr-title" value="${esc(printTitle())}" style="flex:1;min-width:0" placeholder="例如：○○醫院 急診室"></div>
     <div class="edrow"><button class="btn" data-act="print">列印／存成 PDF</button><button class="btn outline" data-act="doc">下載 Word</button></div>
     <div class="hint">${monLabel(S.mk)}・A4 橫印，每張點班單從新的一頁開始，後面附當月異常紀錄。要 PDF：列印畫面選「另存為 PDF」。</div></div>
@@ -1817,7 +1898,14 @@ function sterModel(mk,title){
   if(!L.length) rows.push({cells:[C('這個月沒有紀錄',{cs:8})]});
   return [{t:'h',text:`${title}　送消登記表`,sub:monLabel(mk)},{t:'tbl',widths:[28,16,70,14,30,28,16,30],rows}];
 }
-const printModels=(mk,list,title)=>list.map(f=>f==='soak'?soakModel(mk,title):f==='ster'?sterModel(mk,title):formModel(f,mk,title));
+function repModel(mk,title){
+  const L=repList().filter(x=>repInMonth(x,mk)).sort((a,b)=>a.outAt-b.outAt), H={b:1,sh:1};
+  const rows=[{h:1,cells:['送修日期','品名','數量','故障情形','送修人','修好回來','簽收人'].map((v,i)=>C(v,{...H,al:i===1||i===3?'l':''}))}];
+  L.forEach(x=>rows.push({cells:[C(dayLabel(ymd(new Date(x.outAt)))),C(x.item,{al:'l'}),C(x.qty),C(x.why||'',{al:'l'}),C(x.outBy),C(x.inAt?dayLabel(ymd(new Date(x.inAt))):'送修中'),C(x.inBy||'')]}));
+  if(!L.length) rows.push({cells:[C('這個月沒有紀錄',{cs:7})]});
+  return [{t:'h',text:`${title}　損壞送修登記表`,sub:monLabel(mk)},{t:'tbl',widths:[28,56,14,62,30,28,30],rows}];
+}
+const printModels=(mk,list,title)=>list.map(f=>f==='soak'?soakModel(mk,title):f==='ster'?sterModel(mk,title):f==='rep'?repModel(mk,title):formModel(f,mk,title));
 // ---- 列印用網頁 ----
 const PFONT='"標楷體","DFKai-SB","BiauKai","Kaiti TC",serif';
 function cellHtml(c,tag){
@@ -1902,7 +1990,7 @@ async function doDoc(mk,list){
   const title=($('pr-title')||{}).value||printTitle();
   toast('產生 Word 檔中…');
   const blob=await docxBlob(printModels(mk,list,title));
-  const name=`急診點班_${monLabel(mk)}_${list.length===1?(list[0]==='soak'?'泡消登錄':list[0]==='ster'?'送消登記':list[0].name):'全部'}.docx`.replace(/[\\/:*?"<>|（）()\s]/g,'');
+  const name=`急診點班_${monLabel(mk)}_${list.length===1?(list[0]==='soak'?'泡消登錄':list[0]==='ster'?'送消登記':list[0]==='rep'?'損壞送修':list[0].name):'全部'}.docx`.replace(/[\\/:*?"<>|（）()\s]/g,'');
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name;
   document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000);
   toast('已下載 '+name);
@@ -2120,6 +2208,7 @@ document.addEventListener('click',async e=>{
   if(a==='open'){ openForm(ds.f,view.d,ds.k,false,ds.p||''); return; }
   if(a==='setpos'){ setPos(ds.p); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='pos'){ posSel[`${view.d}|${view.s}`]=''; renderNurse(); return; }
+  if(a==='back'&&fvs&&fvs.rep){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'&&fvs&&fvs.ster){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'){ if(fvs&&fvs.restock){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
     if(fvs&&fvs.soak){ fvs=null; clearInterval(_soakT); $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; } saveDraft(); closeForm(); return; }
@@ -2195,6 +2284,35 @@ document.addEventListener('click',async e=>{
     (x.bk||[]).forEach(pp=>{ const v=getAt(pp); if(!v||v.txt===STER_BACK) write('PUT',pp,null); });
     write('PATCH',`ster/${x.mk}/${x.id}`,{inBy:null,inAt:null,inDev:null,bk:null,ub:{by:me(),at:Date.now(),inBy:x.inBy,inAt:x.inAt,dev}});   // ub＝誰復原的（留底）
     renderSter(true); toast('已復原，變回送消中'); return; }
+  if(a==='rep'){ openRep(); return; }
+  if(a==='rp-item'){ if(ds.oth){ repForm.oth=true; repForm.item=''; } else { repForm.oth=false; repForm.item=ds.n; } repForm.pick=null; renderRep(true); if(ds.oth){ const i=document.querySelector('input[data-in=rp-other]'); if(i) i.focus(); } return; }
+  if(a==='rp-pick'){ repForm.pick=+ds.i; renderRep(true); return; }
+  if(a==='rp-q'){ repForm.qty=Math.max(1,(+repForm.qty||1)+(+ds.d)); renderRep(true); return; }
+  if(a==='rp-out'){ const item=repForm.oth?(repForm.other||'').trim():repForm.item; if(!item){ toast(repForm.oth?'請寫品名':'請選要送修的東西'); return; }
+    let tg=[], tl=''; if(!repForm.oth){ const C=repCands(item);
+      if(C.grp){ tg=C.grp.ids; tl=C.grp.lab; } else if(C.list.length===1){ tg=[C.list[0].id]; tl=C.list[0].lab; }
+      else if(C.list.length>1){ if(repForm.pick==null){ toast('請選是哪一個（不確定就按「都不是／不確定」）'); return; } const c=C.list[repForm.pick]; if(c){ tg=[c.id]; tl=c.lab; } } }
+    const why=(repForm.why||'').trim(), qty=+repForm.qty||1, now=Date.now(), id=now.toString(36)+Math.random().toString(36).slice(2,5);
+    if(!confirm(`確定登記送修？\n${item} ×${qty}${tl?`\n點班單：${tl}`:''}${why?`\n故障：${why}`:''}\n送修人：${me()}`)) return;
+    write('PUT',`rep/${id}`,Object.assign({item,qty,outBy:me(),outAt:now,outDev:dev},why?{why}:{},tg.length?{tg,tl}:{})); repForm={item:'',other:'',qty:1,oth:false,why:'',pick:null}; renderRep(true); toast('已登記送修'); return; }
+  if(a==='rp-in'){ const x=repList().find(y=>y.id===ds.id&&!y.inAt); if(!x) return;
+    if(!confirm(`修好回來，確定簽收？\n${x.item} ×${x.qty}（${x.outBy} ${whenLabel(x.outAt)} 送修）\n簽收人：${me()}`)) return;
+    const bk=await repBack(x); write('PATCH',`rep/${x.id}`,{inBy:me(),inAt:Date.now(),inDev:dev,bk:bk.length?bk:null}); if(fvs&&fvs.rep) renderRep(true); toast(bk.length?`已簽收；${bk.length} 筆點班的「損壞送修」改成 ✓`:'已簽收'); return; }
+  if(a==='rp-cx'){ const x=repList().find(y=>y.id===ds.id&&!y.inAt); if(!x) return;
+    if(!confirm(`取消這筆送修登記？\n${x.item} ×${x.qty}（${x.outBy} ${whenLabel(x.outAt)} 送修）\n\n登記錯了（沒有送修）才按；修好回來請按「簽收」。`)) return;
+    const now=Date.now(), copy=clone(x); delete copy.id;
+    write('PUT',`del/${mkey(ymd(new Date(x.outAt)))}/${now.toString(36)}${Math.random().toString(36).slice(2,5)}`,{p:`rep/${x.id}`,rep:copy,by:me(),at:now,dev});   // 留底：誰取消的
+    write('PUT',`rep/${x.id}`,null); renderRep(true); toast('已取消這筆送修登記'); return; }
+  if(a==='rp-undo'){ const x=repList().find(y=>y.id===ds.id&&y.inAt); if(!x) return;
+    if(!confirm(`復原這筆簽收？\n${x.item} ×${x.qty}（${x.inBy} ${whenLabel(x.inAt)} 簽收）\n\n會變回「送修中」；簽收時自動改成 ✓ 的點班也會改回 ✗。`)) return;
+    toArr(x.bk).forEach(pp=>{ const v=getAt(pp); if(!v||v.txt===REP_BACK) write('PUT',pp,null); });
+    write('PATCH',`rep/${x.id}`,{inBy:null,inAt:null,inDev:null,bk:null,ub:{by:me(),at:Date.now(),inBy:x.inBy,inAt:x.inAt,dev}});
+    renderRep(true); toast('已復原，變回送修中'); return; }
+  // 管理頁：登記畫面上的送修品項
+  if(a==='rpdel'){ if(!confirm(`把「${ds.n}」從送修品項拿掉？\n（以前的送修紀錄不受影響）`)) return; write('PUT','cfg/rep',{list:repItems().filter(x=>x!==ds.n),at:Date.now()}); renderManage(); toast(`已拿掉「${ds.n}」`); return; }
+  if(a==='rpadd'){ const v=(($('rp-add')||{}).value||'').trim(); if(!v) return; const L=repItems(); if(L.includes(v)){ toast('已經有了'); return; }
+    if(!confirm(`把「${v}」加入送修品項？`)) return; write('PUT','cfg/rep',{list:[...L,v],at:Date.now()}); renderManage(); toast(`已加入「${v}」`); return; }
+  if(a==='rpdef'){ if(!confirm('送修品項恢復成預設？\n（自己加的會拿掉）')) return; write('PUT','cfg/rep',null); renderManage(); toast('已恢復預設品項'); return; }
   if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
   if(a==='sk-q'){ soakForm.qty=Math.max(1,(+soakForm.qty||1)+(+ds.d)); renderSoak(true); return; }
   if(a==='sk-in'){ const item=SOAK_ITEMS.includes(soakForm.item)?soakForm.item:(soakForm.other||'').trim(); if(!item){ toast('請寫品名'); return; }
@@ -2243,7 +2361,7 @@ document.addEventListener('click',async e=>{
 這一班會變回「未點」（刪掉的紀錄會留底）。`)) return;
     cancelRec(ds.d,f,ds.k,r,nm); closeDlg(); renderManage(); toast('已刪除這筆點班'); return; }
   if(a==='print'||a==='doc'){ const sc=($('pr-scope')||{}).value||'one', f=formById(mtForm)||activeForms()[0];
-    const list=sc==='all'?[...activeForms(),'soak','ster']:sc==='soak'?['soak']:sc==='ster'?['ster']:[f];
+    const list=sc==='all'?[...activeForms(),'soak','ster','rep']:sc==='soak'?['soak']:sc==='ster'?['ster']:sc==='rep'?['rep']:[f];
     if(a==='print') doPrint(mcur,list); else doDoc(mcur,list); return; }
   if(a==='review'){ e.preventDefault(); const nm=await mgrName(); if(!nm) return;
     if(!confirm(`確定核簽 ${dayLabel(ds.d)}？\n核簽人：${nm}`)) return; write('PUT',`rev/${mkey(ds.d)}/${dkey(ds.d)}`,{by:nm,at:Date.now()}); renderManage(); toast(dayLabel(ds.d)+' 已核簽'); return; }
@@ -2368,6 +2486,9 @@ document.addEventListener('input',e=>{
   if(ds.in==='sk-qty'){ soakForm.qty=Math.max(1,+t.value||1); return; }
   if(ds.in==='st-other'){ sterForm.other=t.value; return; }
   if(ds.in==='st-qty'){ sterForm.qty=Math.max(1,+t.value||1); return; }
+  if(ds.in==='rp-other'){ repForm.other=t.value; return; }
+  if(ds.in==='rp-why'){ repForm.why=t.value; return; }
+  if(ds.in==='rp-qty'){ repForm.qty=Math.max(1,+t.value||1); return; }
   // 管理頁：點班單內容編輯
   if(ds.ed&&edF){ const f=edF.find(x=>x.id===edSel);
     if(ds.ed==='on') f.on=t.checked?undefined:false;
