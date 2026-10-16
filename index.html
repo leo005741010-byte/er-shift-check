@@ -375,7 +375,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.4.0';
+const VERSION='2.5.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -649,7 +649,7 @@ function staffNames(){
 
 // 開封後可以用一段時間的藥（RI、NTG、Heparin）：點班時多填「開封日」，到期日照樣算過期／快到期
 ['c31','h1','h3'].forEach(id=>DEFAULT_FORMS.forEach(f=>f.items.forEach(it=>{ if(it.id===id) it.od=1; })));
-DEFAULT_FORMS.forEach(f=>f.items.forEach(it=>{ if(it.id==='h1'){ it.odN=41; it.odU='d'; } if(it.id==='h3'){ it.odN=24; it.odU='h'; } }));   // RI 開封後 41 天、Heparin 24 小時；NTG 自己填
+DEFAULT_FORMS.forEach(f=>f.items.forEach(it=>{ if(it.id==='h1'){ it.odN=42; it.odU='d'; } if(it.id==='h3'){ it.odN=24; it.odU='h'; } if(it.id==='c31'){ it.odN=3; it.odU='m'; } if(['c11','c12','c13'].includes(it.id)) it.ex=1; }));   // RI 開封後 42 天、Heparin 24 小時、NTG 3 個月（10/16）；張口器、托舌鉗、大 Kelly 填到期日
 
 // ---------- 點班單設定 ----------
 let FORMS=clone(DEFAULT_FORMS), fver=0;
@@ -709,18 +709,19 @@ function legacyOf(d,f,k){
 const special=f=>f.kind==='narc'||f.kind==='temp';
 const isFixed=(r,id)=>!!(r.r&&r.r[id])||!!(r.res&&r.res[id]);
 // 到期日：整張單開了「到期日」，或這一項要填「開封日」（RI、NTG、Heparin 這類開封後可以用一段時間的藥）
-const hasExp=(f,it)=>!special(f)&&(!!f.exp||!!it.od);
-const anyExp=f=>!special(f)&&(!!f.exp||f.items.some(it=>it.od));
+const hasExp=(f,it)=>!special(f)&&(!!f.exp||!!it.od||!!it.ex);   // it.ex＝這一項要填到期日（例：張口器、托舌鉗、大 Kelly）
+const anyExp=f=>!special(f)&&(!!f.exp||f.items.some(it=>it.od||it.ex));
 // 開封日那一格勾「未開封」：紀錄裡存成這個字（不是日期）
 const UNOPENED='未開封';
 const isD=v=>/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/.test(String(v||''));   // 日期，或日期＋時間（Heparin 開封要到幾點幾分）
 const isDT=v=>/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(String(v||''));
 // 開封後可用多久（管理頁每一項設定：odN＋odU，d＝天、h＝小時）；有設定就由開封日（時間）自動算到期，沒設定（如 NTG）到期日自己填
-const odLife=it=>it&&it.od&&+it.odN>0?{n:+it.odN,u:it.odU==='h'?'h':'d'}:null;
+const odLife=it=>it&&it.od&&+it.odN>0?{n:+it.odN,u:it.odU==='h'?'h':it.odU==='m'?'m':'d'}:null;   // d 天、h 小時、m 個月
 const odTime=it=>{ const Lf=odLife(it); return !!Lf&&Lf.u==='h'; };
-const odLab=it=>{ const Lf=odLife(it); return Lf?`開封後 ${Lf.n} ${Lf.u==='h'?'小時':'天'}`:''; };
+const odLab=it=>{ const Lf=odLife(it); return Lf?`開封後 ${Lf.n} ${Lf.u==='h'?'小時':Lf.u==='m'?'個月':'天'}`:''; };
 function autoExp(it,o){ const Lf=odLife(it); if(!Lf||!isD(o)) return '';
   if(Lf.u==='d'){ const d=parseD(o.slice(0,10)); d.setDate(d.getDate()+Lf.n); return ymd(d); }
+  if(Lf.u==='m'){ const d=parseD(o.slice(0,10)), y=d.getFullYear(), m=d.getMonth()+Lf.n, last=new Date(y,m+1,0).getDate(); return ymd(new Date(y,m,Math.min(d.getDate(),last))); }   // 幾個月後的同一天（沒有那一天＝月底）
   if(!isDT(o)) return ''; const [dd,tt]=o.split('T'), [H,M]=tt.split(':').map(Number), d=parseD(dd); d.setHours(H,M,0,0); d.setTime(d.getTime()+Lf.n*36e5);
   return ymd(d)+'T'+pad(d.getHours())+':'+pad(d.getMinutes()); }
 const fmtOp=v=>v===UNOPENED?UNOPENED:fmtExp(v);
@@ -1021,6 +1022,7 @@ const EXP_SOON_H=8;   // 有時間的到期（Heparin 24 小時）：剩 8 小�
 // 一項要填幾個到期日：設定量幾個就幾格（CVP 包 2＝2 格）；「各2」又用「／」分好幾種＝每種各 2 格；超過 10 個只填最早到期的一格
 function expSlots(it){
   const q=String(it.q||'').trim(), m=q.match(/^各\s*(\d+)$/), kinds=String(it.name).split(/[／\/]/).map(x=>x.trim()).filter(Boolean);
+  if(kinds.length>1&&/\s/.test(kinds[0])){ const pre=kinds[0].split(/\s+/)[0]; for(let i=1;i<kinds.length;i++) if(!/\s/.test(kinds[i])&&kinds[i].length<=3) kinds[i]=pre+' '+kinds[i]; }   // 托舌鉗 大／小 → 托舌鉗 大、托舌鉗 小
   if(m&&kinds.length>1&&+m[1]*kinds.length<=10){ const n=+m[1], L=[]; kinds.forEach(k=>{ for(let i=1;i<=n;i++) L.push(n>1?`${k} ${i}`:k); }); return L; }
   const n=/^\d+$/.test(q)?+q:1; if(n>10) return ['最早到期']; return n>1?Array.from({length:n},(_,i)=>`第 ${i+1} 個`):[''];
 }
@@ -1340,7 +1342,8 @@ function sterList(){
   return out.sort((a,b)=>b.outAt-a.outAt);
 }
 let sterForm={item:'',other:'',qty:1,oth:false};
-const sterItems=()=>{ const f=formById('inst'); return [...new Set([...(f?f.items.map(it=>it.name):[]),'喉頭鏡葉片'])]; };
+const STER_EXTRA=['喉頭鏡葉片','呼吸器面罩 M','呼吸器面罩 L','張口器','托舌鉗 大','托舌鉗 小','大 Kelly'];   // 器械（A）以外也會送消的（主任 10/16 加）
+const sterItems=()=>{ const f=formById('inst'); return [...new Set([...(f?f.items.map(it=>it.name):[]),...STER_EXTRA])]; };
 function openSter(){ fvs={ster:1}; sterForm={item:'',other:'',qty:1,oth:false}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSter(); }
 function renderSter(keep){
   const L=sterList(), open=L.filter(x=>!x.inAt), done=L.filter(x=>x.inAt&&Date.now()-x.inAt<3*864e5);
@@ -1731,7 +1734,7 @@ function formModel(f0,mk,title){
       f.items.forEach(it=>{
         if(it.s!==lastS&&many) rows.push({cells:[C(it.s,{al:'l',b:1,sh:2,cs:(hasQ?2:1)+nc})]});
         lastS=it.s;
-        const le=(f.exp||f0.exp||it.od)?(()=>{ let b=null; recs.forEach(r=>{ if(r&&r.e&&r.e[it.id]&&(!b||r.at>b.at)) b={at:r.at,v:r.e[it.id],r}; });
+        const le=(f.exp||f0.exp||it.od||it.ex)?(()=>{ let b=null; recs.forEach(r=>{ if(r&&r.e&&r.e[it.id]&&(!b||r.at>b.at)) b={at:r.at,v:r.e[it.id],r}; });
           const O=b?toArr((b.r.op||{})[it.id]):[];
           const A=b?toArr(b.v).map((x,i)=>({x,o:O[i]||''})).filter(q=>q.x&&!(isFixed(b.r,it.id)&&q.x<ymd(new Date(b.at)))).sort((p,q)=>p.x<q.x?-1:p.x>q.x?1:0):[];   // 點的時候已過期、後來換新的不印
           return A.length?`${A.length>1?'最早到期':'到期'} ${fmtExp(A[0].x)}${A[0].o===UNOPENED?'（未開封）':A[0].o?`（開封 ${fmtExp(A[0].o)}）`:''}`:''; })():'';
@@ -1988,7 +1991,7 @@ function formEditor(){
   const item=i=>{ const it=f.items[i], old=saved.find(x=>x.id===it.id), chg=!old||String(old.q)!==String(it.q);
     return `<div class="edi"><input type="text" class="nm" data-edi="name" data-i="${i}" value="${esc(it.name)}" placeholder="項目名稱">
       <div class="r2"><label>設定 <input type="text" class="qv${chg?' chg':''}" data-edi="q" data-i="${i}" value="${esc(it.q)}" ${it.t==='n'?'inputmode="numeric"':''}></label>
-        ${fixedT?'':`<select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select><label class="odl${!!it.od!==!!(old&&old.od)?' chg':''}" title="開封後可以用一段時間的藥（例如 RI、NTG、Heparin）：點班時多填開封日"><input type="checkbox" data-edi="od" data-i="${i}"${it.od?' checked':''}> 開封日</label>${it.od?`<label class="odl${(+it.odN||0)!==(+(old&&old.odN)||0)||(it.odU||'d')!==((old&&old.odU)||'d')?' chg':''}" title="填了開封日（時間）就自動算到期；空白＝到期日自己填">開封後<input type="number" min="0" inputmode="numeric" data-edi="odN" data-i="${i}" value="${esc(it.odN||'')}" placeholder="自填" style="width:4.2em"><select data-edi="odU" data-i="${i}"><option value="d"${it.odU!=='h'?' selected':''}>天</option><option value="h"${it.odU==='h'?' selected':''}>小時</option></select>到期</label>`:''}`}
+        ${fixedT?'':`<select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select><label class="odl${!!it.od!==!!(old&&old.od)?' chg':''}" title="開封後可以用一段時間的藥（例如 RI、NTG、Heparin）：點班時多填開封日"><input type="checkbox" data-edi="od" data-i="${i}"${it.od?' checked':''}> 開封日</label>${it.od?`<label class="odl${(+it.odN||0)!==(+(old&&old.odN)||0)||(it.odU||'d')!==((old&&old.odU)||'d')?' chg':''}" title="填了開封日（時間）就自動算到期；空白＝到期日自己填">開封後<input type="number" min="0" inputmode="numeric" data-edi="odN" data-i="${i}" value="${esc(it.odN||'')}" placeholder="自填" style="width:4.2em"><select data-edi="odU" data-i="${i}"><option value="d"${!it.odU||it.odU==='d'?' selected':''}>天</option><option value="h"${it.odU==='h'?' selected':''}>小時</option><option value="m"${it.odU==='m'?' selected':''}>個月</option></select>到期</label>`:''}${it.od||f.exp?'':`<label class="odl${!!it.ex!==!!(old&&old.ex)?' chg':''}" title="點班時要填到期日（器械、包盤這類）"><input type="checkbox" data-edi="ex" data-i="${i}"${it.ex?' checked':''}> 到期日</label>`}`}
         <button class="mv" data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button class="mv" data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button class="mv" data-act="eddel" data-i="${i}" title="刪除">✕</button></div>
       <input type="text" class="subi" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）"></div>`; };
   let h=`<div class="hint">改設定量、增減項目後按「儲存」才生效，所有人的手機下次打開就是新的內容。已經點過的紀錄照當時的內容保存。橘框＝改過還沒儲存。</div>
@@ -2327,6 +2330,7 @@ document.addEventListener('input',e=>{
     markDirty(); return; }
   if(ds.edi&&edF){ const f=edF.find(x=>x.id===edSel), it=f.items[+ds.i];
     if(ds.edi==='od'){ if(t.checked) it.od=1; else delete it.od; const o0=((FORMS.find(x=>x.id===f.id)||{items:[]}).items.find(x=>x.id===it.id)||{}); t.parentNode.classList.toggle('chg',!!it.od!==!!o0.od); markDirty(); return; }
+    if(ds.edi==='ex'){ if(t.checked) it.ex=1; else delete it.ex; const o0=((FORMS.find(x=>x.id===f.id)||{items:[]}).items.find(x=>x.id===it.id)||{}); t.parentNode.classList.toggle('chg',!!it.ex!==!!o0.ex); markDirty(); return; }
     if(ds.edi==='odN'||ds.edi==='odU'){ if(ds.edi==='odN'&&!(+t.value>0)) delete it.odN; else it[ds.edi]=ds.edi==='odN'?+t.value:t.value; markDirty(); return; }
     it[ds.edi]=t.value;
     if(ds.edi==='q'){ const old=(FORMS.find(x=>x.id===f.id)||{items:[]}).items.find(x=>x.id===it.id); t.classList.toggle('chg',!old||String(old.q)!==t.value); }
@@ -2337,7 +2341,7 @@ document.addEventListener('change',e=>{
   const t=e.target;
   if(t.id==='pk-date'&&t.value){ setView({d:t.value,s:view.s},false); return; }
   if(t.id==='pr-title'){ const v=t.value.trim(); if(v!==printTitle()){ write('PUT','cfg/printTitle',v||null); toast('表頭已存'); } return; }
-  if(t.dataset.ed==='freq'||t.dataset.edi==='t'||t.dataset.ed==='on'||t.dataset.edi==='od'||t.dataset.edi==='odN'||t.dataset.edi==='odU') renderManage();
+  if(t.dataset.ed==='freq'||t.dataset.edi==='t'||t.dataset.ed==='on'||t.dataset.edi==='od'||t.dataset.edi==='ex'||t.dataset.edi==='odN'||t.dataset.edi==='odU') renderManage();
 });
 function markDirty(){ if(!edDirty){ edDirty=true; const b=document.querySelector('[data-act=edsave]'), c=document.querySelector('[data-act=edcancel]'); if(b) b.disabled=false; if(c) c.disabled=false;
   document.querySelectorAll('[data-tg=forms]>summary .r,[data-tg=pos]>summary .r').forEach(s=>{ s.innerHTML='<span class="tag w">有未儲存的修改</span>'; }); } }
