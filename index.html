@@ -140,6 +140,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .itx .sub{font-size:12.5px;color:var(--mut);display:flex;gap:8px;flex-wrap:wrap}
 .itx .q{color:var(--navy);font-weight:700}
 .ib{display:flex;gap:6px;flex:0 0 auto}
+.soh{display:inline-block;font-size:12.5px;color:#8a6d00;background:#fff6cc;border-radius:6px;padding:3px 8px;margin:4px 0 2px;line-height:1.45}
 .ir .exp{flex:0 0 auto;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut);flex-wrap:wrap}
 .ir .exp b{color:var(--txt);font-weight:600}
 .ir .exp input{font:inherit;font-size:14px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;color:var(--txt);background:#fff}
@@ -375,7 +376,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.5.0';
+const VERSION='2.6.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -533,7 +534,8 @@ const OTHER='其他', OTHER_P='其他：';
 const EXPIRED='其他：已過期';   // 到期日過了：自動打 ✗（列異常），換新後按「已更換」或把到期日改成新的
 const PREV_MISS='上一班未補';   // 接班時發現少了、要請上一班補：記下請誰補，進「待補」清單，補好再按已補齊
 // 處理好了用什麼字：上一班未補→已補齊、損壞送修→已修好、其他→已處理
-const fixWord=n=>n===PREV_MISS?'已補齊':n==='損壞送修'?'已修好':n===EXPIRED?'已更換':'已處理';
+const STERING='其他：送消中';   // 送消登記還沒簽收：點班時自動打 ✗（主任 10/17）；簽收回來自動改成 ✓
+const fixWord=n=>n===PREV_MISS?'已補齊':n==='損壞送修'?'已修好':n===EXPIRED?'已更換':n===STERING?'已送回':'已處理';
 
 // ---------- 雲端（Firebase REST，匿名登入；與其他急診 App 同一個資料庫） ----------
 const FB_DB='https://tenchener-488d2-default-rtdb.firebaseio.com', NODE='erShiftCheckData', SCHED='erNurseScheduleData';
@@ -985,7 +987,9 @@ function openForm(fid,d,k,edit,p){
   if(!dr.op) dr.op={};
   if(anyExp(f)&&!r&&!Object.keys(dr.e).length&&!Object.keys(dr.op).length){ const L=lastExp(f); dr.e=L.e; dr.op=L.op; }   // 到期日、開封日：先帶上一次填的
   if(anyExp(f)&&(!r||edit)) f.items.forEach(it=>{ syncOd(f,it,dr); syncExp(f,it,dr); });   // 過期的自動打 ✗
-  fvs={f,d,k,edit:!r||!!edit,dr}; Object.keys(uiOther).forEach(x=>{ if(x!=='who') delete uiOther[x]; });
+  const cn=nowShift(), cur=cn.d===d&&(!slotSh(k)||slotSh(k)===cn.s);   // 現在這一班
+  if(cur&&(!r||edit)) f.items.forEach(it=>syncSter(f,it,dr));   // 送消中的自動打 ✗
+  fvs={f,d,k,edit:!r||!!edit,dr,cur}; Object.keys(uiOther).forEach(x=>{ if(x!=='who') delete uiOther[x]; });
   $('fv').classList.add('on'); document.body.style.overflow='hidden';
   renderForm(true);
   if(f.kind==='clock') startClock();
@@ -1049,6 +1053,27 @@ function syncOd(f,it,dr){ if(!odLife(it)||special(f)) return; const id=it.id, n=
 function syncExp(f,it,dr){ if(!hasExp(f,it)) return; const id=it.id;
   if(hasExpired((dr.e||{})[id])){ dr.v[id]=0; if(!String(dr.n[id]||'').trim()) dr.n[id]=EXPIRED; }
   else if(dr.n[id]===EXPIRED){ delete dr.v[id]; delete dr.n[id]; } }
+// 送消中：送消登記的品名對到點班單上的項目（名稱一樣；或「托舌鉗 大」＝品名有托舌鉗、又有「大」）
+const sNorm=v=>String(v||'').replace(/（.*?）|\(.*?\)/g,'').replace(/[\s　]/g,'').toLowerCase();
+function sterHits(itemName,sterName){ const a=sNorm(itemName), b=sNorm(sterName); if(!b) return false; if(a===b) return true;
+  const parts=String(sterName).trim().split(/\s+/); if(parts.length>1){ const base=sNorm(parts[0]), vr=parts.slice(1).join(''); return base.length>=2&&a.includes(base)&&String(itemName).includes(vr); }
+  return b.length>=2&&a.includes(b); }
+function sterTargets(name){ const out=[]; activeForms().forEach(f=>{ if(special(f)) return; f.items.forEach(it=>{ if(sterHits(it.name,name)) out.push({f,it}); }); }); return out; }
+// 這一項現在送消中（還沒簽收）的：sure＝只對得到這一項 → 自動打 ✗；maybe＝對到好幾項（例：呼吸器面罩 M 兩台都有）→ 只提醒
+function sterOut(it){ const sure=[], maybe=[]; if(!it) return {sure,maybe};
+  sterList().filter(x=>!x.inAt&&x.outAt<=Date.now()).forEach(x=>{ const T=sterTargets(x.item); if(!T.some(t=>t.it.id===it.id)) return; (T.length===1?sure:maybe).push(x); });
+  return {sure,maybe}; }
+function syncSter(f,it,dr){ if(special(f)) return; const id=it.id, {sure}=sterOut(it);
+  if(sure.length){ dr.v[id]=0;
+    if(!String(dr.n[id]||'').trim()||dr.n[id]===STERING){ dr.n[id]=STERING; const q=/^\d+$/.test(String(it.q))?+it.q:null, out=sure.reduce((a,x)=>a+(+x.qty||1),0); if(it.t==='n'&&q!=null) dr.a[id]=Math.max(0,q-out); } }
+  else if(dr.n[id]===STERING){ delete dr.v[id]; delete dr.n[id]; delete dr.a[id]; } }
+// 簽收回來：最近三天因為這一件「送消中」打 ✗ 的點班，自動改成 ✓（警示・送消回來）；同一項還有別件沒回來就先不改
+function sterBack(x){ const T=sterTargets(x.item); if(T.length!==1) return 0; const it=T[0].it, id=it.id, now=Date.now(); let n=0;
+  if(sterOut(it).sure.some(y=>y.id!==x.id)) return 0;
+  const t=ymd(new Date()); [addDays(t,-2),addDays(t,-1),t].forEach(d=>{ const base=`rec/${mkey(d)}/${dkey(d)}`, day=getAt(base)||{};
+    Object.keys(day).forEach(key=>{ const r=day[key]; if(!r||!r.v||r.v[id]!==0||!r.n||r.n[id]!==STERING||(r.res&&r.res[id])||(r.r&&r.r[id])||r.at<x.outAt) return;
+      write('PATCH',`${base}/${key}/res`,{[id]:{by:me(),at:now,txt:'送消回來（已簽收）',dev}}); n++; }); });
+  return n; }
 // 1 天內到期、已過期的（看每張單每一份最近一次的紀錄）。only＝只看這些單子（護理師首頁只看自己位置的）
 function expAlerts(only){
   const R0=getAt('rec')||{}, best={};
@@ -1088,7 +1113,9 @@ function itemHtml(f,it,dr,ro){
   let expH='', expB='';
   if(SL.length===1){ const x=one(0,''); if(x) expH=`<div class="exp">${od?'':'到期日 '}${x}</div>`; }
   else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">${od?'開封日、到期日':'到期日'}（${SL.length} 個）${od&&!ro?'；還沒開封的勾「未開封」':''}</div>${xs.join('')}</div>`; }
-  return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${expB}${body}</div>`;
+  const SO=!ro&&fvs&&fvs.cur?sterOut(it):null, SA=SO?[...SO.sure,...SO.maybe]:[];
+  const soH=SA.length?`<div class="soh">🧺 送消中：${SA.map(x=>`${esc(x.item)} ×${esc(x.qty)}（${esc(x.outBy)} ${whenLabel(x.outAt)} 送出）`).join('、')}${SO.sure.length?'；回來後先到「送消登記」按簽收':'；是不是這一項的？請自己確認'}</div>`:'';
+  return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${soH}${expB}${body}</div>`;
 }
 // 上一班點這一項的人：上一個時段同一張單、有點到這一項的那一份
 function prevChecker(d,f,k,id){
@@ -1229,6 +1256,7 @@ async function submitForm(){
   if(cur&&(!before||cur.at!==before.at)&&!confirm(`${cur.by} 在 ${whenLabel(cur.at)} 已經點過這一張了。\n要用你的紀錄取代嗎？（原本那筆會留在修改紀錄裡）`)) return;
   fvs.rec=cur;
   if(anyExp(f)) f.items.forEach(it=>{ syncOd(f,it,dr); syncExp(f,it,dr); });   // 點到一半跨過半夜：送出前再看一次有沒有過期
+  if(fvs.cur) f.items.forEach(it=>syncSter(f,it,dr));   // 送出前再看一次送消（剛好有人簽收／送出）
   const v={}; f.items.forEach(it=>{ v[it.id]=evalItem(f,it,dr); });
   const bad=Object.values(v).filter(x=>x===0).length;
   const keep=o=>{ const r={}; Object.keys(o||{}).forEach(id=>{ if(v[id]===0||id.startsWith('_')||special(f)) r[id]=o[id]; }); return r; };
@@ -2090,6 +2118,7 @@ document.addEventListener('click',async e=>{
   if(a==='cancelrec'&&fvs&&fvs.rec){ const {f,d,k,rec}=fvs;
     if(!confirm(`取消這筆點班？\n${dayLabel(rec._d||d)} ${slotLab(f,k)}「${f.name}」\n取消後這一班會變回「未點」，可以重新點。`)) return;
     cancelRec(d,f,k,rec,me()); closeForm(); toast('已取消這筆點班'); return; }
+  if(a==='iv'&&fvs&&fvs.f&&fvs.cur&&+ds.v!==0&&sterOut(fvs.f.items.find(x=>x.id===ds.id)).sure.length){ toast('這一項還在送消中：東西回來後先到「送消登記」按簽收，才能打 ✓'); return; }
   if(a==='iv'&&fvs&&anyExp(fvs.f)&&hasExpired((fvs.dr.e||{})[ds.id])){ toast('有到期日已經過期：換新以後把到期日改成新的，才能打 ✓'); return; }
   if(a==='iv'&&fvs){ const v=+ds.v, dr=fvs.dr; if(dr.v[ds.id]===v&&v!==1) delete dr.v[ds.id]; else dr.v[ds.id]=v;
     if(v!==0){ delete dr.n[ds.id]; delete dr.a[ds.id]; delete dr.r[ds.id]; }
@@ -2144,7 +2173,7 @@ document.addEventListener('click',async e=>{
     write('PUT',`ster/${mkey(ymd(new Date()))}/${id}`,{item,qty:+sterForm.qty||1,outBy:me(),outAt:now,outDev:dev}); sterForm={item:'',other:'',qty:1,oth:false}; renderSter(true); toast('已登記送消'); return; }
   if(a==='st-in'){ const x=sterList().find(y=>y.id===ds.id);
     if(!confirm(`確定簽收？\n${x?`${x.item} ×${x.qty}（${x.outBy} ${whenLabel(x.outAt)} 送出）`:''}\n簽收人：${me()}`)) return;
-    write('PATCH',`ster/${ds.mk}/${ds.id}`,{inBy:me(),inAt:Date.now(),inDev:dev}); renderSter(true); toast('已簽收'); return; }
+    write('PATCH',`ster/${ds.mk}/${ds.id}`,{inBy:me(),inAt:Date.now(),inDev:dev}); const nb=x?sterBack(x):0; renderSter(true); toast(nb?`已簽收；${nb} 筆點班的「送消中」改成 ✓`:'已簽收'); return; }
   if(a==='sk-item'){ soakForm.item=ds.n; renderSoak(true); return; }
   if(a==='sk-q'){ soakForm.qty=Math.max(1,(+soakForm.qty||1)+(+ds.d)); renderSoak(true); return; }
   if(a==='sk-in'){ const item=SOAK_ITEMS.includes(soakForm.item)?soakForm.item:(soakForm.other||'').trim(); if(!item){ toast('請寫品名'); return; }
