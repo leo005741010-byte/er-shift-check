@@ -375,7 +375,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.3.0';
+const VERSION='2.3.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1388,7 +1388,7 @@ async function loadMonth(mk,render){
 const SLOT_START={D:8,E:16,N:24,AM:9,PM:17};
 const firstAt=r=>r.h&&r.h.length?r.h[0].at:r.at;   // 改過的以第一次送出為準
 // 上班超過 1 小時還沒點（白班 09:00、小夜 17:00、大夜 01:00 起；冰箱 10:00／18:00 起），到下班為止
-const wipeT=()=>{ const w=getAt('cfg/wipeAt'); return w&&w.at||0; };   // 最近一次清空的時間：之前的班次不算
+const wipeT=()=>{ const w=getAt('cfg/wipeAt'); return w&&w.at||0; };   // 正式上線時間（10/16 16:00 小夜）：之前的班次不算
 function overdue(d,k,now){ if(!(k in SLOT_START)) return false; const st=parseD(d).getTime()+SLOT_START[k]*3600e3; return st>=wipeT()&&now>=st+3600e3&&now<slotEnd(d,k); }
 function pendingNow(){
   const now=Date.now(), t=ymd(new Date()), out=[], seen=new Set();
@@ -1527,9 +1527,9 @@ function renderManage(){
   h+=card('pos','點班分工（哪個位置點）',edDirty?'<span class="tag w">有未儲存的修改</span>':una?`${una} 項還沒分`:'全部分好了',posEditor());
   // 點班項目與設定量
   h+=card('forms','點班項目與設定量',edDirty?'<span class="tag w">有未儲存的修改</span>':`${activeForms().length} 張`,formEditor());
-  // 備份與清空
+  // 備份
   const lbk=getAt('cfg/lastBackup');
-  h+=card('data','資料備份與清空',lbk?`上次備份 ${whenLabel(lbk.at)}`:'<span class="tag w">還沒備份過</span>',dataCard());
+  h+=card('data','資料備份',lbk?`上次備份 ${whenLabel(lbk.at)}`:'<span class="tag w">還沒備份過</span>',dataCard());
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderMBar();
@@ -1575,10 +1575,10 @@ async function showNoti(title,body){
     if(reg&&reg.showNotification){ await reg.showNotification(title,{body,icon:'icon-192.png',tag:'late-'+Date.now()}); return; }
     new Notification(title,{body,icon:'icon-192.png'}); }catch(e){}
 }
-// 備份：把這個 App 在雲端的全部資料下載成一個檔案；清空：測試完、正式上線前從 0 開始（要清空密碼，設定保留）
-const WIPE_HASH='6ce9b801716b61d039c12ee17c0170f2f99d478faa56b43e96e8ccabb0d363b8';   // 清空密碼的雜湊（密碼本身不放在公開的程式裡）
+// 備份：把這個 App 在雲端的全部資料下載成一個檔案
+// 10/16 小夜正式上線：之前的測試紀錄已清除，cfg/wipeAt＝上線時間（之前的班次不算應點）；手機看到 wipeAt 會清掉本機的舊副本（applyWipe）
+// 管理頁的「一鍵清空」已拿掉（主任 10/16 指定），正式上線後不再提供
 const WIPE_PATHS=['rec','rev','soak','ster','del','chg','virus'];
-async function sha256hex(s){ const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s)); return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
 function dlBlob(blob,name){ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },3000); }
 async function backupAll(nm){
   const data=await fb('GET',''), n=new Date(), stamp=`${ymd(n).replace(/-/g,'')}_${pad(n.getHours())}${pad(n.getMinutes())}`;
@@ -1588,10 +1588,7 @@ async function backupAll(nm){
 function dataCard(){ const lb=getAt('cfg/lastBackup'), wa=getAt('cfg/wipeAt');
   return `<div class="hint">備份＝把雲端上這個 App 的全部資料（點班紀錄、核簽、泡消、送消、修改與刪除留底、設定）下載成一個檔案。建議每個月備份一次，存在電腦或雲端硬碟；需要還原時把檔案交給資訊人員（或 Claude）處理。</div>
     <div class="edrow"><button class="btn" data-act="backup">下載全部資料備份</button><span class="mut">${lb?`上次備份：${whenLabel(lb.at)}${lb.by?'（'+esc(lb.by)+'）':''}`:'還沒有備份過'}</span></div>
-    <div class="grp" style="margin-top:14px">清空（測試完、正式上線前用）</div>
-    <div class="hint">把所有點班紀錄、核簽、泡消、送消、待補、修改與刪除留底全部刪掉，從 0 開始。<b>點班單內容、分工、負責人、名單等設定會保留。</b>要輸入清空密碼；按下去前會先自動下載一份備份。</div>
-    ${wa?`<div class="hint">上次清空：${whenLabel(wa.at)}${wa.by?'（'+esc(wa.by)+'）':''}</div>`:''}
-    <div class="edrow"><button class="btn ghost" data-act="wipe" style="color:var(--bad);border-color:#f1b9b3">清空所有點班資料…</button></div>`; }
+    ${wa?`<div class="hint">正式上線：${whenLabel(wa.at)} 起算，之前的測試紀錄已清除。</div>`:''}`; }
 const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':''} data-tg="${id}"><summary>${title}<span class="r">${right}</span></summary>${body}</details>`;
 function dayDetail(d){
   const cell=(f,k,pp,lab)=>{ const pf=partForm(f,k,pp), r=recOf(d,pf,k), due=slotEnd(d,k)<=Date.now()&&slotEnd(d,k)>wipeT(), L=`${lab}${pp?'·'+esc(pp):''}`;
@@ -2100,20 +2097,6 @@ document.addEventListener('click',async e=>{
   if(a==='close'){ closeDlg(); return; }
   if(a==='backup'){ const nm=await mgrName(); if(!nm) return; if(!confirm('下載全部資料備份？\n會下載一個 .json 檔，請存在電腦或雲端硬碟。')) return;
     try{ toast('備份中…'); await backupAll(nm); toast('已下載備份'); renderManage(); }catch(e){ toast('備份失敗：'+e.message); } return; }
-  if(a==='wipe'){ const nm=await mgrName(); if(!nm) return;
-    openDlg(`<h2>清空所有點班資料<button class="btn mini ghost" data-act="close">取消</button></h2>
-      <div class="note bad">所有點班紀錄、核簽、泡消、送消、待補、修改與刪除留底都會刪掉，從 0 開始；點班單內容、分工、名單等設定會保留。按下去前會先自動下載一份備份。</div>
-      <div class="edrow"><input type="password" id="wp-in" placeholder="請輸入清空密碼" autocomplete="new-password" style="flex:1;min-width:0"><button class="btn" data-act="wipeok" style="background:var(--bad);border-color:var(--bad)">清空</button></div>`);
-    const i=$('wp-in'); if(i) i.focus(); return; }
-  if(a==='wipeok'){ const pw=($('wp-in')||{}).value||''; if(!pw){ toast('請輸入清空密碼'); return; }
-    if(await sha256hex('erShiftCheck|'+pw)!==WIPE_HASH){ toast('清空密碼不對'); const i=$('wp-in'); if(i){ i.value=''; i.focus(); } return; }
-    if(!confirm('確定清空所有點班資料？\n這個動作無法復原。按「確定」後會先下載一份備份，再清空。')) return;
-    const nm=me()||'';
-    try{ toast('先下載備份…'); await backupAll(nm); }catch(e){ toast('備份失敗，沒有清空：'+e.message); return; }
-    const now=Date.now(); WIPE_PATHS.forEach(x=>write('PUT',x,null)); write('PUT','cfg/wipeAt',{at:now,by:nm});
-    WIPE_PATHS.forEach(x=>{ delete db[x]; }); mLoaded.clear(); mLoaded.add(mcur); mLoaded.add(shiftMonth(mcur,-1)); appStart=ymd(new Date());
-    [LS_LATE,LS_EXPSEEN,LS_PENDSEEN].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });   // 提醒從頭算（第一次只記下來）
-    closeDlg(); renderManage(); toast('已清空，從 0 開始'); return; }
   if(a==='jump'){ const el=document.querySelector(`details[data-tg="${ds.c}"]`); if(!el) return;
     mOpen[ds.c]=true; el.open=true; el.scrollIntoView({block:'start'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1600); return; }
   if(a==='ack'){ const ak=acked(), now=Date.now(); (_alertKeys[ds.c]||[]).forEach(k=>{ ak[k]=now; }); lsSet(LS_ACK,ak); renderManage(); return; }
@@ -2297,7 +2280,7 @@ function markDirty(){ if(!edDirty){ edDirty=true; const b=document.querySelector
 // 卡片收合狀態只記在記憶體（每次打開都是收起來的）
 document.addEventListener('toggle',e=>{ const t=e.target; if(t.dataset&&t.dataset.tg) mOpen[t.dataset.tg]=t.open; },true);
 window.addEventListener('beforeunload',e=>{ if(MANAGE&&edDirty){ e.preventDefault(); e.returnValue=''; } });
-document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='wp-in') document.querySelector('[data-act="wipeok"]')?.click(); if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); if(e.target.id==='pk-in') document.querySelector('[data-act="pkok"]')?.click(); if(e.target.id==='fx-in') document.querySelector('[data-act="fxok"]')?.click(); } });
+document.addEventListener('keydown',e=>{ if(e.key==='Enter'){ if(e.target.id==='who-in') document.querySelector('[data-act="setme-in"]')?.click(); if(e.target.id==='pk-in') document.querySelector('[data-act="pkok"]')?.click(); if(e.target.id==='fx-in') document.querySelector('[data-act="fxok"]')?.click(); } });
 
 // ---------- 啟動 ----------
 applyCfg();
