@@ -150,6 +150,9 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .e1 small{color:var(--mut);font-size:12.5px;min-width:6.5em}
 .e2{display:inline-flex;align-items:flex-start;gap:6px 10px}.e2>small{color:var(--mut);font-size:12.5px;min-width:6.5em;padding-top:8px}
 .e2r{display:flex;flex-wrap:wrap;gap:6px 12px}
+.e1.un{gap:4px;color:var(--txt)}.e1.un input{width:18px;height:18px;margin:0}.e1.off{opacity:.45}
+.e2r .e1{white-space:nowrap}
+.expm .e2{display:flex;flex-direction:column;align-items:flex-start;gap:6px}.expm .e2>small{padding-top:0;font-weight:700;color:var(--txt)}
 .edi .odl{display:inline-flex;align-items:center;gap:4px;font-size:13px;white-space:nowrap;border-radius:6px;padding:0 4px}.edi .odl.chg{outline:2px solid #f2a541}
 .expm{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:6px 16px;margin:6px 0 2px;font-size:13px;color:var(--mut)}
 .expm .el{grid-column:1/-1;font-size:12.5px}
@@ -371,7 +374,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='2.1.1';
+const VERSION='2.2.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -706,6 +709,10 @@ const isFixed=(r,id)=>!!(r.r&&r.r[id])||!!(r.res&&r.res[id]);
 // 到期日：整張單開了「到期日」，或這一項要填「開封日」（RI、NTG、Heparin 這類開封後可以用一段時間的藥）
 const hasExp=(f,it)=>!special(f)&&(!!f.exp||!!it.od);
 const anyExp=f=>!special(f)&&(!!f.exp||f.items.some(it=>it.od));
+// 開封日那一格勾「未開封」：紀錄裡存成這個字（不是日期）
+const UNOPENED='未開封';
+const isD=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''));
+const fmtOp=v=>v===UNOPENED?UNOPENED:fmtExp(v);
 const xIds=(r,f)=>(f?f.items.map(it=>it.id):Object.keys(r.v)).filter(id=>r.v[id]===0);
 const openCount=(r,f)=>xIds(r,f).filter(id=>!isFixed(r,id)).length;   // 異常（還沒處理）
 const warnCount=(r,f)=>xIds(r,f).filter(id=>isFixed(r,id)).length;    // 警示（打過 ✗、已經處理好）
@@ -957,8 +964,10 @@ function progressOf(f,dr){
   f.items.forEach(it=>{ const v=evalItem(f,it,dr); if(v!=null) ans++; else miss.push(it.id);
     if(v===0&&(!String(dr.n[it.id]||'').trim()||(reasonOf(dr.n[it.id])===OTHER&&!String(dr.n[it.id]).slice(OTHER_P.length).trim()))) { need++; miss.push(it.id); }
     else if(v===0&&dr.n[it.id]===PREV_MISS&&!String((dr.w||{})[it.id]||'').trim()) { need++; miss.push(it.id); } });   // 上一班未補：要寫請誰補
-  const od=[]; f.items.forEach(it=>{ if(!it.od||special(f)) return; const O=toArr((dr.op||{})[it.id]), E=toArr((dr.e||{})[it.id]);   // 填了開封日就要填到期日；到期日不能早於開封日
-    if(O.some((x,i)=>x&&(!E[i]||E[i]<x))){ need++; miss.push(it.id); od.push(it.id); } });
+  const od=[]; f.items.forEach(it=>{ if(!it.od||special(f)) return; const O=toArr((dr.op||{})[it.id]), E=toArr((dr.e||{})[it.id]), n=expSlots(it).length;
+    const bad=O.some((x,i)=>isD(x)&&(!E[i]||E[i]<x))   // 填了開封日就要填到期日；到期日不能早於開封日
+      ||(dr.v[it.id]===1&&Array.from({length:n},(_,i)=>O[i]).some(x=>!x));   // 打 ✓ 的：每一支都要填開封日或勾「未開封」
+    if(bad){ need++; miss.push(it.id); od.push(it.id); } });
   if(f.kind==='narc'&&!String(dr.x._giver||'').trim()) miss.push('_giver');
   return {ans,tot:f.items.length,need,miss,od};
 }
@@ -1017,13 +1026,13 @@ function itemHtml(f,it,dr,ro){
   const miss=fvs&&fvs.showMiss&&fvs.showMiss.includes(it.id);
   const od=!!it.od&&!special(f), SL=hasExp(f,it)?expSlots(it):[], EV=SL.length?toArr((dr.e||{})[it.id]):[], OV=od?toArr((dr.op||{})[it.id]):[], fxd=ro&&isFixed(dr,it.id);
   const one=(i,lab)=>{ const v=EV[i]||'', ov=OV[i]||'', L=lab?`<small>${esc(lab)}</small>`:'';
-    if(ro){ if(!v&&!ov) return ''; return `<span class="e1">${L}${od?(ov?`開封 <b>${esc(fmtExp(ov))}</b>・到期 `:'未開封・到期 '):''}${v?`<b>${esc(fmtExp(v))}</b>${fxd&&expDays(v)<0?'':expTag(v)}`:'—'}</span>`; }
+    if(ro){ if(!v&&!ov) return ''; return `<span class="e1">${L}${od?(ov===UNOPENED?'未開封・到期 ':ov?`開封 <b>${esc(fmtExp(ov))}</b>・到期 `:'到期 '):''}${v?`<b>${esc(fmtExp(v))}</b>${fxd&&expDays(v)<0?'':expTag(v)}`:'—'}</span>`; }
     const ein=`<input type="date" data-in="e" data-id="${it.id}" data-i="${i}" value="${esc(v)}"><span class="expt">${expTag(v)}</span>`;
     if(!od) return `<label class="e1">${L}${ein}</label>`;
-    return `<span class="e2">${L}<span class="e2r"><label class="e1">開封日<input type="date" data-in="op" data-id="${it.id}" data-i="${i}" value="${esc(ov)}" max="${ymd(new Date())}"></label><label class="e1">到期日${ein}</label></span></span>`; };
+    return `<span class="e2">${L}<span class="e2r"><label class="e1${ov===UNOPENED?' off':''}">開封日<input type="date" data-in="op" data-id="${it.id}" data-i="${i}" value="${isD(ov)?esc(ov):''}" max="${ymd(new Date())}"${ov===UNOPENED?' disabled':''}></label><label class="e1 un"><input type="checkbox" data-in="opu" data-id="${it.id}" data-i="${i}"${ov===UNOPENED?' checked':''}> 未開封</label><label class="e1">到期日${ein}</label></span></span>`; };
   let expH='', expB='';
   if(SL.length===1){ const x=one(0,''); if(x) expH=`<div class="exp">${od?'':'到期日 '}${x}</div>`; }
-  else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">${od?'開封日、到期日':'到期日'}（${SL.length} 個）${od&&!ro?'；還沒開封的，開封日空著':''}</div>${xs.join('')}</div>`; }
+  else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">${od?'開封日、到期日':'到期日'}（${SL.length} 個）${od&&!ro?'；還沒開封的勾「未開封」':''}</div>${xs.join('')}</div>`; }
   return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${expB}${body}</div>`;
 }
 // 上一班點這一項的人：上一個時段同一張單、有點到這一項的那一份
@@ -1144,7 +1153,7 @@ async function submitForm(){
     if(isPaged(f)){ const G=secs(f), gi=G.findIndex(g=>g.items.some(it=>it.id===p.miss[0])); if(gi>=0) fvs.pg=gi; }   // 分頁的：跳到第一個沒點的那一區
     renderForm();
     const el=$('it-'+p.miss[0]); if(el) el.scrollIntoView({block:'center',behavior:'smooth'});
-    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.od.length?'填了開封日的，也要填到期日（到期日不能早於開封日）':p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
+    toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.od.length?'開封日：每一支要填開封日或勾「未開封」；填了開封日的也要填到期日（不能早於開封日）':p.need?'打 ✗ 的項目要選理由（上一班未補要選請誰補；其他要寫原因）':'請填交班者');
     return;
   }
   // 重要按鍵一律再確認（主任 10/15）
@@ -1648,7 +1657,7 @@ function formModel(f0,mk,title){
         const le=(f.exp||f0.exp||it.od)?(()=>{ let b=null; recs.forEach(r=>{ if(r&&r.e&&r.e[it.id]&&(!b||r.at>b.at)) b={at:r.at,v:r.e[it.id],r}; });
           const O=b?toArr((b.r.op||{})[it.id]):[];
           const A=b?toArr(b.v).map((x,i)=>({x,o:O[i]||''})).filter(q=>q.x&&!(isFixed(b.r,it.id)&&q.x<ymd(new Date(b.at)))).sort((p,q)=>p.x<q.x?-1:p.x>q.x?1:0):[];   // 點的時候已過期、後來換新的不印
-          return A.length?`${A.length>1?'最早到期':'到期'} ${fmtExp(A[0].x)}${A[0].o?`（開封 ${fmtExp(A[0].o)}）`:''}`:''; })():'';
+          return A.length?`${A.length>1?'最早到期':'到期'} ${fmtExp(A[0].x)}${A[0].o===UNOPENED?'（未開封）':A[0].o?`（開封 ${fmtExp(A[0].o)}）`:''}`:''; })():'';
         rows.push({cells:[C(it.name,{al:'l',sub:[it.sub,le].filter(Boolean).join('　')}),...(hasQ?[C(it.q)]:[]),...recs.map(r=>{
           if(!r||r.v[it.id]===undefined) return C('');
           const v=r.v[it.id], x=r.x[it.id]||{};
@@ -1799,7 +1808,7 @@ async function showRec(d,fid,k,pp){
     const fx=v===0&&isFixed(r,it.id);
     return `<div class="abn"><div class="h"><b style="color:${v===0&&!fx?'var(--bad)':'var(--ok)'}">${v===1||fx?'✓':v===0?'✗':'Δ'}</b><span>${esc(it.name)}${it.q&&F.kind!=='narc'?` <span class="mut">（設定 ${esc(it.q)}）</span>`:''}</span>
       ${v===0&&!r.r[it.id]&&!rs?`<button class="btn mini" data-act="resolve" data-path="${esc(r._path)}" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}" data-id="${it.id}">標記已處理</button>`:''}</div>
-      ${val?`<div class="t">${val}</div>`:''}${toArr(r.e&&r.e[it.id]).some(Boolean)?(()=>{ const SL=expSlots(it), A=toArr(r.e[it.id]), O=toArr((r.op||{})[it.id]); return `<div class="t">${O.some(Boolean)?'開封日、到期日':'到期日'} ${A.map((x,i)=>x?`${A.length>1&&SL[i]?esc(SL[i])+' ':''}${O[i]?'開封 '+esc(fmtExp(O[i]))+'・到期 ':''}${esc(fmtExp(x))} ${isFixed(r,it.id)&&expDays(x)<0?'':expTag(x)}`:'').filter(Boolean).join('；')}</div>`; })():''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag wn">警示・已處理</span>':'<span class="tag no">異常</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
+      ${val?`<div class="t">${val}</div>`:''}${toArr(r.e&&r.e[it.id]).some(Boolean)?(()=>{ const SL=expSlots(it), A=toArr(r.e[it.id]), O=toArr((r.op||{})[it.id]); return `<div class="t">${O.some(Boolean)?'開封日、到期日':'到期日'} ${A.map((x,i)=>x?`${A.length>1&&SL[i]?esc(SL[i])+' ':''}${O[i]===UNOPENED?'未開封・到期 ':O[i]?'開封 '+esc(fmtExp(O[i]))+'・到期 ':''}${esc(fmtExp(x))} ${isFixed(r,it.id)&&expDays(x)<0?'':expTag(x)}`:'').filter(Boolean).join('；')}</div>`; })():''}${v===0?`<div class="t">${isNum(r.a[it.id])?`實際 ${esc(r.a[it.id])}・`:''}${esc(r.n[it.id]||'')}${r.w&&r.w[it.id]?`・請 ${esc(r.w[it.id])} 補`:''} ${r.r[it.id]||rs?'<span class="tag wn">警示・已處理</span>':'<span class="tag no">異常</span>'}${rs?`<br>處理：${esc(rs.txt||'')}（${esc(rs.by||'')} ${whenLabel(rs.at)}）`:''}</div>`:''}</div>`; };
   h+=(bad.length?`<div class="grp">異常 ${bad.length} 項</div>${bad.map(line).join('')}`:'')+`<div class="grp">正常 ${ok.length} 項</div>${ok.map(line).join('')}`;
   h+=`<div class="edrow" style="margin-top:14px"><button class="btn outline mini" data-act="mren" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}">改點班者（簽錯名字）</button><button class="btn ghost mini" data-act="mdel" data-d="${d}" data-f="${fid}" data-k="${k}" data-p="${esc(pp||'')}">刪除這筆點班（這一班變回未點）</button></div>${r._legacy?'<div class="hint">這筆是分位置以前點的整張單，刪除會整張一起刪。</div>':''}`;
   openDlg(h);
@@ -1808,7 +1817,7 @@ async function showRec(d,fid,k,pp){
 function stTxt(F,it,x){ if(!x) return '—'; const v=(x.v||{})[it.id], g=o=>o==null?'':o;
   if(F.kind==='narc'){ const y=(x.x||{})[it.id]||{}; return `未用 ${g(y.u)}／空瓶 ${g(y.e)}`; }
   if(F.kind==='temp'){ const y=(x.x||{})[it.id]||{}; return `${g(y.now)}℃（${g(y.max)}/${g(y.min)}）`; }
-  const n=(x.n||{})[it.id], a=(x.a||{})[it.id], e=toArr((x.e||{})[it.id]).filter(Boolean).map(fmtExp).join('、'), op=toArr((x.op||{})[it.id]).filter(Boolean).map(fmtExp).join('、');
+  const n=(x.n||{})[it.id], a=(x.a||{})[it.id], e=toArr((x.e||{})[it.id]).filter(Boolean).map(fmtExp).join('、'), op=toArr((x.op||{})[it.id]).filter(Boolean).map(fmtOp).join('、');
   return (v===1?'✓':v===0?`✗${n?'（'+n+(isNum(a)?`，實際 ${a}`:'')+'）':''}`:v===2?'Δ':'沒點')+(op?`・開封 ${op}`:'')+(e?`・到期 ${e}`:''); }
 function histHtml(r,F){
   const H=r.h||[], mk=String(r._path||'').split('/')[1]||'', V=H.map(x=>x.c?getAt(`chg/${mk}/${x.c}`):null);
@@ -2209,12 +2218,15 @@ document.addEventListener('input',e=>{
       else { const tg=t.parentNode.querySelector('.expt'); if(tg) tg.innerHTML=expTag(t.value); } }
     else if(ds.in==='op'){ if(!dr.op) dr.op={}; const it=fvs.f.items.find(x=>x.id===ds.id), n=expSlots(it).length, arr=toArr(dr.op[ds.id]), ix=+ds.i||0;   // 開封日
       while(arr.length<n) arr.push(''); arr[ix]=t.value; if(arr.some(Boolean)) dr.op[ds.id]=arr; else delete dr.op[ds.id]; }
+    else if(ds.in==='opu'){ if(!dr.op) dr.op={}; const it=fvs.f.items.find(x=>x.id===ds.id), n=expSlots(it).length, arr=toArr(dr.op[ds.id]), ix=+ds.i||0;   // 未開封
+      while(arr.length<n) arr.push(''); arr[ix]=t.checked?UNOPENED:''; if(arr.some(Boolean)) dr.op[ds.id]=arr; else delete dr.op[ds.id];
+      refreshItem(ds.id); const ne=$('it-'+ds.id), cb=ne&&ne.querySelector(`input[data-in=opu][data-i="${ix}"]`); if(cb) cb.focus(); }
     else if(ds.in==='giver') dr.x._giver=t.value;
     else if(ds.in==='w'){ if(!dr.w) dr.w={}; dr.w[ds.id]=t.value; }
     else if(ds.in==='face') dr.x._face=t.checked?1:0;
     else if(ds.in==='chg') dr.x._chg=t.checked?1:0;
     else if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
-    if((ds.in==='n'||ds.in==='o'||ds.in==='op'||ds.in==='e')&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
+    if((ds.in==='n'||ds.in==='o'||ds.in==='op'||ds.in==='opu'||ds.in==='e')&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
     refreshCnt(); saveDraft(); return;
   }
   if(t.id==='who-in'){ uiOther.whoText=t.value; return; }
