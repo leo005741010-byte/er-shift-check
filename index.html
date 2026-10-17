@@ -396,7 +396,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.5.0';
+const VERSION='3.5.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1330,7 +1330,7 @@ function itemHtml(f,it,dr,ro){
   const RP=!ro&&fvs&&fvs.hold&&fvs.f?repOut(fvs.f,it,fvs.hold):[];
   const rpH=RP.length?`<div class="soh">🔧 送修中：${RP.map(x=>`${esc(x.item)} ×${esc(x.qty)}（${esc(x.outBy)} ${whenLabel(x.outAt)} 送修${x.why?'・'+esc(x.why):''}）`).join('、')}；修好回來先到「送修簽收」按簽收</div>`:'';
   const cp=!ro&&dr.cy&&dr.cy[it.id]&&dr.v[it.id]===0?getAt(dr.cy[it.id]):null;
-  const cyH=cp?`<div class="soh">↩ 上一班 ${esc(cp.by||'')} ${whenLabel(cp.at)} 打 ✗ 還沒處理，已帶入；沒問題了就改打 ✓</div>`:'';
+  const cyH=cp?`<div class="soh">↩ 上一班 ${esc(cp.by||'')} ${whenLabel(cp.at)} 打 ✗，還沒處理</div>`:'';
   return `<div class="it ${st}${miss?' miss':''}" id="it-${it.id}"><div class="ir"><div class="itx"><div class="nm">${esc(it.name)}</div>${sub}</div>${expH}${right}</div>${cyH}${soH}${rpH}${expB}${body}</div>`;
 }
 // 上一班點這一項的人：上一個時段同一張單、有點到這一項的那一份
@@ -2340,7 +2340,7 @@ function formEditor(){
         <button class="mv" data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button class="mv" data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button class="mv" data-act="eddel" data-i="${i}" title="刪除">✕</button></div>
       <input type="text" class="subi" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）">
       ${fixedT?'':(()=>{ const K=kindsOf(Object.assign({},it,{vs:''})), o=old&&String(old.vs||'')!==String(it.vs||'');   // 打 ✗ 要選是哪一個：空白＝照名稱自動拆
-        return `<input type="text" class="subi${o?' chg':''}" data-edi="vs" data-i="${i}" value="${esc(it.vs||'')}" title="打 ✗ 時要選是哪一個；用「／」分開，寫「無」＝不用選，空白＝照名稱自動" placeholder="${K.length?'打 ✗ 選哪一個（自動）：'+esc(K.join('／')):'打 ✗ 要選哪一個（沒有就空白）'}">`; })()}</div>`; };
+        return `<input type="text" class="subi${o?' chg':''}" data-edi="vs" data-i="${i}" value="${esc(it.vs||'')}" placeholder="${K.length?'細項：'+esc(K.join('／')):'細項'}">`; })()}</div>`; };
   let h=`<div class="chips" style="margin:0 0 10px">${edF.map(x=>`<button class="chip${x.id===edSel?' on':''}" data-act="edsel" data-f="${x.id}">${esc(x.name)}${x.on===false?'（停用）':''}</button>`).join('')}</div>
     ${groups.map(g=>`<div class="edsec"><div class="eh"><input type="text" data-eds="${esc(g.s)}" value="${esc(g.s)}" title="區域名稱（改這裡＝整區改名）"><button class="btn mini outline" data-act="edadd" data-after="${g.ix[g.ix.length-1]}">＋ 這區加一項</button></div>${g.ix.map(item).join('')}</div>`).join('')}
     <div class="edrow"><button class="btn outline mini" data-act="edaddsec">＋ 新增區域</button></div>
