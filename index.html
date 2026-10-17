@@ -395,7 +395,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.4.0';
+const VERSION='3.4.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -897,7 +897,7 @@ const shiftStatOne=(d,x)=>!!recOf(d,x.f,x.k);
 // 先問今天上哪個位置（同一班選一次就好；換班會再問）
 function renderPosPick(){
   const {d,s}=view, last=posSel.last||'';
-  let h=cloudAlert()+`<div class="card who"><h2>你今天上哪個位置？</h2><div class="hint">${dayLabel(d)} ${SHIFT[s].name}・選了以後，清單只列這個位置要點的項目；隨時可以換。</div>
+  let h=cloudAlert()+`<div class="card who"><h2>你今天上哪個位置？</h2>
     <div class="names">${posOn(s).map(p=>`<button class="${p===last?'duty':''}" data-act="setpos" data-p="${esc(p)}">${esc(posLab(p,s))}</button>`).join('')}</div>
     ${s==='N'?'<div class="hint">大夜沒有 A2，A2 的項目由 A1 點。</div>':''}
     <div class="edrow"><button class="btn ghost mini" data-act="setpos" data-p="*">先看全部的單子</button></div></div>`;
@@ -1062,8 +1062,7 @@ function renderAuth(){
     h+=err+back(`不是 ${esc(n)}？選別人`)+`<div class="hint" style="margin-top:8px">忘記密碼、換手機：請護理長在管理頁「設定：名單」按「重設登入」，再重新設定。</div>`;
   } else {   // pin1／pin2：第一次設定密碼
     h+=`<div class="big">第一次使用：設定密碼<b>${esc(n)}</b></div>
-      <div class="hint pinstep">${m==='pin1'?'請輸入 4 位數字':'再輸入一次確認'}</div>${pinPad()}${err}
-      <div class="hint">設定一次就好：之後打開 App 輸入這組密碼就能進來，別人沒辦法用你的名字點班。<br>請不要用提款卡或手機解鎖的密碼。忘記了請護理長在管理頁重設。</div>`+back('選錯名字了，回名單');
+      <div class="hint pinstep">${m==='pin1'?'請輸入 4 位數字':'再輸入一次確認'}</div>${pinPad()}${err}`+back('選錯名字了，回名單');
   }
   $('main').innerHTML=h+`</div></div>`;
 }
@@ -1071,7 +1070,7 @@ function renderWho(){
   if(!authUI.m) Object.assign(authUI,myAuth&&myAuth.n?{m:'ver',n:myAuth.n}:{m:'list',n:''});
   if(authUI.m!=='list') return renderAuth();
   const names=staffNames(), cur=nowShift(), duty=onDuty(cur.d,cur.s), rest=names.filter(n=>!duty.includes(n)).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
-  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">選自己的名字。第一次要設定 4 位數密碼，之後打開 App 輸入密碼就能進來。</div>`;
+  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2>`;
   if(duty.length) h+=`<div class="grp" style="margin-top:6px">現在這一班（${SHIFT[cur.s].name}）</div><div class="names">${duty.map(n=>`<button class="duty" data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(rest.length) h+=`<div class="grp">${duty.length?'其他人':'名單'}</div><div class="names">${rest.map(n=>`<button data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請按「其他」輸入名字。'}</div>`;
@@ -1248,7 +1247,7 @@ function itemHtml(f,it,dr,ro){
     return `<span class="e2">${L}<span class="e2r"><label class="e1${un?' off':''}">${tm?'開封時間':'開封日'}${oin}</label><label class="e1 un"><input type="checkbox" data-in="opu" data-id="${it.id}" data-i="${i}"${un?' checked':''}> 未開封</label>${eout}</span></span>`; };
   let expH='', expB='';
   if(SL.length===1){ const x=one(0,''); if(x) expH=`<div class="exp">${od?'':'到期日 '}${x}</div>`; }
-  else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm"><div class="el">${od?'開封日、到期日':'到期日'}（${SL.length} 個）${od&&!ro?'；還沒開封的勾「未開封」':''}</div>${xs.join('')}</div>`; }
+  else if(SL.length>1){ const xs=SL.map((lab,i)=>one(i,lab)).filter(Boolean); if(xs.length) expB=`<div class="expm">${od?'':'<div class="el">到期日</div>'}${xs.join('')}</div>`; }
   const SO=!ro&&fvs&&fvs.hold?sterOut(it,fvs.hold):null, SA=SO?[...SO.sure,...SO.maybe]:[];
   const soH=SA.length?`<div class="soh">🧺 送消中：${SA.map(x=>`${esc(x.item)} ×${esc(x.qty)}（${esc(x.outBy)} ${whenLabel(x.outAt)} 送出）`).join('、')}${SO.sure.length?'；回來後先到「送消登記」按簽收':'；是不是這一項的？請自己確認'}</div>`:'';
   const RP=!ro&&fvs&&fvs.hold&&fvs.f?repOut(fvs.f,it,fvs.hold):[];
@@ -1500,8 +1499,7 @@ function renderSoak(keep){
     ${isOther?`<input type="text" placeholder="品名" data-in="sk-other" value="${esc(soakForm.other)}" style="width:100%;margin-bottom:8px">`:''}
     <div class="edrow"><span>數量</span><span class="stp"><button data-act="sk-q" data-d="-1">−</button><input type="number" inputmode="numeric" data-in="sk-qty" value="${soakForm.qty}"><button data-act="sk-q" data-d="1">＋</button></span>
     </div>
-    <div class="edrow"><span>放入時間</span><input type="time" data-in="sk-time" value="${esc(soakForm.time||nowHM())}" style="width:120px"><button class="btn" data-act="sk-in" style="margin-left:auto">放入（${esc(me())}）</button></div>
-    <div class="hint" style="margin:6px 0 0">寄消物品請確實清潔並把水份擦乾再放入。</div></div>`;
+    <div class="edrow"><span>放入時間</span><input type="time" data-in="sk-time" value="${esc(soakForm.time||nowHM())}" style="width:120px"><button class="btn" data-act="sk-in" style="margin-left:auto">放入（${esc(me())}）</button></div></div>`;
   h+=`<div class="secb"><div class="sh2"><b>浸泡中<small>${open.length} 件</small></b></div>${open.length?open.map(x=>{ const m=Math.floor((Date.now()-x.inAt)/60000);
     if(soakOut[x.id]!=null) return `<div class="soakrow" style="flex-wrap:wrap"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.inBy)} ${whenLabel(x.inAt)} 放入</small></div>
       <div class="edrow" style="flex-basis:100%;margin:6px 0 0"><span>取出時間</span><input type="time" data-in="sk-otime" data-id="${x.id}" value="${esc(soakOut[x.id]||nowHM())}" style="width:120px"><button class="btn mini ghost" data-act="sk-outx" data-id="${x.id}">取消</button><button class="btn mini" data-act="sk-outok" data-id="${x.id}" data-mk="${x.mk}" style="margin-left:auto">確定取出</button></div></div>`;
@@ -1598,7 +1596,6 @@ function renderRep(keep){
   let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>送修簽收</b><small>點班選「損壞送修」的會列在這裡</small></div></div><div class="fb"><div class="in">`;
   h+=`<div class="secb"><div class="sh2"><b>送修中<small>${open.length} 件</small></b></div>${open.length?open.map(row).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
   h+=`<div class="secb"><div class="sh2"><b>最近三天修好回來<small>${done.length} 件</small></b></div>${done.length?done.map(row).join(''):'<div class="soakrow mut">還沒有</div>'}</div>`;
-  h+=`<div class="hint" style="margin:10px 4px">東西壞了：點班時那一項打 ✗、選「損壞送修」、選誰送修，送出後就會列在「送修中」。之後每一班點班，那一項自動打 ✗（算警示，不算異常）。修好回來按「簽收」，之前因為它打 ✗ 的會自動改成 ✓。按錯了：送修中的按「取消」，簽收按錯按「復原」。</div>`;
   h+=`</div></div>`;
   $('fv').innerHTML=h;
   const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
@@ -1800,7 +1797,6 @@ function renderManage(){
   const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}</span>${a.hold?`<span class="tag hd">${HOLD_LAB[a.hold]}</span>`:a.fixed?'<span class="tag wn">警示・已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
     <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${repNote(a.r,a.it.id)}${a.r.w&&a.r.w[a.it.id]?`・請 ${esc(a.r.w[a.it.id])} 補`:''}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}${a.more?`<span class="mut">（之後 ${a.more} 班同樣${HOLD_LAB[a.hold]}，不重複列）</span>`:''}</div></div>`;
   h+=card('abn',`異常與警示`,`異常 ${opens.length}${holdR.length?`・送修中 ${holdR.length}`:''}${holdS.length?`・送消中 ${holdS.length}`:''}・警示 ${fixed.length}`,
-    `<div class="hint">異常＝打 ✗（含到期日過期）、泡消未滿 10 分鐘，還沒處理好；處理好（補齊、修好、換新、重新泡消、按「標記已處理」）就改列警示，不算異常。<br><b>送修中、送消中</b>＝東西送出去還沒回來而打的 ✗，<b>不算異常</b>，另外列；回來簽收後自動改成 ✓（警示）。</div>`+
     (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有未處理的異常</div>')+
     (holdR.length?`<div class="grp">🔧 送修中（不算異常，${holdR.length} 項）</div>${holdR.map(abnRow).join('')}`:'')+
     (holdS.length?`<div class="grp">🧺 送消中（不算異常，${holdS.length} 項）</div>${holdS.map(abnRow).join('')}`:'')+
@@ -1809,9 +1805,7 @@ function renderManage(){
   const notiOn=lsGet(LS_NOTI,0)&&'Notification' in window&&Notification.permission==='granted';
   const tkRow=x=>`<div class="abn"><div class="h"><b>${esc(x.f.name)}</b>${posTag(x.p)}<span class="tag w">${x.type==='early'?'早':'晚'} ${x.min} 分</span>${x.tk?`<span class="tag ${(x.tk.k==='late'&&x.type==='late'&&x.tk.at&&firstAt(x.r)<=x.tk.at+3600e3)||(x.tk.k==='early'&&x.type==='early')?'ok':'w'}">${esc(tkTxt(x.tk))}</span>`:''}</div><div class="t">${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.r.by)} ${whenLabel(firstAt(x.r))} 點</div></div>`;
   h+=card('late','點班時間（延遲／過早）',`延遲 ${S.late.length}・過早 ${S.early.length}${S.tkOk.length?`・有說明 ${S.tkOk.length}`:''}`,
-    `<div class="hint">延遲＝比上班時間（白班 08:00、小夜 16:00、大夜 00:00；冰箱 09:00／17:00）晚超過 1 小時才點；過早＝比上班時間早超過 1 小時就點。改過的以第一次送出的時間算；每天一次、每月一次的單子不算。<br>護理師點太早／太晚時要選原因：<b>延後接班</b>（寫幾點接班，接班後 1 小時內點完就不算延遲）、<b>提早接班</b>、或其他原因；有說明的列在最下面。</div>
-     <div class="edrow"><button class="btn mini ${notiOn?'ghost':'outline'}" data-act="noti">${notiOn?'這台裝置的通知已開啟':'開啟這台裝置的通知'}</button></div>
-     <div class="hint">管理頁開著（或再打開）的時候，有新的延遲點班會跳通知；關掉的時候收不到。iPhone 要把管理頁加到主畫面才能跳通知。</div>`+
+    `<div class="edrow"><button class="btn mini ${notiOn?'ghost':'outline'}" data-act="noti">${notiOn?'這台裝置的通知已開啟':'開啟這台裝置的通知'}</button></div>`+
     `<div class="grp">延遲 ${S.late.length} 筆</div>`+(S.late.length?S.late.map(tkRow).join(''):'<div class="mut">這個月沒有</div>')+
     `<div class="grp">過早 ${S.early.length} 筆</div>`+(S.early.length?S.early.map(tkRow).join(''):'<div class="mut">這個月沒有</div>')+
     (S.tkOk.length?`<div class="grp">有說明（提早接班／延後接班）${S.tkOk.length} 筆</div>${S.tkOk.map(tkRow).join('')}`:''));
@@ -1824,7 +1818,6 @@ function renderManage(){
   // 送修簽收
   const RL=repList(), rOpen=RL.filter(x=>!x.inAt), rMon=RL.filter(x=>repInMonth(x,mcur)).sort((a,b)=>a.outAt-b.outAt);
   h+=card('rep','送修簽收',`${rMon.length} 筆${rOpen.length?`・送修中 ${rOpen.length}`:''}`,
-    `<div class="hint">護理師點班時打 ✗「損壞送修」並選誰送修，就會列在這裡；修好回來由護理師在「送修簽收」按簽收。</div>`+
     (rOpen.length?`<div class="grp">送修中（${rOpen.length} 件）</div>${rOpen.map(x=>`<div class="abn"><div class="h"><b>${esc(x.item)} ×${esc(x.qty)}</b>${x.tl?`<span>${esc(x.tl)}</span>`:''}<span class="tag w">已 ${repAge(x.outAt)}</span></div><div class="t">${esc(x.outBy)} ${whenLabel(x.outAt)} 送修${x.why?`・故障：${esc(x.why)}`:''}</div></div>`).join('')}`:'')+
     `<div class="grp">${monLabel(mcur)}</div>`+(rMon.length?`<div class="tw"><table class="tt"><tr><th class="l">送修</th><th class="l">品名</th><th>數量</th><th class="l">點班單</th><th class="l">故障</th><th class="l">送修人</th><th class="l">修好回來</th><th class="l">簽收人</th></tr>${rMon.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.tl||'')}</td><td class="l">${esc(x.why||'')}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送修中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>'));
   // 每日紀錄與核簽
@@ -1902,8 +1895,7 @@ async function backupAll(nm){
   write('PUT','cfg/lastBackup',{at:Date.now(),by:nm||''});
 }
 function dataCard(){ const lb=getAt('cfg/lastBackup'), wa=getAt('cfg/wipeAt');
-  return `<div class="hint">備份＝把雲端上這個 App 的全部資料（點班紀錄、核簽、泡消、送消、修改與刪除留底、設定）下載成一個檔案。建議每個月備份一次，存在電腦或雲端硬碟；需要還原時把檔案交給資訊人員（或 Claude）處理。</div>
-    <div class="edrow"><button class="btn" data-act="backup">下載全部資料備份</button><span class="mut">${lb?`上次備份：${whenLabel(lb.at)}${lb.by?'（'+esc(lb.by)+'）':''}`:'還沒有備份過'}</span></div>
+  return `<div class="edrow"><button class="btn" data-act="backup">下載全部資料備份</button><span class="mut">${lb?`上次備份：${whenLabel(lb.at)}${lb.by?'（'+esc(lb.by)+'）':''}`:'還沒有備份過'}</span></div>
     ${wa?`<div class="hint">正式上線：${whenLabel(wa.at)} 起算，之前的測試紀錄已清除。</div>`:''}`; }
 const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':''} data-tg="${id}"><summary>${title}<span class="r">${right}</span></summary>${body}</details>`;
 function dayDetail(d){
@@ -1921,8 +1913,7 @@ function monthTable(S){
   const f=formAt(f0,S.mk);
   let h=`<div class="prt"><div class="edrow"><select id="pr-scope" style="flex:1;min-width:0"><option value="one">列印這一張（${esc(f0.name)}）</option><option value="all">列印全部點班單＋泡消登錄＋送消登記＋送修簽收</option><option value="soak">只印泡消登錄表</option><option value="ster">只印送消登記表</option><option value="rep">只印送修簽收表</option></select></div>
     <div class="edrow"><label>表頭</label><input type="text" id="pr-title" value="${esc(printTitle())}" style="flex:1;min-width:0" placeholder="例如：○○醫院 急診室"></div>
-    <div class="edrow"><button class="btn" data-act="print">列印／存成 PDF</button><button class="btn outline" data-act="doc">下載 Word</button></div>
-    <div class="hint">${monLabel(S.mk)}・A4 橫印，每張點班單從新的一頁開始，後面附當月異常紀錄。要 PDF：列印畫面選「另存為 PDF」。</div></div>
+    <div class="edrow"><button class="btn" data-act="print">列印／存成 PDF</button><button class="btn outline" data-act="doc">下載 Word</button></div></div>
     <div class="chips" style="margin-bottom:10px">${activeForms().map(x=>`<button class="chip${x.id===f0.id?' on':''}" data-act="mtf" data-f="${x.id}">${esc(x.name)}</button>`).join('')}</div>`;
   const ks=slotsOf(f), D=dim(S.mk);
   if(ks.includes('M')){
@@ -1948,7 +1939,6 @@ function monthTable(S){
   if(f.kind==='narc') h+=`<tr><td class="l">交班者</td><td></td>${recs.map(r=>`<td class="vn">${r?esc(r.x._giver||''):''}</td>`).join('')}</tr>`;
   const revs=getAt('rev/'+S.mk)||{};
   h+=`<tr><td class="l">單位主管核簽</td><td></td>${[...Array(D)].map((_,i)=>{ const rv=revs['d'+pad(i+1)]; return `<td colspan="${ks.length}" class="vn">${rv?esc(rv.by):''}</td>`; }).join('')}</tr></table></div>`;
-  h+=`<div class="sub2">✗＝異常（數量類寫實際數量）；空白＝沒有點。點「每日紀錄與核簽」裡的格子可以看每一筆的處理情形。</div>`;
   return h;
 }
 // 某張點班單在某個月用的是哪一版內容：取那個月紀錄裡最新的版本（改過設定量的月份，列印才對得上當時的設定）
@@ -2266,8 +2256,7 @@ function formEditor(){
         ${fixedT?'':`<select data-edi="t" data-i="${i}">${Object.keys(TYPES).map(t=>`<option value="${t}"${it.t===t?' selected':''}>${TYPES[t]}</option>`).join('')}</select><label class="odl${!!it.od!==!!(old&&old.od)?' chg':''}" title="開封後可以用一段時間的藥（例如 RI、NTG、Heparin）：點班時多填開封日"><input type="checkbox" data-edi="od" data-i="${i}"${it.od?' checked':''}> 開封日</label>${it.od?`<label class="odl${(+it.odN||0)!==(+(old&&old.odN)||0)||(it.odU||'d')!==((old&&old.odU)||'d')?' chg':''}" title="填了開封日（時間）就自動算到期；空白＝到期日自己填">開封後<input type="number" min="0" inputmode="numeric" data-edi="odN" data-i="${i}" value="${esc(it.odN||'')}" placeholder="自填" style="width:4.2em"><select data-edi="odU" data-i="${i}"><option value="d"${!it.odU||it.odU==='d'?' selected':''}>天</option><option value="h"${it.odU==='h'?' selected':''}>小時</option><option value="m"${it.odU==='m'?' selected':''}>個月</option></select>到期</label>`:''}${it.od||f.exp?'':`<label class="odl${!!it.ex!==!!(old&&old.ex)?' chg':''}" title="點班時要填到期日（器械、包盤這類）"><input type="checkbox" data-edi="ex" data-i="${i}"${it.ex?' checked':''}> 到期日</label>`}`}
         <button class="mv" data-act="edmv" data-i="${i}" data-d="-1" title="上移">↑</button><button class="mv" data-act="edmv" data-i="${i}" data-d="1" title="下移">↓</button><button class="mv" data-act="eddel" data-i="${i}" title="刪除">✕</button></div>
       <input type="text" class="subi" data-edi="sub" data-i="${i}" value="${esc(it.sub||'')}" placeholder="補充說明（可空白）"></div>`; };
-  let h=`<div class="hint">改設定量、增減項目後按「儲存」才生效，所有人的手機下次打開就是新的內容。已經點過的紀錄照當時的內容保存。橘框＝改過還沒儲存。</div>
-    <div class="chips" style="margin:8px 0 10px">${edF.map(x=>`<button class="chip${x.id===edSel?' on':''}" data-act="edsel" data-f="${x.id}">${esc(x.name)}${x.on===false?'（停用）':''}</button>`).join('')}</div>
+  let h=`<div class="chips" style="margin:0 0 10px">${edF.map(x=>`<button class="chip${x.id===edSel?' on':''}" data-act="edsel" data-f="${x.id}">${esc(x.name)}${x.on===false?'（停用）':''}</button>`).join('')}</div>
     ${groups.map(g=>`<div class="edsec"><div class="eh"><input type="text" data-eds="${esc(g.s)}" value="${esc(g.s)}" title="區域名稱（改這裡＝整區改名）"><button class="btn mini outline" data-act="edadd" data-after="${g.ix[g.ix.length-1]}">＋ 這區加一項</button></div>${g.ix.map(item).join('')}</div>`).join('')}
     <div class="edrow"><button class="btn outline mini" data-act="edaddsec">＋ 新增區域</button></div>
     <div class="edrow"><button class="btn" data-act="edsave"${edDirty?'':' disabled'}>儲存</button><button class="btn ghost" data-act="edcancel"${edDirty?'':' disabled'}>放棄修改</button>${edDirty?'<span class="tag w">有未儲存的修改</span>':''}</div>
@@ -2293,7 +2282,7 @@ function posEditor(){
   const mix=[...POS,''].filter(k=>cnt[k]).sort((a,b)=>cnt[b]-cnt[a]);
   const col=k=>k?POS_COLOR[k]:'#b8c3ca', lab=k=>k||'還沒分';
   const chips=(on,attrs)=>[...POS,''].map(pp=>`<button class="pc${on!=null&&on===pp?' on':''}" style="--pc:${pp?POS_COLOR[pp]:'#8a98a3'}" ${attrs} data-p="${esc(pp)}">${pp?esc(pp):'不分'}</button>`).join('');
-  let h=`<div class="hint">每一項點一下，選這一項由哪個位置點；「不分」＝誰都可以點。護理師打開 App 會先選「今天上哪個位置」，只看到自己位置的項目。<b>大夜沒有 A2：A2 的項目大夜由 A1 點。</b>改完按「儲存」才生效。</div>`;
+  let h='';
   h+=`<div class="mixbar">${mix.map(k=>{ const pc=cnt[k]/tot*100; return `<span style="width:${pc}%;background:${col(k)}">${pc>=8?esc(lab(k)):''}</span>`; }).join('')}</div>
     <div class="mixl">${mix.map(k=>`<span><i style="background:${col(k)}"></i>${esc(lab(k))} ${cnt[k]} 項</span>`).join('')}</div>`;
   h+=`<div class="chips" style="margin:8px 0 10px">${edF.map(x=>{ const n=x.items.filter(it=>!it.p).length; return `<button class="chip${x.id===pjSel?' on':''}" data-act="pjsel" data-f="${x.id}">${esc(x.name)}${x.who?`（負責人 ${esc(x.who)}）`:n?`（${n} 未分）`:''}</button>`; }).join('')}</div>`;
@@ -2311,8 +2300,7 @@ function staffEditor(){
   const extra=(getAt('cfg/staff')||[]).filter(Boolean).map(String), hide=[...hiddenStaff()], cmp=(a,b)=>a.localeCompare(b,'zh-Hant');
   const fromS=[...new Set(sched.nurses.map(n=>n.name))].filter(n=>n&&!hide.includes(n)&&!extra.includes(n)).sort(cmp);
   const chip=(n,act)=>`<span class="chip on" style="display:inline-flex;gap:6px;align-items:center">${esc(n)}<button data-act="${act}" data-n="${esc(n)}" title="移除" style="background:none;border:none;color:#fff;cursor:pointer;font-size:15px">✕</button></span>`;
-  return `<div class="hint">護理師選名字時的名單。離職、調單位的人按 ✕ 移除：選名字的畫面不會再出現，以前的點班紀錄不受影響，隨時可以恢復。</div>
-    <div class="grp" style="margin-top:8px">護理班表上的人（${fromS.length} 位，自動帶入）</div><div class="chips" style="margin:6px 0">${fromS.map(n=>chip(n,'sthide')).join('')||'<span class="mut">讀不到護理班表</span>'}</div>
+  return `<div class="grp">護理班表上的人（${fromS.length} 位，自動帶入）</div><div class="chips" style="margin:6px 0">${fromS.map(n=>chip(n,'sthide')).join('')||'<span class="mut">讀不到護理班表</span>'}</div>
     <div class="grp">另外加入的人（${extra.filter(n=>!hide.includes(n)).length} 位）</div><div class="chips" style="margin:6px 0">${extra.filter(n=>!hide.includes(n)).map(n=>chip(n,'stdel')).join('')||'<span class="mut">沒有</span>'}</div>
     <div class="edrow"><input type="text" id="st-in" placeholder="名字" style="flex:1;min-width:0"><button class="btn" data-act="stadd">加入</button></div>
     ${hide.length?`<div class="grp">已移除（${hide.length} 位）</div><div class="chips" style="margin:6px 0">${hide.sort(cmp).map(n=>`<button class="chip" data-act="stshow" data-n="${esc(n)}">${esc(n)}・恢復</button>`).join('')}</div>`:''}
@@ -2324,7 +2312,6 @@ function authEditor(){
   Object.keys(A).forEach(k=>{ const E=A[k]; if(E&&E.n&&authOf(E.n)&&!names.includes(E.n)) names.push(E.n); });
   const ok=names.filter(n=>authOf(n)).length;
   return `<div class="grp" style="margin-top:12px">登入密碼（4 位數）・已設定 ${ok}／${names.length} 位</div>
-    <div class="hint">每個人第一次打開 App 時自己設定，之後打開要輸入密碼才能用這個名字點班。忘記密碼、換手機：按「重設登入」，那個人下次打開再重新設定。</div>
     ${names.map(n=>{ const E=authOf(n), R=(getAt('auth/'+authKey(n))||{}).reset;
       return `<div class="arow"><span class="nm">${esc(n)}</span>${E?`<span class="tag ok">已設定</span><span class="mut">${E.at?whenLabel(E.at)+' 設定':''}</span><button class="btn mini ghost" data-act="authreset" data-n="${esc(n)}">重設登入</button>`:`<span class="mut">還沒設定${R?`（${whenLabel(R.at)} ${esc(R.by||'')} 重設過）`:''}</span>`}</div>`; }).join('')}`;
 }
