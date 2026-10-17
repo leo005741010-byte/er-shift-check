@@ -230,6 +230,20 @@ details.notes ol{margin:6px 0 0;padding-left:20px}
 .whoc .big b{display:block;font-size:34px;color:var(--navy-dark);letter-spacing:2px;margin-top:2px}
 .whoc .note{text-align:left}
 .whoc .edrow{flex-wrap:nowrap}
+.fidb{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 4px;font-size:18px;padding:14px 18px}
+.fidb svg{width:30px;height:30px;flex:none}
+.pind{display:flex;justify-content:center;gap:16px;margin:10px 0 14px}
+.pind i{width:15px;height:15px;border-radius:50%;border:2px solid var(--navy);display:block}
+.pind i.on{background:var(--navy)}
+.pinpad{display:grid;grid-template-columns:repeat(3,76px);gap:10px;justify-content:center;margin:0 auto 6px}
+.pinpad button{height:58px;border-radius:14px;border:1px solid var(--line);background:#fff;font-size:26px;color:var(--txt);cursor:pointer;-webkit-tap-highlight-color:transparent}
+.pinpad button:active{background:#e3f0f2}
+.pinpad button:disabled{opacity:.4}
+.pinstep{font-size:15px!important;color:var(--navy-dark)!important;font-weight:700}
+.autherr{color:var(--bad);font-weight:700;margin:8px 0;text-align:center}
+.arow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--line);font-size:14px}
+.arow .nm{min-width:5em;font-weight:700}
+.arow .btn{margin-left:auto}
 .rnl{border:1px solid var(--line);border-radius:9px;margin:8px 0 12px;max-height:40vh;overflow:auto}
 .rnl div{padding:7px 11px;border-top:1px solid var(--line);font-size:14px}
 .rnl div:first-child{border-top:none}
@@ -306,7 +320,7 @@ table.mt th{background:#f1f6f7;color:var(--navy-dark);font-weight:700}
 table.mt td.l,table.mt th.l{text-align:left;position:sticky;left:0;background:#fff;z-index:1;max-width:190px;white-space:normal;min-width:150px}
 table.mt th.l{background:#f1f6f7}
 table.mt td.x{color:var(--bad);font-weight:700;background:#fff3f1}
-table.mt td.o{color:var(--ok)}
+table.mt td.o{color:var(--ok);font-weight:900;font-size:15px;line-height:1}
 table.mt td.wf{background:#fffbe6}
 table.mt td.vn{writing-mode:vertical-rl;font-size:11.5px;letter-spacing:1px;padding:4px 2px;min-height:44px}
 table.ed{border-collapse:collapse;width:100%;font-size:14px}
@@ -380,7 +394,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.1.0';
+const VERSION='3.2.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -436,7 +450,7 @@ const slotEnd=(d,k)=>k==='M'?new Date(+d.slice(0,4),+d.slice(5,7),1).getTime():p
 const slotLab=(f,k)=>k==='M'?mLab(f):slotsOf(f).length===1&&k!=='X'?SHIFT[k]?SHIFT[k].name:SLOT[k].lab:SLOT[k].lab;
 
 // ---------- 點班單內容（預設＝紙本點班單；管理頁可以改，改過的存在雲端 cfg/forms） ----------
-// 項目：t='n' 數量（打 ✗ 時填實際數量）、'c' 打勾（設定量是「各2」這類文字）、'y' ˇ／✗／Δ（不適用）
+// 項目：t='n' 數量（打 ✗ 時填實際數量）、'c' 打勾（設定量是「各2」這類文字）、'y' ✓／✗／Δ（不適用）
 const sec=(s,list,t)=>list.map(r=>({id:r[0],s,name:r[1],q:r[2]==null?'':String(r[2]),t:t||(/^\d+$/.test(String(r[2]==null?'':r[2]))?'n':'c'),sub:r[3]||''}));
 // 急救車原本一張 72 項（紙本）；主任 10/15 要在首頁分成急救車1～4：1 桌面、2 第一層抽屜、3 第二＋第三層抽屜、4 第四層抽屜＋側面
 const CART_SRC={id:'cart',name:'急救車',full:'急救車點班單',freq:'shift',
@@ -515,7 +529,7 @@ const DEFAULT_FORMS=[
  items:sec('溶液濃度監測',[['u1','消毒溶液在效期內'],['u2','試紙檢測時間 15 秒'],['u3','試紙在有效期限內'],['u4','有效濃度（試紙判讀通過）']],'c')},
 {id:'env',name:'環境物資',full:'環境物資點班單',freq:'E',notes:[],
  items:sec('環境物資',[['m1','廣播音量（固定 2）','3'],['m2','乾洗手起訖日期','18'],['m3','洗手乳起訖日期','5'],['m4','體溫監測儀時間','1']],'c')},
-{id:'safety',name:'安全衛生日檢',full:'安全衛生日檢表',freq:'day',notes:['ˇ＝正常、✗＝異常、Δ＝不適用。','異常請寫改善措施及追蹤。'],
+{id:'safety',name:'安全衛生日檢',full:'安全衛生日檢表',freq:'day',notes:['✓＝正常、✗＝異常、Δ＝不適用。','異常請寫改善措施及追蹤。'],
  items:[...sec('環境空間',[['s01','天花板','','是否有破損、掉落之虞'],['s02','通風口','','是否髒汙'],['s03','牆面','','懸掛物是否穩固'],['s04','通道','','不得堆積雜物、需光線充足'],['s05','地面','','是否油汙、濕滑、不平整']],'y'),
    ...sec('逃生設備',[['s06','安全門','','常開及常閉安全門確認'],['s07','出口標示燈','','是否損壞不亮'],['s08','救助袋、自走梯','','不得堆置雜物影響使用']],'y'),
    ...sec('消防設備',[['s09','滅火器','','壓力正常、皮管及插銷完整'],['s10','消防栓箱','','不得堆放雜物影響開啟'],['s11','消防栓','','水帶、瞄子完備']],'y'),
@@ -746,6 +760,12 @@ const openCount=(r,f)=>xIds(r,f).filter(id=>!isFixed(r,id)&&!holdOf(r,fidOf(r,f)
 const warnCount=(r,f)=>xIds(r,f).filter(id=>isFixed(r,id)&&!holdOf(r,fidOf(r,f),id)).length;    // 警示（打過 ✗、已經處理好）
 const HOLD_LAB={rep:'送修中',ster:'送消中'}, HOLD_ICO={rep:'🔧',ster:'🧺'};
 const holdTxt=(r,f)=>['rep','ster'].map(k=>{ const n=holdIds(r,f,k).length; return n?`${HOLD_LAB[k]} ${n}`:''; }).filter(Boolean).join('・');
+// 送修中／送消中的東西每一班都會自動打 ✗：同一張單的同一項只列第一次（主任 10/17），more＝之後還有幾班
+function holdFirst(L,keyOf){
+  const g={}, ord=[], key=keyOf||(a=>(a.f?a.f.id:'')+'|'+a.it.id+'|'+a.hold), t=a=>a.r.h&&a.r.h.length?a.r.h[0].at:a.r.at||0;
+  L.forEach(a=>{ const k=key(a); if(!g[k]){ g[k]=[]; ord.push(k); } g[k].push(a); });
+  return ord.map(k=>{ const A=g[k].sort((a,b)=>t(a)-t(b)); return Object.assign({},A[0],{more:A.length-1}); }).sort((a,b)=>t(b)-t(a));
+}
 const partBad=(f,r)=>openCount(r,f);
 // 一個時段整張單（各位置那幾份合起來）：給月表、列印用
 function slotRec(d,f,k){
@@ -762,7 +782,7 @@ function slotRec(d,f,k){
 }
 
 // ---------- 共用 ----------
-let ME='';   // 點班者：只記在這次打開的畫面裡，每次打開 App 都要重新選（主任 10/14 要求，不存在手機上）
+let ME='';   // 點班者：只記在這次打開的畫面裡，每次打開 App 都要驗證（Face ID／密碼，主任 10/17）才會設定
 const me=()=>ME;
 try{ localStorage.removeItem(LS.me); localStorage.removeItem(LS.pos); }catch(e){}
 let dev=lsGet(LS.dev,''); if(!dev){ dev=Math.random().toString(36).slice(2,10); lsSet(LS.dev,dev); }
@@ -921,7 +941,7 @@ function confirmMe(n){
   const last=lastDevName();
   openDlg(`<div class="whoc"><div class="big">你是<b>${esc(n)}</b></div>
     ${last&&last!==n?`<div class="note warn">⚠ 這支手機最近是「<b>${esc(last)}</b>」簽名的，請確認沒有點錯。</div>`:''}
-    <div class="hint">點班送出時會用這個名字簽名。</div>
+    <div class="hint">點班送出時會用這個名字簽名。第一次使用，下一步設定 Face ID（或 4 位數密碼）。</div>
     <div class="edrow" style="margin-top:12px"><button class="btn ghost" data-act="close">選錯了</button><button class="btn" data-act="setme-ok" data-n="${esc(n)}" style="flex:1">是我</button></div></div>`);
 }
 // 這支手機 24 小時內用「別的名字」簽的紀錄（點班、已補齊、泡消、送消）
@@ -964,14 +984,141 @@ function renameSigs(L,name){
     else write('PATCH',o.p,{[o.fld]:name});
   });
 }
+// ---------- 登入：Face ID（Android＝指紋／臉部解鎖）或 4 位數密碼（主任 10/17）----------
+// 每個人第一次進來設定一次；之後每次打開 App 都要驗證才能用這個名字點班（別人沒辦法用你的名字點）
+// 雲端 auth/<名字>＝{n, pin:{s,h,i}（PBKDF2 雜湊，不存密碼本身）, cred:{<憑證 id>:{at,dev}}（Face ID）, at, reset:{by,at}（管理頁重設）}
+// 這支手機 LS erCheck_auth＝{n, cred|pin}：最後一次在這支手機驗證的人，打開 App 直接問他；別人按「不是我」改選名字
+const AUTH_LS='erCheck_auth', PIN_LS='erCheck_pinfail', PIN_ITER=100000, PIN_MAX=5;
+const authKey=n=>String(n||'').trim().replace(/[.#$\[\]\/\\%?&+\s]/g,'_')||'_';
+const authOf=n=>{ const E=getAt('auth/'+authKey(n)); return E&&(E.pin||(E.cred&&Object.keys(E.cred).length))?E:null; };   // 設定好的才算（重設過的沒有 pin／cred）
+let authLoaded=false, myAuth=lsGet(AUTH_LS,null), _fidOK=null;
+const authUI={m:'',n:'',buf:'',p1:'',err:'',busy:false};   // m：list 名單／ver 驗證／set 第一次設定／pin1、pin2 設定密碼
+const b64u={enc:b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
+  dec:s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0))};
+const FID_ICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1M9 16c1.6 1.3 4.4 1.3 6 0"/></svg>';
+async function fidAvail(){
+  if(_fidOK!==null) return _fidOK;
+  try{ _fidOK=!!(window.PublicKeyCredential&&window.isSecureContext&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }catch(e){ _fidOK=false; }
+  return _fidOK;
+}
+async function fidCreate(n){
+  // 不能先 await 別的東西：Safari 要「按了按鈕馬上」呼叫 credentials.create，否則會被擋
+  const uid=new TextEncoder().encode('er|'+n).slice(0,64);   // 同一個人重新設定時蓋掉這支手機上舊的
+  const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'急診點班'},
+    user:{id:uid,name:n,displayName:n},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
+    authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,attestation:'none'}});
+  return b64u.enc(c.rawId);
+}
+async function fidGet(ids){
+  const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),userVerification:'required',timeout:60000,
+    allowCredentials:ids.map(id=>({type:'public-key',id:b64u.dec(id),transports:['internal']}))}});
+  return new Uint8Array(a.response.authenticatorData)[32]&4?b64u.enc(a.rawId):'';   // UV 旗標：手機真的驗證到本人才算
+}
+const fidErr=e=>e&&e.name==='NotAllowedError'?'取消了，或這支手機沒有你的 Face ID':e&&e.name==='SecurityError'?'這個網址不能用':e&&e.name==='InvalidStateError'?'這支手機已經設定過':(e&&e.message)||'不明原因';
+async function pinHash(pin,s,i){
+  const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
+  return b64u.enc(await crypto.subtle.deriveBits({name:'PBKDF2',salt:b64u.dec(s),iterations:i||PIN_ITER,hash:'SHA-256'},k,256));
+}
+// 密碼錯 5 次：這支手機 1 分鐘內不能再試
+const pinLocked=()=>{ const F=lsGet(PIN_LS,null); return F&&F.c>=PIN_MAX&&Date.now()-F.t<60e3?Math.ceil((60e3-(Date.now()-F.t))/1e3):0; };
+function pinFail(ok){ if(ok){ try{ localStorage.removeItem(PIN_LS); }catch(e){} return; } const F=lsGet(PIN_LS,null)||{c:0}; if(F.c>=PIN_MAX) F.c=0; F.c++; F.t=Date.now(); lsSet(PIN_LS,F); }
+// 讀到雲端以後核對這支手機記的：管理頁重設過（或別支手機改了密碼）就跟著改
+function authSync(){
+  if(!authLoaded||!myAuth||!myAuth.n) return;
+  const E=getAt('auth/'+authKey(myAuth.n));
+  if(myAuth.cred&&E&&E.cred&&E.cred[myAuth.cred]) return;
+  if(myAuth.pin&&E&&E.pin){ if(E.pin.h!==myAuth.pin.h){ myAuth.pin=E.pin; lsSet(AUTH_LS,myAuth); } return; }
+  myAuth=null; try{ localStorage.removeItem(AUTH_LS); }catch(e){}
+  if(!ME&&authUI.m==='ver'&&!authOf(authUI.n)) authReset();
+}
+async function authLoad(){ if(await pull('auth')){ authLoaded=true; authSync(); return true; } return false; }
+function authReset(m){ Object.assign(authUI,{m:m||'',n:'',buf:'',p1:'',err:'',busy:false}); }
+function authDone(n,o){
+  myAuth=Object.assign({n},o||{}); lsSet(AUTH_LS,myAuth);   // 這支手機下次打開直接問這個人
+  authReset(); ME=n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+n); checkMisSign(n);
+}
+// 點了名單上的名字：設定過的→驗證；第一次→先確認名字再設定
+async function whoPick(n){
+  if(!authLoaded&&cloud.st!=='denied'){ toast('讀取中…'); await authLoad(); }
+  if(authOf(n)||(myAuth&&myAuth.n===n)){ authReset('ver'); authUI.n=n; renderNurse(); window.scrollTo({top:0}); return; }
+  confirmMe(n);
+}
+async function fidGo(){
+  const n=authUI.n, E=authOf(n), L=myAuth&&myAuth.n===n?myAuth:null, ids=[...new Set([...(L&&L.cred?[L.cred]:[]),...(E&&E.cred?Object.keys(E.cred):[])])];
+  authUI.busy=true; authUI.err=''; renderNurse();
+  try{ const id=await fidGet(ids); if(!id) throw new Error('沒有驗證到本人'); authDone(n,{cred:id}); }
+  catch(e){ authUI.busy=false; authUI.err=`Face ID 沒有成功（${fidErr(e)}）`; renderNurse(); }
+}
+async function fidSet(){
+  const n=authUI.n; authUI.busy=true; authUI.err=''; renderNurse();
+  try{ const id=await fidCreate(n), now=Date.now();
+    write('PUT',`auth/${authKey(n)}/cred/${id}`,{at:now,dev});
+    write('PATCH','auth/'+authKey(n),{n,at:now,reset:null});
+    authDone(n,{cred:id}); toast('Face ID 設定好了，下次打開刷一下就能進來'); }
+  catch(e){ authUI.busy=false; authUI.err=`Face ID 沒有設定成功（${fidErr(e)}）。可以再試一次，或改用 4 位數密碼。`; renderNurse(); }
+}
+async function pinKey(k){
+  if(authUI.busy||pinLocked()) return;
+  if(k==='⌫'){ authUI.buf=authUI.buf.slice(0,-1); renderNurse(); return; }
+  if(authUI.buf.length>=4) return;
+  authUI.buf+=k; authUI.err=''; renderNurse();
+  if(authUI.buf.length<4) return;
+  const n=authUI.n, pin=authUI.buf;
+  if(authUI.m==='pin1'){ authUI.p1=pin; authUI.buf=''; authUI.m='pin2'; setTimeout(renderNurse,150); return; }
+  if(authUI.m==='pin2'){
+    if(pin!==authUI.p1){ Object.assign(authUI,{m:'pin1',p1:'',buf:'',err:'兩次輸入的不一樣，請重新設定'}); setTimeout(renderNurse,150); return; }
+    authUI.busy=true; renderNurse();
+    const s=b64u.enc(crypto.getRandomValues(new Uint8Array(16))), P={s,h:await pinHash(pin,s,PIN_ITER),i:PIN_ITER};
+    write('PATCH','auth/'+authKey(n),{n,pin:P,at:Date.now(),dev,reset:null});
+    authDone(n,{pin:P}); toast('密碼設定好了，下次打開輸入密碼就能進來'); return; }
+  // 驗證
+  const E=authOf(n), L=myAuth&&myAuth.n===n?myAuth:null, P=(E&&E.pin)||(L&&L.pin);
+  if(!P) return;
+  authUI.busy=true; renderNurse();
+  const ok=await pinHash(pin,P.s,P.i)===P.h;
+  authUI.busy=false; authUI.buf=''; pinFail(ok);
+  if(ok){ authDone(n,{pin:P}); return; }
+  const lk=pinLocked(); authUI.err=lk?'':'密碼不對，請再試一次'; renderNurse();
+  if(lk) setTimeout(()=>{ if(!ME) renderNurse(); },lk*1e3+200);   // 鎖定時間到自動恢復按鍵
+}
+function pinPad(){
+  const b=authUI.buf, lk=pinLocked(), dis=lk||authUI.busy?' disabled':'';
+  return `<div class="pind">${[0,1,2,3].map(i=>`<i class="${i<b.length?'on':''}"></i>`).join('')}</div>
+    ${lk?`<div class="autherr">密碼錯太多次，請 ${lk} 秒後再試</div>`:''}
+    <div class="pinpad">${['1','2','3','4','5','6','7','8','9','','0','⌫'].map(k=>k?`<button data-act="pinkey" data-k="${k}"${dis} aria-label="${k==='⌫'?'刪除':k}">${k}</button>`:'<span></span>').join('')}</div>`;
+}
+function renderAuth(){
+  const n=authUI.n, m=authUI.m, err=authUI.err?`<div class="autherr">${esc(authUI.err)}</div>`:'', back=t=>`<div class="edrow" style="justify-content:center;margin-top:10px"><button class="btn ghost mini" data-act="authlist">${t}</button></div>`;
+  let h=cloudAlert()+`<div class="card who auth"><div class="whoc">`;
+  if(m==='ver'){
+    const E=authOf(n), L=myAuth&&myAuth.n===n?myAuth:null, fid=_fidOK&&((L&&L.cred)||(E&&E.cred&&Object.keys(E.cred).length)), P=(E&&E.pin)||(L&&L.pin);
+    h+=`<div class="big">你是<b>${esc(n)}</b></div>`;
+    if(fid) h+=`<button class="btn big fidb" data-act="fidgo"${authUI.busy?' disabled':''}>${FID_ICO}用 Face ID 進入</button>`;
+    if(P) h+=`<div class="hint">${fid?'或輸入 4 位數密碼':'請輸入 4 位數密碼'}</div>${pinPad()}`;
+    if(!fid&&!P) h+=`<div class="note warn" style="text-align:left">${esc(n)} 設定的是 Face ID，這支手機（或這個瀏覽器）沒辦法用。請用自己手機的 Safari／Chrome 打開，或請護理長在管理頁重設登入。</div>`;
+    h+=err+back(`不是 ${esc(n)}？選別人`)+`<div class="hint" style="margin-top:8px">忘記密碼、換手機：請護理長在管理頁「設定：名單」按「重設登入」，再重新設定。</div>`;
+  } else if(m==='set'){
+    h+=`<div class="big">第一次使用<b>${esc(n)}</b></div><div class="hint" style="text-align:left">設定一次就好：之後打開 App，刷一下 Face ID 就能進來，別人也沒辦法用你的名字點班。</div>`;
+    h+=`<button class="btn big fidb" data-act="fidset"${authUI.busy?' disabled':''}>${FID_ICO}設定 Face ID</button><div class="hint">Android 手機是指紋或臉部解鎖</div>`;
+    h+=err+`<div class="edrow" style="justify-content:center;margin-top:6px"><button class="btn outline" data-act="pinset"${authUI.busy?' disabled':''}>沒辦法用 Face ID，改用 4 位數密碼</button></div>`+back('選錯名字了，回名單');
+  } else {   // pin1／pin2：設定密碼
+    h+=`<div class="big">設定 4 位數密碼<b>${esc(n)}</b></div>${_fidOK?'':'<div class="hint">這支手機（或這個瀏覽器）不能用 Face ID，請設定 4 位數密碼。</div>'}
+      <div class="hint pinstep">${m==='pin1'?'請輸入 4 位數字':'再輸入一次確認'}</div>${pinPad()}${err}
+      <div class="hint">請不要用提款卡或手機解鎖的密碼。忘記了請護理長在管理頁重設。</div>`+back(_fidOK?'回上一步':'選錯名字了，回名單');
+  }
+  $('main').innerHTML=h+`</div></div>`;
+}
 function renderWho(){
+  if(!authUI.m) Object.assign(authUI,myAuth&&myAuth.n?{m:'ver',n:myAuth.n}:{m:'list',n:''});
+  if(authUI.m!=='list') return renderAuth();
   const names=staffNames(), cur=nowShift(), duty=onDuty(cur.d,cur.s), rest=names.filter(n=>!duty.includes(n)).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
-  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">每次打開 App 都要選一次。點班送出時會用這個名字簽名。</div>`;
+  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">選自己的名字。第一次要設定 Face ID（或 4 位數密碼），之後打開 App 驗證一下就能進來。</div>`;
   if(duty.length) h+=`<div class="grp" style="margin-top:6px">現在這一班（${SHIFT[cur.s].name}）</div><div class="names">${duty.map(n=>`<button class="duty" data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(rest.length) h+=`<div class="grp">${duty.length?'其他人':'名單'}</div><div class="names">${rest.map(n=>`<button data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請按「其他」輸入名字。'}</div>`;
   h+=`<div class="names"><button class="${uiOther.who?'duty':''}" data-act="whoth">其他</button></div>`;
   if(uiOther.who) h+=`<div class="edrow"><input type="text" id="who-in" placeholder="請輸入名字" value="${esc(uiOther.whoText||'')}" style="flex:1;min-width:0"><button class="btn" data-act="setme-in">確定</button></div>`;
+  if(myAuth&&myAuth.n) h+=`<div class="edrow" style="justify-content:center;margin-top:10px"><button class="btn ghost mini" data-act="authme">回到「${esc(myAuth.n)}」</button></div>`;
   h+=`</div>`;
   $('main').innerHTML=h;
 }
@@ -1124,8 +1271,8 @@ function itemHtml(f,it,dr,ro){
   if(f.kind==='narc'||f.kind==='temp'){
     right=`<div class="ro ${st}">${v===1||fx?'✓':v===0?'⚠':''}</div>`;
     body=f.kind==='narc'?narcBody(f,it,dr,ro,v):tempBody(f,it,dr,ro,v);
-  } else if(ro){ right=`<div class="ro ${st}">${v===1||fx?(it.t==='y'?'ˇ':'✓'):v===0?'✗':v===2?'Δ':'—'}</div>`; }
-  else { right=`<div class="ib"><button class="b ok${v===1?' on':''}" data-act="iv" data-id="${it.id}" data-v="1" aria-label="正常">${it.t==='y'?'ˇ':'✓'}</button><button class="b ng${v===0?' on':''}" data-act="iv" data-id="${it.id}" data-v="0" aria-label="異常">✗</button>${it.t==='y'?`<button class="b na${v===2?' on':''}" data-act="iv" data-id="${it.id}" data-v="2" aria-label="不適用">Δ</button>`:''}</div>`; }
+  } else if(ro){ right=`<div class="ro ${st}">${v===1||fx?'✓':v===0?'✗':v===2?'Δ':'—'}</div>`; }
+  else { right=`<div class="ib"><button class="b ok${v===1?' on':''}" data-act="iv" data-id="${it.id}" data-v="1" aria-label="正常">${'✓'}</button><button class="b ng${v===0?' on':''}" data-act="iv" data-id="${it.id}" data-v="0" aria-label="異常">✗</button>${it.t==='y'?`<button class="b na${v===2?' on':''}" data-act="iv" data-id="${it.id}" data-v="2" aria-label="不適用">Δ</button>`:''}</div>`; }
   if(v===0) body+=ngBody(f,it,dr,ro);
   const miss=fvs&&fvs.showMiss&&fvs.showMiss.includes(it.id);
   const od=!!it.od&&!special(f), SL=hasExp(f,it)?expSlots(it):[], EV=SL.length?toArr((dr.e||{})[it.id]):[], OV=od?toArr((dr.op||{})[it.id]):[], fxd=ro&&isFixed(dr,it.id);
@@ -1225,14 +1372,14 @@ function renderForm(top){
     const fut=shiftStart(d,SLOT[k]&&SHIFT[SLOT[k].sh]?SLOT[k].sh:'D')-3600e3>Date.now();
     if(fut) h+=`<div class="note warn">這一班還沒開始。</div>`;
   }
-  if(f.notes&&f.notes.length) h+=`<details class="notes"><summary>說明</summary><ol>${f.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></details>`;
+  if(f.notes&&f.notes.length) h+=`<details class="notes"><summary>說明</summary><ol>${f.notes.map(n=>`<li>${esc(String(n).replace(/ˇ/g,'✓'))}</li>`).join('')}</ol></details>`;
   if(f.kind==='clock') h+=`<div class="clock"><small>電腦時間（這支手機）</small><b id="clk">--:--:--</b><small>${dayLabel(ymd(new Date()))}</small></div>`;
   if(f.kind==='virus') h+=virusHtml(dr,ro);
   if(!dr){ h+='<div class="empty">讀取中…</div>'; }
   else { const G=secs(f), paged=!ro&&isPaged(f);
     if(paged){ if(fvs.pg==null||fvs.pg>=G.length) fvs.pg=0; h+=pgTabs(f,dr,G); }
     (paged?[G[fvs.pg]]:G).forEach(g=>{
-    const okBtn=!ro&&f.kind!=='narc'&&f.kind!=='temp'?`<button class="btn mini outline" data-act="secok" data-s="${esc(g.s)}">這區全部${g.items[0]&&g.items[0].t==='y'?'ˇ':'✓'}</button>`:'';
+    const okBtn=!ro&&f.kind!=='narc'&&f.kind!=='temp'?`<button class="btn mini outline" data-act="secok" data-s="${esc(g.s)}">這區全部${'✓'}</button>`:'';
     h+=`<div class="secb"><div class="sh2"><b>${esc(g.s)}<small>${g.items.length} 項</small></b>${okBtn}</div>${g.items.map(it=>itemHtml(f,it,dr,ro)).join('')}</div>`;
   }); }
   if(f.kind==='narc'&&dr) h+=giverHtml(f,dr,ro);
@@ -1498,7 +1645,7 @@ async function refreshView(){
     const {d,s}=view, t=ymd(new Date());
     if(await pull('cfg/wipeAt')) applyWipe();
     if(Date.now()-_cfgAt>10*60e3||cloud.st!=='ok'){   // 點班單內容十分鐘讀一次就好
-      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null]); _cfgAt=Date.now(); }
+      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null,authLoad()]); _cfgAt=Date.now(); }
       applyCfg();
     }
     const ps=prevShift(d,s);
@@ -1518,7 +1665,7 @@ let appStart=null;   // 第一筆點班紀錄的日期：之前的日子還沒�
 let mcur=mkey(ymd(new Date())), mOpen={}, edF=null, edSel=null, pjSel=null, edDirty=false, mtForm='cart1';
 async function manageInit(){
   $('ttl').textContent='急診點班・管理';
-  await Promise.all([pull('cfg'),loadSched([ymd(new Date()),addDays(ymd(new Date()),-1)])]);
+  await Promise.all([pull('cfg'),pull('auth'),loadSched([ymd(new Date()),addDays(ymd(new Date()),-1)])]);
   applyCfg();
   await findStart();
   await loadMonth(mcur,true);
@@ -1672,9 +1819,9 @@ function renderManage(){
     <button class="tile" data-act="jump" data-c="ster"><div class="l">🧺 送消中</div><div class="v">${sterList().filter(x=>!x.inAt).length}<small> 件</small></div><div class="s">現在還沒簽收的</div></button></div>`;
   // 待追蹤異常
   const opens=S.abn.filter(a=>!a.fixed&&!a.hold).sort((a,b)=>a.d<b.d?1:-1), fixed=S.abn.filter(a=>a.fixed).sort((a,b)=>a.d<b.d?1:-1);
-  const holdR=S.abn.filter(a=>a.hold==='rep').sort((a,b)=>a.d<b.d?1:-1), holdS=S.abn.filter(a=>a.hold==='ster').sort((a,b)=>a.d<b.d?1:-1);
+  const holdR=holdFirst(S.abn.filter(a=>a.hold==='rep')), holdS=holdFirst(S.abn.filter(a=>a.hold==='ster'));
   const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}</span>${a.hold?`<span class="tag hd">${HOLD_LAB[a.hold]}</span>`:a.fixed?'<span class="tag wn">警示・已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
-    <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${a.r.w&&a.r.w[a.it.id]?`・請 ${esc(a.r.w[a.it.id])} 補`:''}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}</div></div>`;
+    <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${a.r.w&&a.r.w[a.it.id]?`・請 ${esc(a.r.w[a.it.id])} 補`:''}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}${a.more?`<span class="mut">（之後 ${a.more} 班同樣${HOLD_LAB[a.hold]}，不重複列）</span>`:''}</div></div>`;
   h+=card('abn',`異常與警示`,`異常 ${opens.length}${holdR.length?`・送修中 ${holdR.length}`:''}${holdS.length?`・送消中 ${holdS.length}`:''}・警示 ${fixed.length}`,
     `<div class="hint">異常＝打 ✗（含到期日過期）、泡消未滿 10 分鐘，還沒處理好；處理好（補齊、修好、換新、重新泡消、按「標記已處理」）就改列警示，不算異常。<br><b>送修中、送消中</b>＝東西送出去還沒回來而打的 ✗，<b>不算異常</b>，另外列；回來簽收後自動改成 ✓（警示）。</div>`+
     (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有未處理的異常</div>')+
@@ -1814,8 +1961,8 @@ function monthTable(S){
     if(f.kind==='narc'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.u)}/${esc(x.e)}</td>`; }
     if(f.kind==='temp'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.now)}<br><small>${esc(x.max)}/${esc(x.min)}</small>${x.def?'※':''}</td>`; }
     const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return `<td class="hd" title="${HOLD_LAB[hk]}">${HOLD_ICO[hk]}</td>`;
-    const fx=v===0&&isFixed(r,it.id); if(fx) return `<td class="o wf" title="已處理（警示）">${it.t==='y'?'ˇ':'✓'}</td>`;
-    return `<td class="${v===0?'x':v===1?'o':''}">${v===1?(it.t==='y'?'ˇ':'✓'):v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):'✗'):v===2?'Δ':''}</td>`;
+    const fx=v===0&&isFixed(r,it.id); if(fx) return `<td class="o wf" title="已處理（警示）">${'✓'}</td>`;
+    return `<td class="${v===0?'x':v===1?'o':''}">${v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):'✗'):v===2?'Δ':''}</td>`;
   };
   h+=`<div class="tw"><table class="mt"><tr><th class="l" rowspan="${ks.length>1?2:1}">項目${f.kind==='narc'?'（未用/空瓶）':f.kind==='temp'?'（當時、最高/最低℃）':''}</th><th rowspan="${ks.length>1?2:1}">設定</th>${[...Array(D)].map((_,i)=>`<th colspan="${ks.length}">${i+1}</th>`).join('')}</tr>`;
   if(ks.length>1) h+=`<tr>${cols.map(c=>`<th>${c.k==='AM'?'9':c.k==='PM'?'17':c.k}</th>`).join('')}</tr>`;
@@ -1847,11 +1994,11 @@ const C=(v,o)=>Object.assign({v:v==null?'':String(v)},o||{});   // 一格：cs �
 function formModel(f0,mk,title){
   const f=formAt(f0,mk), ks=slotsOf(f), D=dim(mk), revs=getAt('rev/'+mk)||{}, out=[], abn=[];
   out.push({t:'h',text:`${title}　${f.full||f.name}`,sub:monLabel(mk)});
-  out.push({t:'p',text:`ˇ＝正常（含已處理好的）　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
+  out.push({t:'p',text:`✓＝正常（含已處理好的）　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
   const H={b:1,sh:1};
   if(slotsOf(f).includes('M')){
     const r=slotRec(`${mk}-01`,f0,'M'), rows=[{h:1,cells:[C('項目',{...H,al:'l'}),C(r?dayLabel(r._d):mLab(f),H),C('處理情形',{...H,al:'l'})]}];
-    f.items.forEach(it=>{ const v=r?r.v[it.id]:null, fx=r&&v===0&&isFixed(r,it.id); rows.push({cells:[C(it.name,{al:'l'}),C(v===1||fx?'ˇ':v===0?'X':v===2?'Δ':'',{x:v===0&&!fx}),C(r?r.n[it.id]||'':'',{al:'l'})]}); if(r&&v===0) abn.push({d:r._d,k:'M',it,r}); });
+    f.items.forEach(it=>{ const v=r?r.v[it.id]:null, fx=r&&v===0&&isFixed(r,it.id); rows.push({cells:[C(it.name,{al:'l'}),C(v===1||fx?'✓':v===0?'X':v===2?'Δ':'',{x:v===0&&!fx,ok:v===1||fx}),C(r?r.n[it.id]||'':'',{al:'l'})]}); if(r&&v===0) abn.push({d:r._d,k:'M',it,r}); });
     rows.push({cells:[C('查核者',{al:'l'}),C(r?r.by:''),C('')]});
     out.push({t:'tbl',widths:[70,30,120],rows});
   } else {
@@ -1879,8 +2026,8 @@ function formModel(f0,mk,title){
           const v=r.v[it.id], x=r.x[it.id]||{};
           if(f.kind==='narc') return C(`${x.u==null?'':x.u}/${x.e==null?'':x.e}`,{x:v===0});
           if(f.kind==='temp') return C(`${x.now==null?'':x.now}\n${x.max==null?'':x.max}/${x.min==null?'':x.min}${x.def?'※':''}`,{x:v===0});
-          if(v===0&&isFixed(r,it.id)) return C('ˇ');   // 已處理好：打勾（原本的問題列在下面的異常與警示紀錄）
-          return C(v===1?'ˇ':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0}); })]});
+          if(v===0&&isFixed(r,it.id)) return C('✓',{ok:1});   // 已處理好：打勾（原本的問題列在下面的異常與警示紀錄）
+          return C(v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0,ok:v===1}); })]});
       });
       rows.push({cells:[...lead('點班者'),...recs.map(r=>C(r?r.by:'',{sm:1}))]});
       if(f.kind==='narc') rows.push({cells:[...lead('交班者'),...recs.map(r=>C(r?r.x._giver||'':'',{sm:1}))]});
@@ -1889,13 +2036,15 @@ function formModel(f0,mk,title){
     });
     for(let i=1;i<=D;i++) ks.forEach(k=>{ const d=`${mk}-${pad(i)}`, r=slotRec(d,f0,k); if(r) f.items.forEach(it=>{ if(r.v[it.id]===0) abn.push({d,k,it,r}); }); });
   }
+  { const seen={}, keep=abn.filter(a=>{ const h=holdOf(a.r,f.id,a.it.id); if(!h) return true; const key=a.it.id+'|'+h;   // 送修中／送消中：同一項只列第一次
+      if(seen[key]){ seen[key].more++; return false; } seen[key]=a; a.more=0; return true; }); abn.length=0; abn.push(...keep); }
   if(abn.length){
     out.push({t:'h2',text:`異常與警示紀錄（${abn.length} 項；已處理的列為警示）`});
     const rows=[{h:1,cells:['日期','班別','項目','實際','處理情形','追蹤','點班者'].map((v,i)=>C(v,{...H,al:[2,4,5].includes(i)?'l':''}))}];
     abn.forEach(a=>{ const rs=a.r.res&&a.r.res[a.it.id], x=a.r.x[a.it.id]||{};
       const act=f.kind==='narc'?`${x.u}/${x.e}`:f.kind==='temp'?`${x.now}（${x.max}/${x.min}）`:isNum(a.r.a[a.it.id])?a.r.a[a.it.id]:'';
       rows.push({cells:[C(dayLabel(a.d)),C(slotLab(f,a.k)),C(a.it.name,{al:'l'}),C(act),C((a.r.n[a.it.id]||'')+(a.r.w&&a.r.w[a.it.id]?`（請${a.r.w[a.it.id]}補）`:''),{al:'l'}),
-        C((()=>{ const hk=holdOf(a.r,f.id,a.it.id); return hk?`${HOLD_LAB[hk]}（不算異常）`:rs?`警示：${rs.txt||''}（${rs.by||''}）`:a.r.r[a.it.id]?'警示：已處理':'異常（未處理）'; })(),{al:'l'}),C(a.r.by)]}); });
+        C((()=>{ const hk=holdOf(a.r,f.id,a.it.id); return hk?`${HOLD_LAB[hk]}（不算異常）${a.more?`，之後 ${a.more} 班同樣${HOLD_LAB[hk]}`:''}`:rs?`警示：${rs.txt||''}（${rs.by||''}）`:a.r.r[a.it.id]?'警示：已處理':'異常（未處理）'; })(),{al:'l'}),C(a.r.by)]}); });
     out.push({t:'tbl',widths:[24,14,70,18,78,48,22],rows});
   }
   return out;
@@ -1923,11 +2072,13 @@ function repModel(mk,title){
 }
 const printModels=(mk,list,title)=>list.map(f=>f==='soak'?soakModel(mk,title):f==='ster'?sterModel(mk,title):f==='rep'?repModel(mk,title):formModel(f,mk,title));
 // ---- 列印用網頁 ----
-const PFONT='"標楷體","DFKai-SB","BiauKai","Kaiti TC",serif';
+const PFONT="'標楷體','DFKai-SB','BiauKai','Kaiti TC',serif";   // 單引號：會放進 style="…" 裡
+const OKFONT="'Segoe UI Symbol','Apple Symbols','Arial Unicode MS','MS Gothic',sans-serif";
 function cellHtml(c,tag){
   if(c.m) return '';
   const st=['border:.5pt solid #000','padding:.8pt 1.2pt',`font-size:${c.sm?7:7.5}pt`,`text-align:${c.al==='l'?'left':'center'}`,'vertical-align:middle','line-height:1.15','word-break:break-all','overflow:hidden'];
   if(c.b||c.x) st.push('font-weight:bold'); if(c.sh) st.push(`background:${c.sh===2?'#f6f6f6':'#f0f0f0'}`);
+  if(c.ok) st.push('font-size:10pt','font-weight:900','line-height:1',`font-family:${OKFONT}`);   // 打勾放大加粗（主任 10/17：原本的 ˇ 太小看不清楚）
   return `<${tag}${c.cs>1?` colspan="${c.cs}"`:''}${c.rs>1?` rowspan="${c.rs}"`:''} style="${st.join(';')}">${esc(c.v).replace(/\n/g,'<br>')}${c.sub?`<span style="font-size:6.5pt">（${esc(c.sub)}）</span>`:''}</${tag}>`;
 }
 function modelHtml(mdl){
@@ -1953,6 +2104,7 @@ const XE=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&
 const WF='標楷體';
 const wRun=(t,sz,b)=>{ const pr=(b?'<w:b/>':'')+(sz&&sz!==15?`<w:sz w:val="${sz}"/><w:szCs w:val="${sz}"/>`:'');
   return String(t).split('\n').map((p,i)=>`<w:r>${pr?`<w:rPr>${pr}</w:rPr>`:''}${i?'<w:br/>':''}<w:t xml:space="preserve">${XE(p)}</w:t></w:r>`).join(''); };
+const wRunOk=t=>`<w:r><w:rPr><w:rFonts w:ascii="Segoe UI Symbol" w:hAnsi="Segoe UI Symbol" w:eastAsia="Segoe UI Symbol" w:cs="Segoe UI Symbol"/><w:b/><w:sz w:val="20"/><w:szCs w:val="20"/></w:rPr><w:t xml:space="preserve">${XE(t)}</w:t></w:r>`;   // 打勾：放大加粗
 const wPara=(runs,al,after)=>{ const pr=(after?`<w:spacing w:after="${after}"/>`:'')+(al&&al!=='left'?`<w:jc w:val="${al}"/>`:''); return `<w:p>${pr?`<w:pPr>${pr}</w:pPr>`:''}${runs}</w:p>`; };
 const W_STYLES=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="${WF}" w:hAnsi="${WF}" w:eastAsia="${WF}" w:cs="${WF}"/><w:sz w:val="15"/><w:szCs w:val="15"/><w:lang w:val="en-US" w:eastAsia="zh-TW"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:before="0" w:after="0" w:line="228" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/></w:style></w:styles>`;
 function wTable(b){
@@ -1961,7 +2113,7 @@ function wTable(b){
   b.rows.forEach(r=>{ x+=`<w:tr><w:trPr><w:cantSplit/>${r.h?'<w:tblHeader/>':''}</w:trPr>`; let col=0;
     r.cells.forEach(c=>{ const cs=c.cs||1, w=tw.slice(col,col+cs).reduce((p,q)=>p+q,0);
       x+=`<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${cs>1?`<w:gridSpan w:val="${cs}"/>`:''}${c.rs>1?'<w:vMerge w:val="restart"/>':c.m?'<w:vMerge/>':''}${c.sh?`<w:shd w:val="clear" w:color="auto" w:fill="${c.sh===2?'F6F6F6':'F0F0F0'}"/>`:''}${c.v||c.m?'<w:vAlign w:val="center"/>':''}</w:tcPr>`+
-        wPara(c.m?'':wRun(c.v,c.sm?13:15,c.b||c.x)+(c.sub?wRun('（'+c.sub+'）',12):''),c.al==='l'?'left':'center')+'</w:tc>';
+        wPara(c.m?'':(c.ok?wRunOk(c.v):wRun(c.v,c.sm?13:15,c.b||c.x))+(c.sub?wRun('（'+c.sub+'）',12):''),c.al==='l'?'left':'center')+'</w:tc>';
       col+=cs; });
     x+='</w:tr>'; });
   return x+'</w:tbl>';
@@ -2123,7 +2275,7 @@ function renderMBar(){
 }
 function switchMonth(k){ mpick=false; if(k===mcur){ renderManage(); return; } mcur=k; renderManage(); window.scrollTo({top:0}); }
 // 點班單內容編輯：改完按「儲存」才生效
-const TYPES={n:'數量',c:'打勾',y:'ˇ／✗／Δ'};
+const TYPES={n:'數量',c:'打勾',y:'✓／✗／Δ'};
 function formEditor(){
   if(!edF) edF=clone(FORMS);
   if(!edSel||!edF.find(f=>f.id===edSel)) edSel=edF[0].id;
@@ -2152,7 +2304,7 @@ function formEditor(){
       ${special(f)?'':`<div class="edrow"><label><input type="checkbox" data-ed="exp"${f.exp?' checked':''}> 每一項可以填「到期日」</label></div>`}
       <div class="edrow" style="align-items:flex-start"><label>說明</label><textarea data-ed="notes" rows="3" style="flex:1;min-width:0" placeholder="一行一條">${esc((f.notes||[]).join('\n'))}</textarea></div>
       <div class="edrow"><button class="btn ghost mini" data-act="edreset">這張恢復成紙本原始內容</button></div>
-      <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；ˇ／✗／Δ＝多一個「不適用」。勾「開封日」＝開封後可以用一段時間的藥（RI、NTG、Heparin）：點班時這一項要填開封日和到期日，過期一樣自動列異常；再填「開封後幾天／幾小時到期」就由系統自動算到期（選小時的，開封要填到幾點幾分），空白＝到期日自己填。</div></details>`;
+      <div class="hint">方式：數量＝打 ✗ 時要填實際數量；打勾＝設定量是「各2」這類文字或功能檢查；✓／✗／Δ＝多一個「不適用」。勾「開封日」＝開封後可以用一段時間的藥（RI、NTG、Heparin）：點班時這一項要填開封日和到期日，過期一樣自動列異常；再填「開封後幾天／幾小時到期」就由系統自動算到期（選小時的，開封要填到幾點幾分），空白＝到期日自己填。</div></details>`;
   return h;
 }
 // 點班分工：每一項點一下歸哪個位置（和「點班項目與設定量」共用同一份修改，按儲存才生效）
@@ -2186,7 +2338,18 @@ function staffEditor(){
     <div class="grp" style="margin-top:8px">護理班表上的人（${fromS.length} 位，自動帶入）</div><div class="chips" style="margin:6px 0">${fromS.map(n=>chip(n,'sthide')).join('')||'<span class="mut">讀不到護理班表</span>'}</div>
     <div class="grp">另外加入的人（${extra.filter(n=>!hide.includes(n)).length} 位）</div><div class="chips" style="margin:6px 0">${extra.filter(n=>!hide.includes(n)).map(n=>chip(n,'stdel')).join('')||'<span class="mut">沒有</span>'}</div>
     <div class="edrow"><input type="text" id="st-in" placeholder="名字" style="flex:1;min-width:0"><button class="btn" data-act="stadd">加入</button></div>
-    ${hide.length?`<div class="grp">已移除（${hide.length} 位）</div><div class="chips" style="margin:6px 0">${hide.sort(cmp).map(n=>`<button class="chip" data-act="stshow" data-n="${esc(n)}">${esc(n)}・恢復</button>`).join('')}</div>`:''}`;
+    ${hide.length?`<div class="grp">已移除（${hide.length} 位）</div><div class="chips" style="margin:6px 0">${hide.sort(cmp).map(n=>`<button class="chip" data-act="stshow" data-n="${esc(n)}">${esc(n)}・恢復</button>`).join('')}</div>`:''}
+    ${authEditor()}`;
+}
+// 登入（Face ID／密碼）：誰設定好了；忘記密碼、換手機的按「重設登入」，下次打開 App 重新設定
+function authEditor(){
+  const A=getAt('auth')||{}, names=staffNames().sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  Object.keys(A).forEach(k=>{ const E=A[k]; if(E&&E.n&&authOf(E.n)&&!names.includes(E.n)) names.push(E.n); });
+  const ok=names.filter(n=>authOf(n)).length;
+  return `<div class="grp" style="margin-top:12px">登入（Face ID／4 位數密碼）・已設定 ${ok}／${names.length} 位</div>
+    <div class="hint">每個人第一次打開 App 時自己設定，之後打開要驗證才能用這個名字點班。忘記密碼、換手機、Face ID 不能用：按「重設登入」，那個人下次打開再重新設定。</div>
+    ${names.map(n=>{ const E=authOf(n), R=(getAt('auth/'+authKey(n))||{}).reset, how=E?[E.cred&&Object.keys(E.cred).length?'Face ID':'',E.pin?'密碼':''].filter(Boolean).join('＋'):'';
+      return `<div class="arow"><span class="nm">${esc(n)}</span>${E?`<span class="tag ok">${how}</span><span class="mut">${E.at?whenLabel(E.at)+' 設定':''}</span><button class="btn mini ghost" data-act="authreset" data-n="${esc(n)}">重設登入</button>`:`<span class="mut">還沒設定${R?`（${whenLabel(R.at)} ${esc(R.by||'')} 重設過）`:''}</span>`}</div>`; }).join('')}`;
 }
 
 // ======================================================================
@@ -2203,14 +2366,22 @@ document.addEventListener('click',async e=>{
   }
   const a=t.dataset.act, ds=t.dataset;
   // ---- 護理師頁 ----
-  if(a==='setme'){ confirmMe(ds.n); return; }
-  if(a==='setme-ok'){ closeDlg(); uiOther.who=false; ME=ds.n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+ds.n); checkMisSign(ds.n); return; }
+  if(a==='setme'){ whoPick(ds.n); return; }
+  if(a==='setme-ok'){ closeDlg(); uiOther.who=false; authReset(_fidOK?'set':'pin1'); authUI.n=ds.n; renderNurse(); window.scrollTo({top:0}); return; }   // 第一次：設定 Face ID／密碼
+  if(a==='fidgo'){ fidGo(); return; }
+  if(a==='fidset'){ fidSet(); return; }
+  if(a==='pinset'){ const n=authUI.n; authReset('pin1'); authUI.n=n; renderNurse(); return; }
+  if(a==='pinkey'){ pinKey(ds.k); return; }
+  if(a==='authlist'){ if((authUI.m==='pin1'||authUI.m==='pin2')&&_fidOK){ const n=authUI.n; authReset('set'); authUI.n=n; } else authReset('list'); renderNurse(); window.scrollTo({top:0}); return; }
+  if(a==='authme'){ authReset(); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='rnok'&&_rnL){ const {L,name}=_rnL; if(!confirm(`確定把這 ${L.length} 筆的簽名改成「${name}」？`)) return; _rnL=null; renameSigs(L,name); closeDlg(); renderNurse(); toast(`已把 ${L.length} 筆改成「${name}」`); return; }
   if(a==='rnskip'&&_rnL){ const now=Date.now(), old=(lsGet(LS.rnskip,[])||[]).filter(x=>now-x.at<3*864e5);
     lsSet(LS.rnskip,[...old,..._rnL.L.map(o=>({k:o.p+'|'+o.fld,at:now}))]); _rnL=null; closeDlg(); return; }
   if(a==='whoth'){ uiOther.who=!uiOther.who; renderNurse(); const inp=$('who-in'); if(inp) inp.focus(); return; }
-  if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } uiOther.whoText=''; ME=v; renderNurse(); window.scrollTo({top:0}); checkMisSign(v); return; }
-  if(a==='who'){ ME=''; posSel={}; renderNurse(); window.scrollTo({top:0}); return; }
+  if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } uiOther.whoText='';
+    if(staffNames().includes(v)||authOf(v)){ uiOther.who=false; whoPick(v); return; }   // 名單上的人打字也要驗證
+    ME=v; renderNurse(); window.scrollTo({top:0}); checkMisSign(v); return; }   // 支援人力（不在名單上）：不用設定登入
+  if(a==='who'){ ME=''; posSel={}; authReset(); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='step'){ const v=+ds.d<0?prevShift(view.d,view.s):nextShift(view.d,view.s); const c=nowShift();
     if(+ds.d>0&&shiftStart(v.d,v.s)-3600e3>Date.now()&&!tkOf(v.d,v.s,me())){ const t=await tkAsk('early',v.d,v.s,'*'); if(!t) return; }   // 還沒到換班時間：要說明提早接班
     setView(v,v.d===c.d&&v.s===c.s); return; }
@@ -2404,6 +2575,9 @@ document.addEventListener('click',async e=>{
     if(a==='stdel'){ const L=(getAt('cfg/staff')||[]).filter(x=>x&&x!==n); write('PUT','cfg/staff',L.length?L:null); }
     else { const hd=[...hiddenStaff()]; if(!hd.includes(n)) hd.push(n); write('PUT','cfg/staffHide',hd); }
     renderManage(); toast(`已移除「${n}」`); return; }
+  if(a==='authreset'){ const n=ds.n; if(!confirm(`重設「${n}」的登入？\n${n} 下次打開 App 要重新設定 Face ID 或 4 位數密碼（忘記密碼、換手機時用）。以前的點班紀錄不受影響。`)) return;
+    const nm=await mgrName(); if(!nm) return;
+    write('PUT','auth/'+authKey(n),{n,reset:{by:nm,at:Date.now()}}); renderManage(); toast(`已重設「${n}」的登入`); return; }
   if(a==='stshow'){ if(!confirm(`把「${ds.n}」恢復到名單？`)) return; const hd=[...hiddenStaff()].filter(x=>x!==ds.n); write('PUT','cfg/staffHide',hd.length?hd:null); renderManage(); toast(`已恢復「${ds.n}」`); return; }
   if(a==='edsel'){ edSel=ds.f; renderManage(); return; }
   if(a==='pjsel'){ pjSel=ds.f; renderManage(); return; }
@@ -2556,6 +2730,7 @@ if(MANAGE){
   if('serviceWorker' in navigator&&location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 } else {
   renderNurse();
+  fidAvail().then(()=>{ if(!me()) renderNurse(); });
   refreshView();
   // 回到 App、每分鐘：重新讀（看別人點了沒）；跟著現在這一班走的話，換班時自動切過去
   const tick=()=>{ if(document.hidden) return; if(followNow&&!fvs&&!typing()){ const c=nowShift(); if(c.d!==view.d||c.s!==view.s){ view=c; renderNurse(); } } refreshView(); };
