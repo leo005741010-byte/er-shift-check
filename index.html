@@ -305,6 +305,7 @@ details.oth[open]>summary::before{content:'▾ '}
 .cell.bad{background:var(--warnbg);border-color:#f3d9a4;color:var(--warn);font-weight:700}
 .cell.wn{background:#fffbe6;border-color:#f2e2a0;color:#8a6d00}
 .cell.hd{background:#eaf2fb;border-color:#c5d9ee;color:#2a5d8f}
+.seenbox{margin-top:8px}.seenbox>summary{cursor:pointer;color:var(--mut);font-size:13px;padding:6px 0}
 .tag.hd{background:#eaf2fb;color:#2a5d8f}
 .mt td.hd{background:#eaf2fb;color:#2a5d8f}
 .cell.miss{background:var(--badbg);border-color:#f1b9b3;color:var(--bad);cursor:default}
@@ -396,7 +397,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.5.1';
+const VERSION='3.6.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1741,7 +1742,7 @@ async function findStart(){
 const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
 async function loadMonth(mk,render){
   if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
-  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk)]);
+  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk),pull('seen/'+mk)]);
   const qf=activeForms().filter(isQ), pm=qMonthsTo(mk).filter(m=>m!==mk);
   if(qf.length&&pm.length){ await Promise.all(pm.map(m=>getAt(`rec/${m}/_m`)===undefined?pull(`rec/${m}/_m`):null));
     const need=[]; pm.forEach(m=>{ const M=getAt(`rec/${m}/_m`)||{}; Object.keys(M).forEach(key=>{ const fid=key.split('~')[0], x=M[key];
@@ -1850,8 +1851,8 @@ function renderManage(){
   const lateLine=x=>`${x.type==='early'?'<span class="tag w">過早</span> ':''}${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.f.name)}${x.p?`（${esc(x.p)}）`:''}・${esc(x.r.by)} ${hm(firstAt(x.r))} ${x.type==='early'?`就點（早 ${x.min} 分）`:`才點（晚 ${x.min} 分）`}${x.tk?`・${esc(tkTxt(x.tk))}`:''}`;
   if(isCur){   // 頁首提醒：最近 24 小時的異常與警示、延遲點班。點了跳到下面的詳細卡片；「知道了」＝這台裝置不再顯示這幾筆，有新的才再出現
     const now=Date.now(), ak=acked(), in24=t=>now-t<24*3600e3;
-    const A=[...S.abn,...(P?P.abn:[])].filter(a=>!a.hold&&in24(abnAt(a))&&!ak[abnKey(a)]).sort((a,b)=>a.fixed-b.fixed||abnAt(b)-abnAt(a));   // 還沒處理的排前面
-    const L=[...S.late,...S.early,...(P?[...P.late,...P.early]:[])].filter(x=>in24(firstAt(x.r))&&!ak['L|'+x.key]);
+    const A=[...S.abn,...(P?P.abn:[])].filter(a=>!a.hold&&in24(abnAt(a))&&!ak[abnKey(a)]&&!wSeen(a)).sort((a,b)=>a.fixed-b.fixed||abnAt(b)-abnAt(a));   // 還沒處理的排前面
+    const L=[...S.late,...S.early,...(P?[...P.late,...P.early]:[])].filter(x=>in24(firstAt(x.r))&&!ak['L|'+x.key]&&!tSeen(x));
     _alertKeys={abn:A.map(abnKey),late:L.map(x=>'L|'+x.key)};
     const EXa=expAlerts(), EX=EXa.filter(x=>!ak[x.key]); _alertKeys.exp=EX.map(x=>x.key);
     const PNa=pendingNow(), PN=PNa.filter(x=>!ak[x.key]); _alertKeys.pend=PN.map(x=>x.key);
@@ -1879,21 +1880,27 @@ function renderManage(){
   // 待追蹤異常
   const opens=chainFirst(S.abn.filter(a=>!a.fixed&&!a.hold)).sort((a,b)=>a.d<b.d?1:-1), fixed=chainFirst(S.abn.filter(a=>a.fixed)).sort((a,b)=>a.d<b.d?1:-1);
   const holdR=holdFirst(S.abn.filter(a=>a.hold==='rep')), holdS=holdFirst(S.abn.filter(a=>a.hold==='ster'));
-  const abnRow=a=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}${vxTxt(a.r,a.it.id)?`：<b>${esc(vxTxt(a.r,a.it.id))}</b>`:''}</span>${a.hold?`<span class="tag hd">${HOLD_LAB[a.hold]}</span>`:a.fixed?'<span class="tag wn">警示・已處理</span>':`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
+  const abnRow=(a,sb)=>`<div class="abn"><div class="h"><b>${esc(a.f.name)}</b>${posTag(a.p)}<span>${esc(a.it.name)}${vxTxt(a.r,a.it.id)?`：<b>${esc(vxTxt(a.r,a.it.id))}</b>`:''}</span>${a.hold?`<span class="tag hd">${HOLD_LAB[a.hold]}</span>`:a.fixed?`<span class="tag wn">警示・已處理</span>${sb!=null?seenBtn(a.d,abnKey(a),sb):''}`:`<button class="btn mini" data-act="resolve" data-path="${esc(a.r._path)}" data-d="${a.d}" data-f="${a.f.id}" data-k="${a.k}" data-p="${esc(a.p||'')}" data-id="${a.it.id}">標記已處理</button>`}</div>
     <div class="t">${dayLabel(a.d)} ${slotLab(a.f,a.k)}・${esc(a.r.by)}・${esc(a.r.n[a.it.id]||'')}${repNote(a.r,a.it.id)}${a.r.w&&a.r.w[a.it.id]?`・請 ${esc(a.r.w[a.it.id])} 補`:''}${isNum(a.r.a[a.it.id])?`（實際 ${esc(a.r.a[a.it.id])}）`:''}${a.r.res&&a.r.res[a.it.id]?`・處理：${esc(a.r.res[a.it.id].txt||'')}（${esc(a.r.res[a.it.id].by||'')}）`:''}${a.more?`<span class="mut">（之後 ${a.more} 班同樣${HOLD_LAB[a.hold]}，不重複列）</span>`:''}${a.chain?`<span class="mut">（從 ${dayLabel(a.first.d)} ${slotLab(a.first.f,a.first.k)} 起連續 ${a.chain+1} 班，只列最新的）</span>`:''}</div></div>`;
-  h+=card('abn',`異常與警示`,`異常 ${opens.length}${holdR.length?`・送修中 ${holdR.length}`:''}${holdS.length?`・送消中 ${holdS.length}`:''}・警示 ${fixed.length}`,
-    (opens.length?opens.map(abnRow).join(''):'<div class="mut" style="padding:6px 0">沒有未處理的異常</div>')+
-    (holdR.length?`<div class="grp">🔧 送修中（不算異常，${holdR.length} 項）</div>${holdR.map(abnRow).join('')}`:'')+
-    (holdS.length?`<div class="grp">🧺 送消中（不算異常，${holdS.length} 項）</div>${holdS.map(abnRow).join('')}`:'')+
-    (fixed.length?`<div class="grp">警示（已處理）</div>${fixed.map(abnRow).join('')}`:''));
+  const fixW=fixed.filter(a=>!wSeen(a)), fixS=fixed.filter(wSeen); _seenAll.warn=fixW.map(a=>[a.d,abnKey(a)]);
+  h+=card('abn',`異常與警示`,`異常 ${opens.length}${holdR.length?`・送修中 ${holdR.length}`:''}${holdS.length?`・送消中 ${holdS.length}`:''}・警示 ${fixW.length}${fixS.length?`（已看過 ${fixS.length}）`:''}`,
+    (opens.length?opens.map(a=>abnRow(a)).join(''):'<div class="mut" style="padding:6px 0">沒有未處理的異常</div>')+
+    (holdR.length?`<div class="grp">🔧 送修中（不算異常，${holdR.length} 項）</div>${holdR.map(a=>abnRow(a)).join('')}`:'')+
+    (holdS.length?`<div class="grp">🧺 送消中（不算異常，${holdS.length} 項）</div>${holdS.map(a=>abnRow(a)).join('')}`:'')+
+    (fixW.length?`<div class="grp">警示（已處理）${fixW.length} 項${fixW.length>1?' <button class="btn mini outline" data-act="seenall" data-g="warn">全部看過</button>':''}</div>${fixW.map(a=>abnRow(a,0)).join('')}`:'')+
+    (fixS.length?`<details class="seenbox"><summary>已看過的警示 ${fixS.length} 項</summary>${fixS.map(a=>abnRow(a,1)).join('')}</details>`:''));
   // 延遲點班
   const notiOn=lsGet(LS_NOTI,0)&&'Notification' in window&&Notification.permission==='granted';
-  const tkRow=x=>`<div class="abn"><div class="h"><b>${esc(x.f.name)}</b>${posTag(x.p)}<span class="tag w">${x.type==='early'?'早':'晚'} ${x.min} 分</span>${x.tk?`<span class="tag ${(x.tk.k==='late'&&x.type==='late'&&x.tk.at&&firstAt(x.r)<=x.tk.at+3600e3)||(x.tk.k==='early'&&x.type==='early')?'ok':'w'}">${esc(tkTxt(x.tk))}</span>`:''}</div><div class="t">${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.r.by)} ${whenLabel(firstAt(x.r))} 點</div></div>`;
-  h+=card('late','點班時間（延遲／過早）',`延遲 ${S.late.length}・過早 ${S.early.length}${S.tkOk.length?`・有說明 ${S.tkOk.length}`:''}`,
+  const tkRow=(x,sb)=>`<div class="abn"><div class="h"><b>${esc(x.f.name)}</b>${posTag(x.p)}<span class="tag w">${x.type==='early'?'早':'晚'} ${x.min} 分</span>${x.tk?`<span class="tag ${(x.tk.k==='late'&&x.type==='late'&&x.tk.at&&firstAt(x.r)<=x.tk.at+3600e3)||(x.tk.k==='early'&&x.type==='early')?'ok':'w'}">${esc(tkTxt(x.tk))}</span>`:''}${seenBtn(x.d,tkKey(x),sb)}</div><div class="t">${dayLabel(x.d)} ${slotLab(x.f,x.k)}・${esc(x.r.by)} ${whenLabel(firstAt(x.r))} 點</div></div>`;
+  const lU=S.late.filter(x=>!tSeen(x)), eU=S.early.filter(x=>!tSeen(x)), oU=S.tkOk.filter(x=>!tSeen(x)), tS=[...S.late,...S.early,...S.tkOk].filter(tSeen);
+  _seenAll.late=lU.map(x=>[x.d,tkKey(x)]); _seenAll.early=eU.map(x=>[x.d,tkKey(x)]); _seenAll.tkok=oU.map(x=>[x.d,tkKey(x)]);
+  const allB=(g,n)=>n>1?` <button class="btn mini outline" data-act="seenall" data-g="${g}">全部看過</button>`:'';
+  h+=card('late','點班時間（延遲／過早）',`延遲 ${lU.length}・過早 ${eU.length}${oU.length?`・有說明 ${oU.length}`:''}${tS.length?`（已看過 ${tS.length}）`:''}`,
     `<div class="edrow"><button class="btn mini ${notiOn?'ghost':'outline'}" data-act="noti">${notiOn?'這台裝置的通知已開啟':'開啟這台裝置的通知'}</button></div>`+
-    `<div class="grp">延遲 ${S.late.length} 筆</div>`+(S.late.length?S.late.map(tkRow).join(''):'<div class="mut">這個月沒有</div>')+
-    `<div class="grp">過早 ${S.early.length} 筆</div>`+(S.early.length?S.early.map(tkRow).join(''):'<div class="mut">這個月沒有</div>')+
-    (S.tkOk.length?`<div class="grp">有說明（提早接班／延後接班）${S.tkOk.length} 筆</div>${S.tkOk.map(tkRow).join('')}`:''));
+    `<div class="grp">延遲 ${lU.length} 筆${allB('late',lU.length)}</div>`+(lU.length?lU.map(x=>tkRow(x,0)).join(''):'<div class="mut">沒有</div>')+
+    `<div class="grp">過早 ${eU.length} 筆${allB('early',eU.length)}</div>`+(eU.length?eU.map(x=>tkRow(x,0)).join(''):'<div class="mut">沒有</div>')+
+    (oU.length?`<div class="grp">有說明（提早接班／延後接班）${oU.length} 筆${allB('tkok',oU.length)}</div>${oU.map(x=>tkRow(x,0)).join('')}`:'')+
+    (tS.length?`<details class="seenbox"><summary>已看過 ${tS.length} 筆</summary>${tS.map(x=>tkRow(x,1)).join('')}</details>`:''));
   // 泡消登錄
   const so=getAt('soak/'+mcur)||{}, sl=Object.keys(so).map(id=>Object.assign({id},so[id])).sort((a,b)=>a.inAt-b.inAt);
   h+=card('soak','Virusolve 泡消登錄',`${sl.length} 筆`,sl.length?`<div class="tw"><table class="tt"><tr><th class="l">日期</th><th class="l">品名</th><th>數量</th><th>放入</th><th class="l">寄消人</th><th>取出</th><th class="l">取出人</th><th>浸泡</th></tr>${sl.map(x=>`<tr><td class="l">${dayLabel(ymd(new Date(x.inAt)))}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td>${hm(x.inAt)}</td><td class="l">${esc(x.inBy)}</td><td>${x.outAt?hm(x.outAt):'<span class="tag w">浸泡中</span>'}</td><td class="l">${esc(x.outBy||'')}</td><td>${x.outAt?`${soakMin(x)} 分${soakShort(x)?(soakRes(x)?' <span class="tag wn">警示</span>':' <span class="tag no">異常</span>'):''}`:''}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>');
@@ -1934,6 +1941,12 @@ let ackMap=null, _alertKeys={};
 function acked(){ if(!ackMap){ const now=Date.now(), m=lsGet(LS_ACK,{})||{}; ackMap={}; Object.keys(m).forEach(k=>{ if(now-m[k]<3*864e5) ackMap[k]=m[k]; }); } return ackMap; }
 const abnAt=a=>{ const rs=a.r.res&&a.r.res[a.it.id]; return a.fixed&&rs&&rs.at||a.r.at; };   // 警示以處理的時間算
 const abnKey=a=>'A|'+a.r._path+'|'+a.it.id+'|'+(a.fixed?'w':'o');   // 異常處理好以後變警示，會再提醒一次
+// 看過（主任 10/17）：警示、點班時間每一筆後面按「看過」就不再列出；存雲端 seen/<月>/<key>（換裝置也一樣），收在「已看過」可以復原
+const seenEnc=k=>String(k).replace(/[\/.#$\[\]%]/g,c=>'%'+c.charCodeAt(0).toString(16));
+const seenPath=(d,k)=>`seen/${mkey(d)}/${seenEnc(k)}`, isSeen=(d,k)=>!!getAt(seenPath(d,k));
+const tkKey=x=>'L|'+x.key, wSeen=a=>a.fixed&&isSeen(a.d,abnKey(a)), tSeen=x=>isSeen(x.d,tkKey(x));
+const seenBtn=(d,k,on)=>`<button class="btn mini ${on?'ghost':'outline'}" data-act="${on?'unseen':'seen'}" data-d="${d}" data-k="${esc(k)}">${on?'復原':'看過'}</button>`;
+let _seenAll={};   // 「全部看過」：每一區目前列出的 [日期, key]
 // 有新的延遲點班：管理頁上跳提示，允許通知的裝置另跳系統通知。第一次打開時只記下來、不通知舊的
 function notifyLate(S){
   const seen=lsGet(LS_LATE,null), keys=[...S.late,...S.early].map(x=>x.key);
@@ -2077,6 +2090,7 @@ function formModel(f0,mk,title){
           const v=r.v[it.id], x=r.x[it.id]||{};
           if(f.kind==='narc') return C(`${x.u==null?'':x.u}/${x.e==null?'':x.e}`,{x:v===0});
           if(f.kind==='temp') return C(`${x.now==null?'':x.now}\n${x.max==null?'':x.max}/${x.min==null?'':x.min}${x.def?'※':''}`,{x:v===0});
+          const hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return C(hk==='rep'?'修':'消',{b:1});   // 送修中印「修」、送消中印「消」（主任 10/17）
           if(v===0&&isFixed(r,it.id)) return C('✓',{ok:1});   // 已處理好：打勾（原本的問題列在下面的異常與警示紀錄）
           return C(v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0,ok:v===1}); })]});
       });
@@ -2572,6 +2586,10 @@ document.addEventListener('click',async e=>{
     try{ toast('備份中…'); await backupAll(nm); toast('已下載備份'); renderManage(); }catch(e){ toast('備份失敗：'+e.message); } return; }
   if(a==='jump'){ const el=document.querySelector(`details[data-tg="${ds.c}"]`); if(!el) return;
     mOpen[ds.c]=true; el.open=true; el.scrollIntoView({block:'start'}); el.classList.add('flash'); setTimeout(()=>el.classList.remove('flash'),1600); return; }
+  if(a==='seen'||a==='unseen'){ write('PUT',seenPath(ds.d,ds.k),a==='seen'?{at:Date.now(),dev}:null); renderManage(); toast(a==='seen'?'已看過，收到「已看過」裡':'已復原'); return; }
+  if(a==='seenall'){ const L=_seenAll[ds.g]||[]; if(!L.length||!confirm(`這 ${L.length} 筆全部標成看過？
+之後收在「已看過」裡，可以復原。`)) return;
+    const now=Date.now(); L.forEach(([d,k])=>write('PUT',seenPath(d,k),{at:now,dev})); renderManage(); toast(`${L.length} 筆已看過`); return; }
   if(a==='ack'){ const ak=acked(), now=Date.now(); (_alertKeys[ds.c]||[]).forEach(k=>{ ak[k]=now; }); lsSet(LS_ACK,ak); renderManage(); return; }
   if(a==='noti'){ if(!('Notification' in window)){ toast('這個瀏覽器不支援通知（iPhone 要先把管理頁加到主畫面）'); return; }
     const pm=await Notification.requestPermission();
