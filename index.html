@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<script>/* iPhone／iPad：點到輸入框不要自動放大（Safari 仍可兩指放大）。Android 不加，免得兩指也不能放大 */
+if(/iP(hone|ad|od)/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1)) document.querySelector('meta[name=viewport]').setAttribute('content','width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover');</script>
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#13606e">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,6 +14,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <title>急診點班</title>
 <style>
+html,body,*{touch-action:manipulation}   /* 手指連點不會放大頁面；兩指放大照常（主任 10/17） */
 :root{--navy:#13606e;--navy-dark:#0c4651;--bg:#f2f6f7;--card:#fff;--line:#dbe5e8;--txt:#1f2d3d;--mut:#667785;
   --ok:#1f8a4c;--okbg:#e6f5ec;--warn:#a85800;--warnbg:#fff4e0;--bad:#c0392b;--badbg:#fdecea}
 *{box-sizing:border-box}
@@ -230,8 +233,6 @@ details.notes ol{margin:6px 0 0;padding-left:20px}
 .whoc .big b{display:block;font-size:34px;color:var(--navy-dark);letter-spacing:2px;margin-top:2px}
 .whoc .note{text-align:left}
 .whoc .edrow{flex-wrap:nowrap}
-.fidb{display:flex;align-items:center;justify-content:center;gap:10px;margin:8px 0 4px;font-size:18px;padding:14px 18px}
-.fidb svg{width:30px;height:30px;flex:none}
 .pind{display:flex;justify-content:center;gap:16px;margin:10px 0 14px}
 .pind i{width:15px;height:15px;border-radius:50%;border:2px solid var(--navy);display:block}
 .pind i.on{background:var(--navy)}
@@ -394,7 +395,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.2.0';
+const VERSION='3.3.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -782,7 +783,7 @@ function slotRec(d,f,k){
 }
 
 // ---------- 共用 ----------
-let ME='';   // 點班者：只記在這次打開的畫面裡，每次打開 App 都要驗證（Face ID／密碼，主任 10/17）才會設定
+let ME='';   // 點班者：只記在這次打開的畫面裡，每次打開 App 都要輸入 4 位數密碼（主任 10/17）才會設定
 const me=()=>ME;
 try{ localStorage.removeItem(LS.me); localStorage.removeItem(LS.pos); }catch(e){}
 let dev=lsGet(LS.dev,''); if(!dev){ dev=Math.random().toString(36).slice(2,10); lsSet(LS.dev,dev); }
@@ -941,7 +942,7 @@ function confirmMe(n){
   const last=lastDevName();
   openDlg(`<div class="whoc"><div class="big">你是<b>${esc(n)}</b></div>
     ${last&&last!==n?`<div class="note warn">⚠ 這支手機最近是「<b>${esc(last)}</b>」簽名的，請確認沒有點錯。</div>`:''}
-    <div class="hint">點班送出時會用這個名字簽名。第一次使用，下一步設定 Face ID（或 4 位數密碼）。</div>
+    <div class="hint">點班送出時會用這個名字簽名。第一次使用，下一步設定 4 位數密碼。</div>
     <div class="edrow" style="margin-top:12px"><button class="btn ghost" data-act="close">選錯了</button><button class="btn" data-act="setme-ok" data-n="${esc(n)}" style="flex:1">是我</button></div></div>`);
 }
 // 這支手機 24 小時內用「別的名字」簽的紀錄（點班、已補齊、泡消、送消）
@@ -984,37 +985,18 @@ function renameSigs(L,name){
     else write('PATCH',o.p,{[o.fld]:name});
   });
 }
-// ---------- 登入：Face ID（Android＝指紋／臉部解鎖）或 4 位數密碼（主任 10/17）----------
-// 每個人第一次進來設定一次；之後每次打開 App 都要驗證才能用這個名字點班（別人沒辦法用你的名字點）
-// 雲端 auth/<名字>＝{n, pin:{s,h,i}（PBKDF2 雜湊，不存密碼本身）, cred:{<憑證 id>:{at,dev}}（Face ID）, at, reset:{by,at}（管理頁重設）}
-// 這支手機 LS erCheck_auth＝{n, cred|pin}：最後一次在這支手機驗證的人，打開 App 直接問他；別人按「不是我」改選名字
+// ---------- 登入：4 位數密碼（主任 10/17；Face ID 在主任的 iPhone 用不了，已取消）----------
+// 每個人第一次進來設定一次；之後每次打開 App 都要輸入密碼才能用這個名字點班（別人沒辦法用你的名字點）
+// 雲端 auth/<名字>＝{n, pin:{s,h,i}（PBKDF2 雜湊，不存密碼本身）, at, reset:{by,at}（管理頁重設）}；v3.2.0 的 cred（Face ID）不再使用
+// 這支手機 LS erCheck_auth＝{n, pin}：最後一次在這支手機登入的人，打開 App 直接問他；別人按「不是我」改選名字
 const AUTH_LS='erCheck_auth', PIN_LS='erCheck_pinfail', PIN_ITER=100000, PIN_MAX=5;
 const authKey=n=>String(n||'').trim().replace(/[.#$\[\]\/\\%?&+\s]/g,'_')||'_';
-const authOf=n=>{ const E=getAt('auth/'+authKey(n)); return E&&(E.pin||(E.cred&&Object.keys(E.cred).length))?E:null; };   // 設定好的才算（重設過的沒有 pin／cred）
-let authLoaded=false, myAuth=lsGet(AUTH_LS,null), _fidOK=null;
-const authUI={m:'',n:'',buf:'',p1:'',err:'',busy:false};   // m：list 名單／ver 驗證／set 第一次設定／pin1、pin2 設定密碼
+const authOf=n=>{ const E=getAt('auth/'+authKey(n)); return E&&E.pin?E:null; };   // 設定好的才算（重設過的沒有 pin）
+let authLoaded=false, myAuth=lsGet(AUTH_LS,null);
+if(myAuth&&!myAuth.pin){ myAuth=null; try{ localStorage.removeItem(AUTH_LS); }catch(e){} }   // v3.2.0 只設了 Face ID 的：重新設密碼
+const authUI={m:'',n:'',buf:'',p1:'',err:'',busy:false};   // m：list 名單／ver 輸入密碼／pin1、pin2 第一次設定密碼
 const b64u={enc:b=>btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''),
   dec:s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0))};
-const FID_ICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M9 9v1.5M15 9v1.5M12 9v4h-1M9 16c1.6 1.3 4.4 1.3 6 0"/></svg>';
-async function fidAvail(){
-  if(_fidOK!==null) return _fidOK;
-  try{ _fidOK=!!(window.PublicKeyCredential&&window.isSecureContext&&await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); }catch(e){ _fidOK=false; }
-  return _fidOK;
-}
-async function fidCreate(n){
-  // 不能先 await 別的東西：Safari 要「按了按鈕馬上」呼叫 credentials.create，否則會被擋
-  const uid=new TextEncoder().encode('er|'+n).slice(0,64);   // 同一個人重新設定時蓋掉這支手機上舊的
-  const c=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'急診點班'},
-    user:{id:uid,name:n,displayName:n},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],
-    authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'preferred'},timeout:60000,attestation:'none'}});
-  return b64u.enc(c.rawId);
-}
-async function fidGet(ids){
-  const a=await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),userVerification:'required',timeout:60000,
-    allowCredentials:ids.map(id=>({type:'public-key',id:b64u.dec(id),transports:['internal']}))}});
-  return new Uint8Array(a.response.authenticatorData)[32]&4?b64u.enc(a.rawId):'';   // UV 旗標：手機真的驗證到本人才算
-}
-const fidErr=e=>e&&e.name==='NotAllowedError'?'取消了，或這支手機沒有你的 Face ID':e&&e.name==='SecurityError'?'這個網址不能用':e&&e.name==='InvalidStateError'?'這支手機已經設定過':(e&&e.message)||'不明原因';
 async function pinHash(pin,s,i){
   const k=await crypto.subtle.importKey('raw',new TextEncoder().encode(pin),'PBKDF2',false,['deriveBits']);
   return b64u.enc(await crypto.subtle.deriveBits({name:'PBKDF2',salt:b64u.dec(s),iterations:i||PIN_ITER,hash:'SHA-256'},k,256));
@@ -1025,37 +1007,22 @@ function pinFail(ok){ if(ok){ try{ localStorage.removeItem(PIN_LS); }catch(e){} 
 // 讀到雲端以後核對這支手機記的：管理頁重設過（或別支手機改了密碼）就跟著改
 function authSync(){
   if(!authLoaded||!myAuth||!myAuth.n) return;
-  const E=getAt('auth/'+authKey(myAuth.n));
-  if(myAuth.cred&&E&&E.cred&&E.cred[myAuth.cred]) return;
-  if(myAuth.pin&&E&&E.pin){ if(E.pin.h!==myAuth.pin.h){ myAuth.pin=E.pin; lsSet(AUTH_LS,myAuth); } return; }
+  const E=authOf(myAuth.n);
+  if(E){ if(E.pin.h!==myAuth.pin.h){ myAuth.pin=E.pin; lsSet(AUTH_LS,myAuth); } return; }
   myAuth=null; try{ localStorage.removeItem(AUTH_LS); }catch(e){}
   if(!ME&&authUI.m==='ver'&&!authOf(authUI.n)) authReset();
 }
 async function authLoad(){ if(await pull('auth')){ authLoaded=true; authSync(); return true; } return false; }
 function authReset(m){ Object.assign(authUI,{m:m||'',n:'',buf:'',p1:'',err:'',busy:false}); }
-function authDone(n,o){
-  myAuth=Object.assign({n},o||{}); lsSet(AUTH_LS,myAuth);   // 這支手機下次打開直接問這個人
+function authDone(n,P){
+  myAuth={n,pin:P}; lsSet(AUTH_LS,myAuth);   // 這支手機下次打開直接問這個人
   authReset(); ME=n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+n); checkMisSign(n);
 }
-// 點了名單上的名字：設定過的→驗證；第一次→先確認名字再設定
+// 點了名單上的名字：設定過的→輸入密碼；第一次→先確認名字再設定
 async function whoPick(n){
   if(!authLoaded&&cloud.st!=='denied'){ toast('讀取中…'); await authLoad(); }
   if(authOf(n)||(myAuth&&myAuth.n===n)){ authReset('ver'); authUI.n=n; renderNurse(); window.scrollTo({top:0}); return; }
   confirmMe(n);
-}
-async function fidGo(){
-  const n=authUI.n, E=authOf(n), L=myAuth&&myAuth.n===n?myAuth:null, ids=[...new Set([...(L&&L.cred?[L.cred]:[]),...(E&&E.cred?Object.keys(E.cred):[])])];
-  authUI.busy=true; authUI.err=''; renderNurse();
-  try{ const id=await fidGet(ids); if(!id) throw new Error('沒有驗證到本人'); authDone(n,{cred:id}); }
-  catch(e){ authUI.busy=false; authUI.err=`Face ID 沒有成功（${fidErr(e)}）`; renderNurse(); }
-}
-async function fidSet(){
-  const n=authUI.n; authUI.busy=true; authUI.err=''; renderNurse();
-  try{ const id=await fidCreate(n), now=Date.now();
-    write('PUT',`auth/${authKey(n)}/cred/${id}`,{at:now,dev});
-    write('PATCH','auth/'+authKey(n),{n,at:now,reset:null});
-    authDone(n,{cred:id}); toast('Face ID 設定好了，下次打開刷一下就能進來'); }
-  catch(e){ authUI.busy=false; authUI.err=`Face ID 沒有設定成功（${fidErr(e)}）。可以再試一次，或改用 4 位數密碼。`; renderNurse(); }
 }
 async function pinKey(k){
   if(authUI.busy||pinLocked()) return;
@@ -1070,14 +1037,14 @@ async function pinKey(k){
     authUI.busy=true; renderNurse();
     const s=b64u.enc(crypto.getRandomValues(new Uint8Array(16))), P={s,h:await pinHash(pin,s,PIN_ITER),i:PIN_ITER};
     write('PATCH','auth/'+authKey(n),{n,pin:P,at:Date.now(),dev,reset:null});
-    authDone(n,{pin:P}); toast('密碼設定好了，下次打開輸入密碼就能進來'); return; }
-  // 驗證
+    authDone(n,P); toast('密碼設定好了，下次打開輸入密碼就能進來'); return; }
+  // 輸入密碼
   const E=authOf(n), L=myAuth&&myAuth.n===n?myAuth:null, P=(E&&E.pin)||(L&&L.pin);
   if(!P) return;
   authUI.busy=true; renderNurse();
   const ok=await pinHash(pin,P.s,P.i)===P.h;
   authUI.busy=false; authUI.buf=''; pinFail(ok);
-  if(ok){ authDone(n,{pin:P}); return; }
+  if(ok){ authDone(n,P); return; }
   const lk=pinLocked(); authUI.err=lk?'':'密碼不對，請再試一次'; renderNurse();
   if(lk) setTimeout(()=>{ if(!ME) renderNurse(); },lk*1e3+200);   // 鎖定時間到自動恢復按鍵
 }
@@ -1091,20 +1058,12 @@ function renderAuth(){
   const n=authUI.n, m=authUI.m, err=authUI.err?`<div class="autherr">${esc(authUI.err)}</div>`:'', back=t=>`<div class="edrow" style="justify-content:center;margin-top:10px"><button class="btn ghost mini" data-act="authlist">${t}</button></div>`;
   let h=cloudAlert()+`<div class="card who auth"><div class="whoc">`;
   if(m==='ver'){
-    const E=authOf(n), L=myAuth&&myAuth.n===n?myAuth:null, fid=_fidOK&&((L&&L.cred)||(E&&E.cred&&Object.keys(E.cred).length)), P=(E&&E.pin)||(L&&L.pin);
-    h+=`<div class="big">你是<b>${esc(n)}</b></div>`;
-    if(fid) h+=`<button class="btn big fidb" data-act="fidgo"${authUI.busy?' disabled':''}>${FID_ICO}用 Face ID 進入</button>`;
-    if(P) h+=`<div class="hint">${fid?'或輸入 4 位數密碼':'請輸入 4 位數密碼'}</div>${pinPad()}`;
-    if(!fid&&!P) h+=`<div class="note warn" style="text-align:left">${esc(n)} 設定的是 Face ID，這支手機（或這個瀏覽器）沒辦法用。請用自己手機的 Safari／Chrome 打開，或請護理長在管理頁重設登入。</div>`;
+    h+=`<div class="big">你是<b>${esc(n)}</b></div><div class="hint">請輸入 4 位數密碼</div>${pinPad()}`;
     h+=err+back(`不是 ${esc(n)}？選別人`)+`<div class="hint" style="margin-top:8px">忘記密碼、換手機：請護理長在管理頁「設定：名單」按「重設登入」，再重新設定。</div>`;
-  } else if(m==='set'){
-    h+=`<div class="big">第一次使用<b>${esc(n)}</b></div><div class="hint" style="text-align:left">設定一次就好：之後打開 App，刷一下 Face ID 就能進來，別人也沒辦法用你的名字點班。</div>`;
-    h+=`<button class="btn big fidb" data-act="fidset"${authUI.busy?' disabled':''}>${FID_ICO}設定 Face ID</button><div class="hint">Android 手機是指紋或臉部解鎖</div>`;
-    h+=err+`<div class="edrow" style="justify-content:center;margin-top:6px"><button class="btn outline" data-act="pinset"${authUI.busy?' disabled':''}>沒辦法用 Face ID，改用 4 位數密碼</button></div>`+back('選錯名字了，回名單');
-  } else {   // pin1／pin2：設定密碼
-    h+=`<div class="big">設定 4 位數密碼<b>${esc(n)}</b></div>${_fidOK?'':'<div class="hint">這支手機（或這個瀏覽器）不能用 Face ID，請設定 4 位數密碼。</div>'}
+  } else {   // pin1／pin2：第一次設定密碼
+    h+=`<div class="big">第一次使用：設定密碼<b>${esc(n)}</b></div>
       <div class="hint pinstep">${m==='pin1'?'請輸入 4 位數字':'再輸入一次確認'}</div>${pinPad()}${err}
-      <div class="hint">請不要用提款卡或手機解鎖的密碼。忘記了請護理長在管理頁重設。</div>`+back(_fidOK?'回上一步':'選錯名字了，回名單');
+      <div class="hint">設定一次就好：之後打開 App 輸入這組密碼就能進來，別人沒辦法用你的名字點班。<br>請不要用提款卡或手機解鎖的密碼。忘記了請護理長在管理頁重設。</div>`+back('選錯名字了，回名單');
   }
   $('main').innerHTML=h+`</div></div>`;
 }
@@ -1112,7 +1071,7 @@ function renderWho(){
   if(!authUI.m) Object.assign(authUI,myAuth&&myAuth.n?{m:'ver',n:myAuth.n}:{m:'list',n:''});
   if(authUI.m!=='list') return renderAuth();
   const names=staffNames(), cur=nowShift(), duty=onDuty(cur.d,cur.s), rest=names.filter(n=>!duty.includes(n)).sort((a,b)=>a.localeCompare(b,'zh-Hant'));
-  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">選自己的名字。第一次要設定 Face ID（或 4 位數密碼），之後打開 App 驗證一下就能進來。</div>`;
+  let h=cloudAlert()+`<div class="card who"><h2>你是哪一位？</h2><div class="hint">選自己的名字。第一次要設定 4 位數密碼，之後打開 App 輸入密碼就能進來。</div>`;
   if(duty.length) h+=`<div class="grp" style="margin-top:6px">現在這一班（${SHIFT[cur.s].name}）</div><div class="names">${duty.map(n=>`<button class="duty" data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(rest.length) h+=`<div class="grp">${duty.length?'其他人':'名單'}</div><div class="names">${rest.map(n=>`<button data-act="setme" data-n="${esc(n)}">${esc(n)}</button>`).join('')}</div>`;
   if(!names.length) h+=`<div class="hint">${cloud.st==='idle'?'正在讀取名單…':'讀不到護理班表的名單，請按「其他」輸入名字。'}</div>`;
@@ -2341,15 +2300,15 @@ function staffEditor(){
     ${hide.length?`<div class="grp">已移除（${hide.length} 位）</div><div class="chips" style="margin:6px 0">${hide.sort(cmp).map(n=>`<button class="chip" data-act="stshow" data-n="${esc(n)}">${esc(n)}・恢復</button>`).join('')}</div>`:''}
     ${authEditor()}`;
 }
-// 登入（Face ID／密碼）：誰設定好了；忘記密碼、換手機的按「重設登入」，下次打開 App 重新設定
+// 登入（4 位數密碼）：誰設定好了；忘記密碼、換手機的按「重設登入」，下次打開 App 重新設定
 function authEditor(){
   const A=getAt('auth')||{}, names=staffNames().sort((a,b)=>a.localeCompare(b,'zh-Hant'));
   Object.keys(A).forEach(k=>{ const E=A[k]; if(E&&E.n&&authOf(E.n)&&!names.includes(E.n)) names.push(E.n); });
   const ok=names.filter(n=>authOf(n)).length;
-  return `<div class="grp" style="margin-top:12px">登入（Face ID／4 位數密碼）・已設定 ${ok}／${names.length} 位</div>
-    <div class="hint">每個人第一次打開 App 時自己設定，之後打開要驗證才能用這個名字點班。忘記密碼、換手機、Face ID 不能用：按「重設登入」，那個人下次打開再重新設定。</div>
-    ${names.map(n=>{ const E=authOf(n), R=(getAt('auth/'+authKey(n))||{}).reset, how=E?[E.cred&&Object.keys(E.cred).length?'Face ID':'',E.pin?'密碼':''].filter(Boolean).join('＋'):'';
-      return `<div class="arow"><span class="nm">${esc(n)}</span>${E?`<span class="tag ok">${how}</span><span class="mut">${E.at?whenLabel(E.at)+' 設定':''}</span><button class="btn mini ghost" data-act="authreset" data-n="${esc(n)}">重設登入</button>`:`<span class="mut">還沒設定${R?`（${whenLabel(R.at)} ${esc(R.by||'')} 重設過）`:''}</span>`}</div>`; }).join('')}`;
+  return `<div class="grp" style="margin-top:12px">登入密碼（4 位數）・已設定 ${ok}／${names.length} 位</div>
+    <div class="hint">每個人第一次打開 App 時自己設定，之後打開要輸入密碼才能用這個名字點班。忘記密碼、換手機：按「重設登入」，那個人下次打開再重新設定。</div>
+    ${names.map(n=>{ const E=authOf(n), R=(getAt('auth/'+authKey(n))||{}).reset;
+      return `<div class="arow"><span class="nm">${esc(n)}</span>${E?`<span class="tag ok">已設定</span><span class="mut">${E.at?whenLabel(E.at)+' 設定':''}</span><button class="btn mini ghost" data-act="authreset" data-n="${esc(n)}">重設登入</button>`:`<span class="mut">還沒設定${R?`（${whenLabel(R.at)} ${esc(R.by||'')} 重設過）`:''}</span>`}</div>`; }).join('')}`;
 }
 
 // ======================================================================
@@ -2367,12 +2326,9 @@ document.addEventListener('click',async e=>{
   const a=t.dataset.act, ds=t.dataset;
   // ---- 護理師頁 ----
   if(a==='setme'){ whoPick(ds.n); return; }
-  if(a==='setme-ok'){ closeDlg(); uiOther.who=false; authReset(_fidOK?'set':'pin1'); authUI.n=ds.n; renderNurse(); window.scrollTo({top:0}); return; }   // 第一次：設定 Face ID／密碼
-  if(a==='fidgo'){ fidGo(); return; }
-  if(a==='fidset'){ fidSet(); return; }
-  if(a==='pinset'){ const n=authUI.n; authReset('pin1'); authUI.n=n; renderNurse(); return; }
+  if(a==='setme-ok'){ closeDlg(); uiOther.who=false; authReset('pin1'); authUI.n=ds.n; renderNurse(); window.scrollTo({top:0}); return; }   // 第一次：設定密碼
   if(a==='pinkey'){ pinKey(ds.k); return; }
-  if(a==='authlist'){ if((authUI.m==='pin1'||authUI.m==='pin2')&&_fidOK){ const n=authUI.n; authReset('set'); authUI.n=n; } else authReset('list'); renderNurse(); window.scrollTo({top:0}); return; }
+  if(a==='authlist'){ authReset('list'); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='authme'){ authReset(); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='rnok'&&_rnL){ const {L,name}=_rnL; if(!confirm(`確定把這 ${L.length} 筆的簽名改成「${name}」？`)) return; _rnL=null; renameSigs(L,name); closeDlg(); renderNurse(); toast(`已把 ${L.length} 筆改成「${name}」`); return; }
   if(a==='rnskip'&&_rnL){ const now=Date.now(), old=(lsGet(LS.rnskip,[])||[]).filter(x=>now-x.at<3*864e5);
@@ -2575,7 +2531,7 @@ document.addEventListener('click',async e=>{
     if(a==='stdel'){ const L=(getAt('cfg/staff')||[]).filter(x=>x&&x!==n); write('PUT','cfg/staff',L.length?L:null); }
     else { const hd=[...hiddenStaff()]; if(!hd.includes(n)) hd.push(n); write('PUT','cfg/staffHide',hd); }
     renderManage(); toast(`已移除「${n}」`); return; }
-  if(a==='authreset'){ const n=ds.n; if(!confirm(`重設「${n}」的登入？\n${n} 下次打開 App 要重新設定 Face ID 或 4 位數密碼（忘記密碼、換手機時用）。以前的點班紀錄不受影響。`)) return;
+  if(a==='authreset'){ const n=ds.n; if(!confirm(`重設「${n}」的登入？\n${n} 下次打開 App 要重新設定 4 位數密碼（忘記密碼、換手機時用）。以前的點班紀錄不受影響。`)) return;
     const nm=await mgrName(); if(!nm) return;
     write('PUT','auth/'+authKey(n),{n,reset:{by:nm,at:Date.now()}}); renderManage(); toast(`已重設「${n}」的登入`); return; }
   if(a==='stshow'){ if(!confirm(`把「${ds.n}」恢復到名單？`)) return; const hd=[...hiddenStaff()].filter(x=>x!==ds.n); write('PUT','cfg/staffHide',hd.length?hd:null); renderManage(); toast(`已恢復「${ds.n}」`); return; }
@@ -2730,7 +2686,6 @@ if(MANAGE){
   if('serviceWorker' in navigator&&location.protocol==='https:') navigator.serviceWorker.register('sw.js').catch(()=>{});
 } else {
   renderNurse();
-  fidAvail().then(()=>{ if(!me()) renderNurse(); });
   refreshView();
   // 回到 App、每分鐘：重新讀（看別人點了沒）；跟著現在這一班走的話，換班時自動切過去
   const tick=()=>{ if(document.hidden) return; if(followNow&&!fvs&&!typing()){ const c=nowShift(); if(c.d!==view.d||c.s!==view.s){ view=c; renderNurse(); } } refreshView(); };
