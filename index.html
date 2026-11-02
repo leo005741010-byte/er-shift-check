@@ -397,7 +397,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.6.0';
+const VERSION='3.7.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -435,6 +435,7 @@ function nowShift(){
 const prevShift=(d,s)=>s==='D'?{d:addDays(d,-1),s:'N'}:s==='E'?{d,s:'D'}:{d,s:'E'};
 const nextShift=(d,s)=>s==='D'?{d,s:'E'}:s==='E'?{d,s:'N'}:{d:addDays(d,1),s:'D'};
 const shiftStart=(d,s)=>parseD(d).getTime()+({D:8,E:16,N:24}[s])*3600e3;
+const EARLY_MIN=120;   // 上班前 2 小時內點都不算過早（主任 11/02；原本是 1 小時）
 // 時段：每班三格；有些單子只在特定班點（Virusolve 白班、環境物資小夜）、每天一次、每天兩次（冰箱 09:00／17:00）或每月一次
 const SLOT={D:{lab:'白班',sh:'D',end:16},E:{lab:'小夜',sh:'E',end:24},N:{lab:'大夜',sh:'N',end:32},
   X:{lab:'每日',sh:'*',end:32},AM:{lab:'09:00',sh:'D',end:16},PM:{lab:'17:00',sh:'E',end:24},M:{lab:'本月',sh:'*'}};
@@ -1409,7 +1410,7 @@ function renderForm(top){
   } else if(rec&&!ro){
     h+=`<div class="note info">修改 ${esc(rec.by)} ${whenLabel(rec.at)} 的點班紀錄</div>`;
   } else {
-    const fut=shiftStart(d,SLOT[k]&&SHIFT[SLOT[k].sh]?SLOT[k].sh:'D')-3600e3>Date.now();
+    const fut=shiftStart(d,SLOT[k]&&SHIFT[SLOT[k].sh]?SLOT[k].sh:'D')-EARLY_MIN*60e3>Date.now();
     if(fut) h+=`<div class="note warn">這一班還沒開始。</div>`;
   }
   if(f.notes&&f.notes.length) h+=`<details class="notes"><summary>說明</summary><ol>${f.notes.map(n=>`<li>${esc(String(n).replace(/ˇ/g,'✓'))}</li>`).join('')}</ol></details>`;
@@ -1465,10 +1466,10 @@ async function submitForm(){
     toast(p.ans<p.tot?`還有 ${p.tot-p.ans} 項沒點`:p.od.length?'開封：每一支要填開封日（Heparin 要填到幾點幾分）或勾「未開封」；到期不能空白、不能早於開封':p.need?'打 ✗ 的項目要選理由（有好幾樣的要選是哪一個；上一班未補要選請誰補；損壞送修要選誰送修；其他要寫原因）':'請填交班者');
     return;
   }
-  // 太早（上班前 1 小時以前）或太晚（上班超過 1 小時）第一次送出：先問是不是提早／延後接班
+  // 太早（上班前 2 小時以前）或太晚（上班超過 1 小時）第一次送出：先問是不是提早／延後接班
   let tk=null;
   if(!fvs.rec&&(k in SLOT_START)){ const sh=slotShOf(k), st=slotStart(d,k), nw=Date.now(); tk=tkOf(d,sh,me());
-    const kind=nw>st+3600e3?'late':nw<st-3600e3?'early':'';
+    const kind=nw>st+3600e3?'late':nw<st-EARLY_MIN*60e3?'early':'';
     if(kind&&!(tk&&tk.k===kind)){ tk=await tkAsk(kind,d,sh); if(!tk) return; if(!fvs||fvs.f!==f) return; } }
   // 重要按鍵一律再確認（主任 10/15）
   const nb=f.items.filter(it=>evalItem(f,it,dr)===0).length;
@@ -1776,7 +1777,7 @@ function pendingNow(){
         if(!recOf(d,pf,k)) out.push({d,k,s:sh,f:pf,p,key}); }); }); });
   return out;
 }
-function earlyMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((slotStart(d,k)-firstAt(r))/60000); return m>60?m:0; }   // 上班前 1 小時以前就點
+function earlyMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((slotStart(d,k)-firstAt(r))/60000); return m>EARLY_MIN?m:0; }   // 上班前 2 小時以前就點
 function lateMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((firstAt(r)-(parseD(d).getTime()+SLOT_START[k]*3600e3))/60000); return m>60?m:0; }
 function monthStats(mk){
   const D=dim(mk), now=Date.now(), today=ymd(new Date()), days=[], abn=[], byForm={}, late=[], early=[], tkOk=[], lateSeen=new Set(), wt=wipeT();
@@ -1912,6 +1913,8 @@ function renderManage(){
   h+=card('rep','送修簽收',`${rMon.length} 筆${rOpen.length?`・送修中 ${rOpen.length}`:''}`,
     (rOpen.length?`<div class="grp">送修中（${rOpen.length} 件）</div>${rOpen.map(x=>`<div class="abn"><div class="h"><b>${esc(x.item)} ×${esc(x.qty)}</b>${x.tl?`<span>${esc(x.tl)}</span>`:''}<span class="tag w">已 ${repAge(x.outAt)}</span></div><div class="t">${esc(x.outBy)} ${whenLabel(x.outAt)} 送修${x.why?`・故障：${esc(x.why)}`:''}</div></div>`).join('')}`:'')+
     `<div class="grp">${monLabel(mcur)}</div>`+(rMon.length?`<div class="tw"><table class="tt"><tr><th class="l">送修</th><th class="l">品名</th><th>數量</th><th class="l">點班單</th><th class="l">故障</th><th class="l">送修人</th><th class="l">修好回來</th><th class="l">簽收人</th></tr>${rMon.map(x=>`<tr><td class="l">${whenLabel(x.outAt)}</td><td class="l">${esc(x.item)}</td><td>${esc(x.qty)}</td><td class="l">${esc(x.tl||'')}</td><td class="l">${esc(x.why||'')}</td><td class="l">${esc(x.outBy)}</td><td class="l">${x.inAt?whenLabel(x.inAt):'<span class="tag w">送修中</span>'}</td><td class="l">${esc(x.inBy||'')}</td></tr>`).join('')}</table></div>`:'<div class="mut">這個月沒有紀錄</div>'));
+  // 冰箱溫度（折線圖）
+  activeForms().filter(f=>f.kind==='temp'&&!slotsOf(f).includes('M')).forEach(f=>{ h+=tempCard(f); });
   // 每日紀錄與核簽
   const revs=getAt('rev/'+mcur)||{}, nrev=S.days.filter(o=>revs[dkey(o.d)]).length;
   const dayHtml=o=>{ const rv=revs[dkey(o.d)];
@@ -2019,6 +2022,7 @@ function monthTable(S){
     return h+`<div class="tw"><table class="mt"><tr><th class="l">項目</th><th>${dayLabel(r._d)}</th><th class="l">處理情形</th></tr>${f.items.map(it=>{ const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):'', fx=!hk&&v===0&&isFixed(r,it.id), rs=r.res&&r.res[it.id];
       return `<tr><td class="l">${esc(it.name)}</td><td class="${hk?'hd':fx?'o wf':v===0?'x':v===1?'o':''}">${hk?HOLD_ICO[hk]:v===1||fx?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r.n[it.id]||'')}${hk?`（${HOLD_LAB[hk]}）`:rs?`→ ${esc(rs.txt||'已處理')}（${esc(rs.by||'')}）`:''}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(r.by)}</td><td></td></tr></table></div>`;
   }
+  if(f.kind==='temp') h+=f.items.map(it=>(f.items.length>1?`<div class="cumh">${esc(it.name)}</div>`:'')+tempSvg(f0,S.mk,it)).join('');
   const cols=[]; for(let i=1;i<=D;i++) ks.forEach(k=>cols.push({d:`${S.mk}-${pad(i)}`,k,i}));
   const recs=cols.map(c=>slotRec(c.d,f0,c.k));
   const cellOf=(it,r)=>{
@@ -2060,6 +2064,8 @@ function formModel(f0,mk,title){
   out.push({t:'h',text:`${title}　${f.full||f.name}`,sub:monLabel(mk)});
   out.push({t:'p',text:`✓＝正常（含已處理好的）　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
   const H={b:1,sh:1};
+  if(f.kind==='temp'&&!slotsOf(f).includes('M')) f.items.forEach(it=>{ const s=tempSvg(f0,mk,it,1); if(!s) return;   // 冰箱溫度：先印曲線圖（同紙本），下面再印數字表
+    if(f.items.length>1) out.push({t:'h2',text:it.name}); out.push({t:'chart',svg:s,w:275,h:75}); });
   if(slotsOf(f).includes('M')){
     const r=slotRec(`${mk}-01`,f0,'M'), rows=[{h:1,cells:[C('項目',{...H,al:'l'}),C(r?dayLabel(r._d):mLab(f),H),C('處理情形',{...H,al:'l'})]}];
     f.items.forEach(it=>{ const v=r?r.v[it.id]:null, fx=r&&v===0&&isFixed(r,it.id); rows.push({cells:[C(it.name,{al:'l'}),C(v===1||fx?'✓':v===0?'X':v===2?'Δ':'',{x:v===0&&!fx,ok:v===1||fx}),C(r?(vxTxt(r,it.id)?vxTxt(r,it.id)+'・':'')+(r.n[it.id]||''):'',{al:'l'})]}); if(r&&v===0) abn.push({d:r._d,k:'M',it,r}); });
@@ -2151,6 +2157,7 @@ function modelHtml(mdl){
     if(b.t==='h') return `<p style="font-size:14pt;margin:0 0 2pt"><b>${esc(b.text)}</b>　　${esc(b.sub)}</p>`;
     if(b.t==='h2') return `<p style="font-size:11pt;font-weight:bold;margin:8pt 0 2pt">${esc(b.text)}</p>`;
     if(b.t==='p') return `<p style="font-size:8pt;margin:0 0 4pt">${esc(b.text)}</p>`;
+    if(b.t==='chart') return `<div style="margin:0 0 6pt;page-break-inside:avoid">${b.svg.replace('<svg ',`<svg style="display:block;width:${b.w}mm;height:${b.h}mm" `)}</div>`;
     const head=b.rows.filter(r=>r.h), body=b.rows.filter(r=>!r.h), tr=(r,tag)=>`<tr style="page-break-inside:avoid">${r.cells.map(c=>cellHtml(c,tag)).join('')}</tr>`;
     return `<table style="border-collapse:collapse;table-layout:fixed;width:${b.widths.reduce((x,y)=>x+y,0)*MM}pt;margin:0 0 8pt"><colgroup>${b.widths.map(w=>`<col style="width:${w*MM}pt">`).join('')}</colgroup>`+
       (head.length?`<thead>${head.map(r=>tr(r,'th')).join('')}</thead>`:'')+`<tbody>${body.map(r=>tr(r,'td')).join('')}</tbody></table>`;
@@ -2204,19 +2211,32 @@ async function zipFiles(files){
   e.setUint32(0,0x06054b50,true); e.setUint16(8,files.length,true); e.setUint16(10,files.length,true); e.setUint32(12,cds,true); e.setUint32(16,off,true);
   return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
 }
+// 冰箱溫度圖放進 Word：SVG 畫到 canvas 轉成 PNG（每 mm 12 點，約 300dpi）；轉不出來就只放數字表
+async function svgPng(svg,w,h){
+  try{ const pw=Math.round(w*12), ph=Math.round(h*12), src=svg.replace('<svg ',`<svg xmlns="http://www.w3.org/2000/svg" width="${pw}" height="${ph}" `);
+    const img=new Image(); await new Promise((ok,no)=>{ img.onload=ok; img.onerror=no; img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(src); });
+    const c=document.createElement('canvas'); c.width=pw; c.height=ph; const g=c.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,pw,ph); g.drawImage(img,0,0,pw,ph);
+    const b=await new Promise(r=>c.toBlob(r,'image/png')); return b?new Uint8Array(await b.arrayBuffer()):null; }catch(e){ return null; }
+}
+const wImg=(n,w,h)=>{ const cx=Math.round(w*36000), cy=Math.round(h*36000);   // 1mm＝36000 EMU
+  return `<w:p><w:pPr><w:spacing w:after="60" w:line="240" w:lineRule="auto"/></w:pPr><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${cx}" cy="${cy}"/><wp:docPr id="${n}" name="chart${n}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${n}" name="chart${n}.png"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="rIdImg${n}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`; };
 async function docxBlob(models){
+  const imgs=[];
+  for(const mdl of models) for(const b of mdl) if(b.t==='chart'){ const png=await svgPng(b.svg,b.w,b.h); if(png){ imgs.push(png); b.img=imgs.length; } }
   const body=models.map((mdl,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+mdl.map(b=>{
     if(b.t==='h') return wPara(wRun(b.text,28,1)+wRun('　　'+b.sub,24),null,40);
     if(b.t==='h2') return wPara(wRun(b.text,22,1),null,40);
     if(b.t==='p') return wPara(wRun(b.text,16),null,60);
+    if(b.t==='chart') return b.img?wImg(b.img,b.w,b.h):'';
     return wTable(b)+wPara('',null,0);
   }).join('')).join('');
-  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="567" w:right="567" w:bottom="567" w:left="567" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`;
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"><w:body>${body}<w:sectPr><w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/><w:pgMar w:top="567" w:right="567" w:bottom="567" w:left="567" w:header="0" w:footer="0" w:gutter="0"/></w:sectPr></w:body></w:document>`;
   return zipFiles([
-    {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
+    {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>'+(imgs.length?'<Default Extension="png" ContentType="image/png"/>':'')+'<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'},
     {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'},
-    {name:'word/_rels/document.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'},
+    {name:'word/_rels/document.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+imgs.map((_,i)=>`<Relationship Id="rIdImg${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/chart${i+1}.png"/>`).join('')+'</Relationships>'},
     {name:'word/styles.xml',data:W_STYLES},
+    ...imgs.map((u,i)=>({name:`word/media/chart${i+1}.png`,data:u})),
     {name:'word/document.xml',data:doc}]);
 }
 async function doDoc(mk,list){
@@ -2292,6 +2312,60 @@ async function showTrend(m){
   const el=$('tr-mon'); if(!el) return;
   el.outerHTML=`${lineSvg(pts,mcur,0,T.unit)}<table class="tt"><tr><th class="l">月份</th><th>${T.t}</th><th>較上月</th></tr>${pts.map((p,i)=>{ const pv=i?pts[i-1].v:null;
     return `<tr><td class="l">${monLabel(p.k)}</td><td>${fmt(p.v)}${T.unit==='%'?'%':' '+T.unit}</td><td>${pv==null?'':T.isRate?ppHtml(p.v-pv):pv?pctHtml(pctVs(p.v,pv),true):''}</td></tr>`; }).reverse().join('')}</table>`;
+}
+// 冰箱溫度折線圖（主任 11/02）：照紙本「冰箱溫度記錄表」——每天 09:00、17:00 各一點，當時＝藍、最高＝紅、最低＝黑，正常範圍（2–8℃）綠底，縱軸至少 −2～12℃
+// 沒點的那一格線斷開；超出範圍的點加紅圈並標數字；畫面上點太密時只留最後一點、單獨的點和超出範圍的點（列印每一點都畫，同紙本）
+const T_SER=[['min','最低','#1f2d3d'],['max','最高','#d64545'],['now','當時','#2f6fd6']];
+const tempLastDay=mk=>{ const t=ymd(new Date()); return mk===mkey(t)?+t.slice(8):mk>mkey(t)?0:dim(mk); };   // 當月畫到今天，過去的月份畫到月底
+function tempPts(f0,mk,it,last){
+  const ks=slotsOf(formAt(f0,mk)).filter(k=>k!=='M'), P=[], g=v=>isNum(v)?+v:null;
+  for(let i=1;i<=last;i++) ks.forEach(k=>{ const d=`${mk}-${pad(i)}`, r=slotRec(d,f0,k), x=r&&r.x[it.id]||{}; P.push({d,k,now:g(x.now),max:g(x.max),min:g(x.min),def:!!x.def}); });
+  return {P,ks};
+}
+function tempSvg(f0,mk,it,pr){
+  const f=formAt(f0,mk), last=pr?dim(mk):tempLastDay(mk); if(!last) return '';
+  const {P,ks}=tempPts(f0,mk,it,last), n=P.length, ns=ks.length; if(!n) return '';
+  const lo0=f.lo==null?2:+f.lo, hi0=f.hi==null?8:+f.hi, V=P.flatMap(p=>[p.now,p.max,p.min]).filter(v=>v!=null);
+  let lo=Math.min(lo0-4,...V), hi=Math.max(hi0+4,...V); const st=hi-lo>24?5:2; lo=Math.floor(lo/st)*st; hi=Math.ceil(hi/st)*st;
+  const W=pr?1100:400, H=pr?300:240, L=pr?34:30, R=pr?8:10, T=24, B=pr?28:36, fs=pr?11:10.5, step=(W-L-R)/n;
+  const x=j=>L+step*(j+.5), y=v=>T+(H-T-B)*(1-(v-lo)/(hi-lo)), bad=v=>v<lo0||v>hi0, dayX=i=>L+step*((i-1)*ns+ns/2);
+  let g=`<rect x="${L}" y="${y(hi0)}" width="${W-L-R}" height="${y(lo0)-y(hi0)}" fill="#e3f3e8"/>`;
+  if(pr) for(let i=2;i<=last;i++){ const xx=L+step*(i-1)*ns; g+=`<line x1="${xx}" y1="${T}" x2="${xx}" y2="${H-B}" stroke="#e6ecef"/>`; }
+  for(let v=lo;v<=hi+1e-9;v+=st){ const yy=y(v); g+=`<line x1="${L}" y1="${yy}" x2="${W-R}" y2="${yy}" stroke="#dbe5e8"/><text x="${L-5}" y="${yy+4}" text-anchor="end" font-size="${fs}" fill="#667785">${v}</text>`; }
+  [lo0,hi0].forEach(v=>{ g+=`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="#5fae78" stroke-dasharray="4 3"/>`; });
+  g+=`<text x="${L-5}" y="${T-9}" text-anchor="end" font-size="${fs}" fill="#667785">℃</text>`;
+  for(let i=1;i<=last;i++) if(pr||last<=10||i===1||i===last||(i%5===0&&last-i>1)) g+=`<text x="${dayX(i)}" y="${H-B+14}" text-anchor="middle" font-size="${fs}" fill="#1f2d3d">${i}</text>`;
+  g+=`<text x="${dayX(1)}" y="${H-B+(pr?26:29)}" text-anchor="middle" font-size="${fs-1}" fill="#667785">${+mk.slice(5)}月</text>`;
+  P.forEach((p,j)=>{ if(p.def) g+=`<text x="${x(j)}" y="${T+fs}" text-anchor="middle" font-size="${fs}" fill="#667785">※</text>`; });   // 除霜中
+  const dense=!pr&&n>24, labs=[];
+  T_SER.forEach(([s,,col])=>{ let d='', on=false;
+    P.forEach((p,j)=>{ const v=p[s]; if(v==null){ on=false; return; } d+=`${on?'L':'M'}${x(j).toFixed(1)} ${y(v).toFixed(1)}`; on=true; });
+    if(d) g+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="${s==='now'?2.2:1.5}" stroke-linejoin="round" stroke-linecap="round"/>`;
+    let lj=-1; P.forEach((p,j)=>{ if(p[s]!=null) lj=j; });
+    P.forEach((p,j)=>{ const v=p[s]; if(v==null) return; const b=bad(v), iso=!(j>0&&P[j-1][s]!=null)&&!(j<n-1&&P[j+1][s]!=null);
+      if(b) g+=`<circle cx="${x(j)}" cy="${y(v)}" r="${pr?5:6}" fill="none" stroke="#d64545" stroke-width="1.5"/>`;
+      if(!dense||b||iso||j===lj) g+=`<circle cx="${x(j)}" cy="${y(v)}" r="${pr?2.8:3.2}" fill="${col}" stroke="#fff" stroke-width="1"/>`;
+      if(b||(!pr&&j===lj)) labs.push({j,v,col,b}); }); });
+  // 數字：先標超出範圍的，再標最後一點；互相避開
+  const boxes=[]; labs.sort((a,b)=>b.b-a.b).forEach(o=>{ const t=fmt(o.v,1), w=t.length*fs*.62, cx=Math.min(W-R-w/2-1,Math.max(L+w/2+1,x(o.j))), cy=y(o.v);
+    for(const dy of [-9,-20,17,-31,28]){ const ty=cy+dy, bx=[cx-w/2-2,ty-fs,cx+w/2+2,ty+3];
+      if(ty<T+fs-2||ty>H-B-2||boxes.some(q=>bx[0]<q[2]&&bx[2]>q[0]&&bx[1]<q[3]&&bx[3]>q[1])) continue; boxes.push(bx);
+      g+=`<text x="${cx}" y="${ty}" text-anchor="middle" font-size="${fs+.5}" font-weight="700" fill="${o.b?'#b02a2a':o.col}" stroke="#fff" stroke-width="3" paint-order="stroke">${t}</text>`; break; } });
+  // 圖例（右上）
+  let lx=W-R-T_SER.length*fs*4.2-fs*6.6;
+  g+=`<rect x="${lx}" y="${T-17}" width="${fs*1.2}" height="${fs*.8}" fill="#e3f3e8" stroke="#5fae78"/><text x="${lx+fs*1.5}" y="${T-9}" font-size="${fs}" fill="#1f2d3d">${fmt(lo0,1)}–${fmt(hi0,1)}℃</text>`; lx+=fs*6.6;
+  [...T_SER].reverse().forEach(([,lab,col])=>{ g+=`<circle cx="${lx+fs*.5}" cy="${T-13}" r="${fs*.35}" fill="${col}"/><text x="${lx+fs*1.2}" y="${T-9}" font-size="${fs}" fill="#1f2d3d">${lab}</text>`; lx+=fs*4.2; });
+  return pr?`<svg viewBox="0 0 ${W} ${H}" font-family="${PFONT}">${g}</svg>`:`<svg class="trend" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+// 管理頁「冰箱溫度」卡片：每張溫度單一張（月份跟著下面的月份列）
+function tempCard(f0){
+  const f=formAt(f0,mcur), last=tempLastDay(mcur), lo0=f.lo==null?2:+f.lo, hi0=f.hi==null?8:+f.hi;
+  let lastP=null, nb=0;
+  f.items.forEach(it=>{ const {P}=tempPts(f0,mcur,it,last); P.forEach(p=>{ if(p.now==null&&p.max==null&&p.min==null) return;
+    if([p.now,p.max,p.min].some(v=>v!=null&&(v<lo0||v>hi0))) nb++; if(p.now!=null&&f.items.length===1) lastP=p; }); });
+  const right=`${lastP?`最近 ${dayLabel(lastP.d)} ${SLOT[lastP.k].lab}・${fmt(lastP.now,1)}℃`:''}${nb?` <span class="tag no">超出範圍 ${nb} 次</span>`:''}`;
+  const body=f.items.map(it=>{ const s=tempSvg(f0,mcur,it); return (f.items.length>1?`<div class="cumh">${esc(it.name)}</div>`:'')+(s&&tempPts(f0,mcur,it,last).P.some(p=>p.now!=null||p.max!=null||p.min!=null)?s:'<div class="mut">這個月還沒有紀錄</div>'); }).join('');
+  return card('temp_'+f0.id,esc(f0.name),right,body);
 }
 // 折線圖（純 SVG）：縱軸分四格，每格取剛好夠大的整齊數字；橘色＝目前看的月份／今天；點太密時只標最後一點、最高點和今天
 function lineSvg(pts,curKey,day,unit){
@@ -2441,7 +2515,7 @@ document.addEventListener('click',async e=>{
     ME=v; renderNurse(); window.scrollTo({top:0}); checkMisSign(v); return; }   // 支援人力（不在名單上）：不用設定登入
   if(a==='who'){ ME=''; posSel={}; authReset(); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='step'){ const v=+ds.d<0?prevShift(view.d,view.s):nextShift(view.d,view.s); const c=nowShift();
-    if(+ds.d>0&&shiftStart(v.d,v.s)-3600e3>Date.now()&&!tkOf(v.d,v.s,me())){ const t=await tkAsk('early',v.d,v.s,'*'); if(!t) return; }   // 還沒到換班時間：要說明提早接班
+    if(+ds.d>0&&shiftStart(v.d,v.s)-EARLY_MIN*60e3>Date.now()&&!tkOf(v.d,v.s,me())){ const t=await tkAsk('early',v.d,v.s,'*'); if(!t) return; }   // 還沒到換班時間：要說明提早接班
     setView(v,v.d===c.d&&v.s===c.s); return; }
   if(a==='tklate'){ const t=await tkAsk('late',view.d,view.s); if(t){ renderNurse(); toast('已記下：'+tkTxt(t)); } return; }
   if(a==='tkpick'){ _tkSel=ds.w; renderTkAsk(); if(ds.w==='oth'){ const i=$('tk-in'); if(i) i.focus(); } return; }
