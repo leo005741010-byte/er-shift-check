@@ -189,6 +189,8 @@ button.note{display:block;width:100%;text-align:left;cursor:pointer;font:inherit
 .fix{font-size:13.5px;color:var(--mut);display:flex;align-items:center;gap:6px}
 .fix.vxr{color:var(--txt);flex-wrap:wrap;margin-bottom:6px}.fix.vxr .chip.on{background:var(--bad);border-color:var(--bad);color:#fff}
 .fix input{width:18px;height:18px}
+.soll{font-size:14px;line-height:1.8;margin:0 0 8px}
+.vchg{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:8px;padding:8px 10px;border-radius:10px;background:#eef7f4;font-size:14px}.vchg label{display:flex;align-items:center;gap:6px}
 .ngro{font-size:13px;color:var(--bad);margin-top:3px}
 .ngro .res{color:var(--ok)}
 .stp{display:inline-flex;align-items:center;border:1px solid #c5d3d8;border-radius:10px;overflow:hidden;background:#fff}
@@ -397,7 +399,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.7.0';
+const VERSION='3.8.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -528,7 +530,7 @@ const DEFAULT_FORMS=[
 {id:'fridge',name:'冰箱溫度',full:'藥品冰箱溫度紀錄',freq:'twice',kind:'temp',lo:2,hi:8,
  notes:['每天兩次（09:00、17:00）以高低溫度計檢查冰箱溫度；除霜時請勾「除霜中」。','冷藏溫度應保持 2–8℃；異常時依冰箱溫度異常處理流程作業，填寫「藥用冰箱異常處理單」送修並記錄處理情形。','各類藥品依規定存放，不可擺放食物、飲料或其他非醫療用品。'],
  items:[{id:'f1',s:'藥品冰箱',name:'藥品冰箱',q:'2–8℃',t:'temp',sub:''}]},
-{id:'virus',name:'Virusolve 濃度',full:'Virusolve 溶液濃度監測',freq:'D',kind:'virus',
+{id:'virus',name:'Virusolve 濃度',full:'Virusolve 溶液濃度監測',freq:'D',kind:'virus',life:14,
  notes:['每日上午 08:00 點班必須檢測並留紀錄。','更換溶液時機：①消毒溶液到期（更換日起算 14 天，如 1/1–1/14）②濃度監測未通過廠牌閾值。','試紙開瓶後請放置於陰涼處，保持乾燥勿受潮。'],
  items:sec('溶液濃度監測',[['u1','消毒溶液在效期內'],['u2','試紙檢測時間 15 秒'],['u3','試紙在有效期限內'],['u4','有效濃度（試紙判讀通過）']],'c')},
 {id:'env',name:'環境物資',full:'環境物資點班單',freq:'E',notes:[],
@@ -1389,11 +1391,38 @@ function giverHtml(f,dr,ro){
     <label class="fix" style="margin-top:8px"><input type="checkbox" data-in="face"${dr.x._face?' checked':''}> 交班者已當面一起核對</label>
     <div class="hint" style="margin:6px 0 0">接班者：${esc(me())}</div></div>`;
 }
-function virusHtml(dr,ro){
-  const c=getAt('virus/cur'), end=c&&c.start?addDays(c.start,13):null, left=end?Math.round((parseD(end)-parseD(fvs.d))/864e5):null;
-  const info=c&&c.start?`目前溶液：${dayLabel(c.start)} 更換（${esc(c.by||'')}），效期到 <b>${dayLabel(end)}</b>${left!=null?(left>=0?`，還有 ${left} 天`:`，<b style="color:var(--bad)">已過期 ${-left} 天</b>`):''}`:'還沒有更換紀錄（第一次更換時請勾下面那格）';
+// ---------- Virusolve 消毒溶液更換（有效日期，同紙本表頭；一個月約換三次）----------
+// virus/log/<點班那天>＝{s:有效日期起,e:迄,by:更換者,at,dev,p:點班紀錄路徑}；virus/cur＝最近一次（舊版手機讀這個）
+// v3.8 以前沒有 log：只有 virus/cur 和點班紀錄裡的「更換」勾選（x._chg），照樣算進來
+const solLife=f=>Math.max(1,Math.round(+(f&&f.life)||14));
+const rocD=s=>{ const [y,m,d]=String(s).split('-'); return `${+y-1911}/${m}/${d}`; };
+function solList(){
+  const L=getAt('virus/log')||{}, out=Object.keys(L).filter(k=>L[k]&&L[k].s).map(k=>Object.assign({k},L[k]));
+  const R0=getAt('rec')||{};
+  Object.keys(R0).forEach(mk=>{ const M=R0[mk]||{}; Object.keys(M).forEach(dk=>{ if(!/^d\d\d$/.test(dk)) return; const D=M[dk]||{};
+    Object.keys(D).forEach(key=>{ const r=D[key]; if(!r||!r.x||!r.x._chg||key.slice(0,key.lastIndexOf('_'))!=='virus') return; const d=`${mk}-${dk.slice(1)}`;
+      if(!out.some(x=>x.k===d)) out.push({k:d,s:r.x._vs||d,e:r.x._ve||addDays(r.x._vs||d,13),by:r.by||'',at:r.at||0,old:1}); }); }); });
+  const c=getAt('virus/cur'); if(c&&c.start&&!out.some(x=>x.s===c.start)) out.push({k:'cur',s:c.start,e:addDays(c.start,13),by:c.by||'',at:c.at||0,old:1,cur:1});
+  return out.sort((a,b)=>a.s<b.s?-1:a.s>b.s?1:(a.at||0)-(b.at||0));
+}
+const solAt=(d,skip)=>{ const L=solList().filter(x=>x.s<=d&&x.k!==skip); return L[L.length-1]||null; };   // 那一天用的是哪一桶（skip＝不算那一天自己登記的更換）
+function solMonth(mk){   // 這個月的有效日期：月初還在用的那一桶＋這個月換的
+  const a=`${mk}-01`, b=`${mk}-${pad(dim(mk))}`, L=solList(), pre=L.filter(x=>x.s<a).pop();
+  return [...(pre&&pre.e>=a?[pre]:[]),...L.filter(x=>x.s>=a&&x.s<=b)];
+}
+function solSyncCur(dropS){   // 刪掉一次更換以後，virus/cur 改回剩下最近的那一次
+  const L=solList().filter(x=>!(x.cur&&x.s===dropS)), last=L[L.length-1];
+  write('PUT','virus/cur',last?{start:last.s,by:last.by||'',at:last.at||0}:null);
+}
+const solLeft=(c,d)=>{ const n=Math.round((parseD(c.e)-parseD(d))/864e5); return n>0?`還有 ${n} 天`:n===0?'今天到期':`<b style="color:var(--bad)">已過期 ${-n} 天</b>`; };
+function virusHtml(f,dr,ro){
+  const d=fvs.d, c=solAt(d,d), life=solLife(f), chg=!!(dr&&dr.x&&dr.x._chg);
+  const info=c?`目前溶液：${dayLabel(c.s)} 更換${c.by?`（${esc(c.by)}）`:''}，有效日期到 <b>${dayLabel(c.e)}</b>，${solLeft(c,d)}`:'還沒有更換紀錄';
+  const s=chg?(dr.x._vs||d):'', e=chg?(ro&&dr.x._ve?dr.x._ve:addDays(s,life-1)):'';
+  if(ro) return `<div class="card">${c||!chg?`<div style="font-size:14px">${info}</div>`:''}${chg?`<div class="vchg">這一班更換了消毒溶液：有效日期 <b>${dayLabel(s)}～${dayLabel(e)}</b>（更換者 ${esc(fvs.rec?fvs.rec.by:'')}）</div>`:''}</div>`;
   return `<div class="card"><div style="font-size:14px">${info}</div>
-    <label class="fix" style="margin-top:8px;color:var(--txt)"><input type="checkbox" data-in="chg"${dr.x._chg?' checked':''}${ro?' disabled':''}> 這一班更換了消毒溶液（更換者＝${esc(ro&&fvs.rec?fvs.rec.by:me())}，新效期 ${dayLabel(fvs.d)}～${dayLabel(addDays(fvs.d,13))}）</label></div>`;
+    <label class="fix" style="margin-top:8px;color:var(--txt)"><input type="checkbox" data-in="chg"${chg?' checked':''}> 這一班更換了消毒溶液</label>
+    ${chg?`<div class="vchg"><label>有效日期 <input type="date" data-in="vs" value="${esc(s)}" max="${d}"></label><span>～ <b id="vs-end">${dayLabel(e)}</b>（${life} 天）</span><span>更換者 ${esc(me())}</span></div>`:''}</div>`;
 }
 function renderForm(top){
   if(!fvs) return;
@@ -1415,7 +1444,7 @@ function renderForm(top){
   }
   if(f.notes&&f.notes.length) h+=`<details class="notes"><summary>說明</summary><ol>${f.notes.map(n=>`<li>${esc(String(n).replace(/ˇ/g,'✓'))}</li>`).join('')}</ol></details>`;
   if(f.kind==='clock') h+=`<div class="clock"><small>電腦時間（這支手機）</small><b id="clk">--:--:--</b><small>${dayLabel(ymd(new Date()))}</small></div>`;
-  if(f.kind==='virus') h+=virusHtml(dr,ro);
+  if(f.kind==='virus') h+=virusHtml(f,dr,ro);
   if(!dr){ h+='<div class="empty">讀取中…</div>'; }
   else { const G=secs(f), paged=!ro&&isPaged(f);
     if(paged){ if(fvs.pg==null||fvs.pg>=G.length) fvs.pg=0; h+=pgTabs(f,dr,G); }
@@ -1473,7 +1502,9 @@ async function submitForm(){
     if(kind&&!(tk&&tk.k===kind)){ tk=await tkAsk(kind,d,sh); if(!tk) return; if(!fvs||fvs.f!==f) return; } }
   // 重要按鍵一律再確認（主任 10/15）
   const nb=f.items.filter(it=>evalItem(f,it,dr)===0).length;
-  if(!confirm(`確定${fvs.rec?'送出修改':'送出'}「${f.name}」？\n${dayLabel(d)} ${slotLab(f,k)}${f._part?'・'+posLab(f._part,slotSh(k)):''}\n簽名：${me()}${tk?`\n接班：${tkTxt(tk)}`:''}\n${nb?`其中 ${nb} 項打 ✗（異常）`:'全部正常'}`)) return;
+  const vtx=f.kind==='virus'&&dr.x._chg?(()=>{ const s=dr.x._vs||d, e=dr.x._ve||addDays(s,solLife(f)-1), c=solAt(d,d), again=c&&c.s>addDays(d,-7)&&c.e>=d&&!(fvs.rec&&fvs.rec.x&&fvs.rec.x._chg);
+    return `\n更換消毒溶液：有效日期 ${dayLabel(s)}～${dayLabel(e)}（更換者 ${me()}）${again?`\n⚠ 目前溶液 ${dayLabel(c.s)} 才更換（有效日期到 ${dayLabel(c.e)}），確定這一班又更換了？`:''}`; })():'';
+  if(!confirm(`確定${fvs.rec?'送出修改':'送出'}「${f.name}」？\n${dayLabel(d)} ${slotLab(f,k)}${f._part?'・'+posLab(f._part,slotSh(k)):''}\n簽名：${me()}${tk?`\n接班：${tkTxt(tk)}`:''}\n${nb?`其中 ${nb} 項打 ✗（異常）`:'全部正常'}${vtx}`)) return;
   // 送出前再看一次雲端：別人剛好也點了同一張，先問再蓋
   _submitting=true;
   const before=fvs.rec;
@@ -1488,6 +1519,7 @@ async function submitForm(){
   const bad=Object.values(v).filter(x=>x===0).length;
   const keep=o=>{ const r={}; Object.keys(o||{}).forEach(id=>{ if(v[id]===0||id.startsWith('_')||special(f)) r[id]=o[id]; }); return r; };
   const old=fvs.rec, now=Date.now();
+  if(f.kind==='virus'){ if(dr.x._chg){ dr.x._vs=dr.x._vs||d; if(!dr.x._ve) dr.x._ve=addDays(dr.x._vs,solLife(f)-1); } else { delete dr.x._chg; delete dr.x._vs; delete dr.x._ve; } }   // 有效日期存在紀錄上，之後改效期天數不會回頭動到
   const rec={by:me(),at:now,dev,fv:fver,v,a:keep(dr.a),n:keep(dr.n),r:keep(dr.r),x:keep(dr.x),w:keep(dr.w),rp:keep(dr.rp),rw:keep(dr.rw),vx:keep(dr.vx),bad};
   const cy={}; Object.keys(dr.cy||{}).forEach(id=>{ if(v[id]===0&&dr.n[id]===(dr.cyn||{})[id]) cy[id]=dr.cy[id]; }); if(Object.keys(cy).length) rec.cy=cy;   // 帶過來、原因沒改的：記下從哪一班帶來
   if(f._part) rec.p=f._part;
@@ -1508,7 +1540,11 @@ async function submitForm(){
   let ncy=0; Object.keys(dr.cy||{}).forEach(id=>{ const pr=dr.cy[id]&&getAt(dr.cy[id]); if(v[id]===1&&pr&&pr.v&&pr.v[id]===0&&!isFixed(R(pr),id)){ resChain(dr.cy[id],id,{by:me(),at:now,txt:`${fixWord((dr.cyn||{})[id]||'')}（下一班點班已正常）`,dev}); ncy++; } });
   if(cid){ const copy=clone(old); ['_d','_stub','_path','_legacy','parts'].forEach(x=>delete copy[x]); write('PUT',`chg/${mkey(dd)}/${cid}`,{p:old._path||recPath(dd,f,k),old:copy,by:me(),at:now}); }
   if(k==='M') write('PUT',mPath(mkey(d),f),{d:dd,by:rec.by,at:now,bad});
-  if(f.kind==='virus'&&dr.x._chg) write('PUT','virus/cur',{start:d,by:rec.by,at:now});
+  if(f.kind==='virus'){ const lk='virus/log/'+dd;
+    if(rec.x._chg){ const c=getAt('virus/cur'), L=getAt('virus/log')||{};   // 舊版只記在 virus/cur 的那一桶：先留進 log，才不會被這次蓋掉
+      if(c&&c.start&&c.start!==dd&&!L[c.start]&&!Object.values(L).some(x=>x&&x.s===c.start)) write('PUT','virus/log/'+c.start,{s:c.start,e:addDays(c.start,13),by:c.by||'',at:c.at||0});
+      write('PUT',lk,{s:rec.x._vs,e:rec.x._ve,by:rec.by,at:now,dev,p:recP}); solSyncCur(); }
+    else if(old&&old.x&&old.x._chg){ write('PUT',lk,null); solSyncCur(old.x._vs||dd); } }   // 修改時取消勾選＝這次更換不算
   delete drafts[draftKey(d,f,k)]; lsSet(LS.draft,drafts);
   closeForm();
   const rr=Object.assign({_path:recP},rec), nOpen=openCount(rr,f), nHold=holdIds(rr,f,'rep').length+holdIds(rr,f,'ster').length, nWarn=bad-nOpen-nHold;   // 送修中、送消中不算異常
@@ -1522,6 +1558,7 @@ function cancelRec(d,f,k,rec,who){
   write('PUT',`del/${mkey(dd)}/${now.toString(36)}${Math.random().toString(36).slice(2,5)}`,{p,rec:copy,by:who||'',at:now});
   write('PUT',p,null);
   if(k==='M') write('PUT',rec._legacy?`rec/${mkey(dd)}/_m/${f.id}`:mPath(mkey(dd),f),null);
+  if(f.kind==='virus'&&rec.x&&rec.x._chg){ write('PUT','virus/log/'+dd,null); solSyncCur(rec.x._vs||dd); }   // 這一筆登記的溶液更換一起取消
 }
 
 // ---------- 待補（接班時發現上一班沒補的）----------
@@ -1712,7 +1749,7 @@ async function refreshView(){
     }
     const ps=prevShift(d,s);
     const rd=[...new Set([d,ps.d,t,addDays(t,-1)])];
-    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),...rd.map(x=>pull(`tk/${mkey(x)}/${dkey(x)}`)),...qMonthsTo(mkey(d)).map(m=>pull(`rec/${m}/_m`)),pull('virus/cur'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),pull('ster/'+mkey(t)),pull('ster/'+shiftMonth(mkey(t),-1)),pull('rep'),
+    await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),...rd.map(x=>pull(`tk/${mkey(x)}/${dkey(x)}`)),...qMonthsTo(mkey(d)).map(m=>pull(`rec/${m}/_m`)),pull('virus'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),pull('ster/'+mkey(t)),pull('ster/'+shiftMonth(mkey(t),-1)),pull('rep'),
       loadSched([...new Set([d,ps.d,nowShift().d])])]);
     flush();
   } finally{ _busy=false; }
@@ -1743,7 +1780,7 @@ async function findStart(){
 const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
 async function loadMonth(mk,render){
   if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
-  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk),pull('seen/'+mk)]);
+  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk),pull('seen/'+mk),pull('virus')]);
   const qf=activeForms().filter(isQ), pm=qMonthsTo(mk).filter(m=>m!==mk);
   if(qf.length&&pm.length){ await Promise.all(pm.map(m=>getAt(`rec/${m}/_m`)===undefined?pull(`rec/${m}/_m`):null));
     const need=[]; pm.forEach(m=>{ const M=getAt(`rec/${m}/_m`)||{}; Object.keys(M).forEach(key=>{ const fid=key.split('~')[0], x=M[key];
@@ -2023,6 +2060,9 @@ function monthTable(S){
       return `<tr><td class="l">${esc(it.name)}</td><td class="${hk?'hd':fx?'o wf':v===0?'x':v===1?'o':''}">${hk?HOLD_ICO[hk]:v===1||fx?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r.n[it.id]||'')}${hk?`（${HOLD_LAB[hk]}）`:rs?`→ ${esc(rs.txt||'已處理')}（${esc(rs.by||'')}）`:''}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(r.by)}</td><td></td></tr></table></div>`;
   }
   if(f.kind==='temp') h+=f.items.map(it=>(f.items.length>1?`<div class="cumh">${esc(it.name)}</div>`:'')+tempSvg(f0,S.mk,it)).join('');
+  const SOL=f.kind==='virus'?solMonth(S.mk):null, chgBy={};
+  if(SOL){ SOL.forEach(x=>{ if(x.s.startsWith(S.mk)) chgBy[x.s]=[chgBy[x.s],x.by].filter(Boolean).join('、'); });
+    h+=`<div class="soll">${SOL.length?SOL.map(x=>`<div>有效日期：<b>${rocD(x.s)}－${rocD(x.e)}</b>${x.by?`　更換者 ${esc(x.by)}`:''}</div>`).join(''):'<div class="mut">這個月沒有更換紀錄</div>'}</div>`; }
   const cols=[]; for(let i=1;i<=D;i++) ks.forEach(k=>cols.push({d:`${S.mk}-${pad(i)}`,k,i}));
   const recs=cols.map(c=>slotRec(c.d,f0,c.k));
   const cellOf=(it,r)=>{
@@ -2036,7 +2076,8 @@ function monthTable(S){
   h+=`<div class="tw"><table class="mt"><tr><th class="l" rowspan="${ks.length>1?2:1}">項目${f.kind==='narc'?'（未用/空瓶）':f.kind==='temp'?'（當時、最高/最低℃）':''}</th><th rowspan="${ks.length>1?2:1}">設定</th>${[...Array(D)].map((_,i)=>`<th colspan="${ks.length}">${i+1}</th>`).join('')}</tr>`;
   if(ks.length>1) h+=`<tr>${cols.map(c=>`<th>${c.k==='AM'?'9':c.k==='PM'?'17':c.k}</th>`).join('')}</tr>`;
   f.items.forEach(it=>{ h+=`<tr><td class="l">${esc(it.name)}</td><td>${esc(it.q)}</td>${recs.map(r=>cellOf(it,r)).join('')}</tr>`; });
-  h+=`<tr><td class="l">點班者</td><td></td>${recs.map(r=>`<td class="vn">${r?esc(r.by):''}</td>`).join('')}</tr>`;
+  h+=`<tr><td class="l">${SOL?'檢測者':'點班者'}</td><td></td>${recs.map(r=>`<td class="vn">${r?esc(r.by):''}</td>`).join('')}</tr>`;
+  if(SOL) h+=`<tr><td class="l">更換者</td><td></td>${cols.map(c=>`<td class="vn">${esc(chgBy[c.d]||'')}</td>`).join('')}</tr>`;
   if(f.kind==='narc') h+=`<tr><td class="l">交班者</td><td></td>${recs.map(r=>`<td class="vn">${r?esc(r.x._giver||''):''}</td>`).join('')}</tr>`;
   const revs=getAt('rev/'+S.mk)||{};
   h+=`<tr><td class="l">單位主管核簽</td><td></td>${[...Array(D)].map((_,i)=>{ const rv=revs['d'+pad(i+1)]; return `<td colspan="${ks.length}" class="vn">${rv?esc(rv.by):''}</td>`; }).join('')}</tr></table></div>`;
@@ -2064,6 +2105,9 @@ function formModel(f0,mk,title){
   out.push({t:'h',text:`${title}　${f.full||f.name}`,sub:monLabel(mk)});
   out.push({t:'p',text:`✓＝正常（含已處理好的）　X＝異常（數量類寫實際數量）　Δ＝不適用　空白＝沒有點${f.kind==='narc'?'　格內＝未用/空瓶':f.kind==='temp'?'　格內＝當時溫度、最高/最低（℃），※＝除霜':''}`});
   const H={b:1,sh:1};
+  const SOL=f.kind==='virus'?solMonth(mk):null, chgBy={};   // Virusolve：表頭印這個月的有效日期（同紙本），表格多一列更換者簽名
+  if(SOL){ SOL.forEach(x=>{ if(x.s.startsWith(mk)) chgBy[x.s]=[chgBy[x.s],x.by].filter(Boolean).join('、'); });
+    (SOL.length?SOL:[null]).forEach(x=>out.push({t:'p',big:1,text:x?`有效日期：${rocD(x.s)}－${rocD(x.e)}${x.by?`　更換者：${x.by}`:''}`:'有效日期：這個月沒有更換紀錄'})); }
   if(f.kind==='temp'&&!slotsOf(f).includes('M')) f.items.forEach(it=>{ const s=tempSvg(f0,mk,it,1); if(!s) return;   // 冰箱溫度：先印曲線圖（同紙本），下面再印數字表
     if(f.items.length>1) out.push({t:'h2',text:it.name}); out.push({t:'chart',svg:s,w:275,h:75}); });
   if(slotsOf(f).includes('M')){
@@ -2100,7 +2144,8 @@ function formModel(f0,mk,title){
           if(v===0&&isFixed(r,it.id)) return C('✓',{ok:1});   // 已處理好：打勾（原本的問題列在下面的異常與警示紀錄）
           return C(v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0,ok:v===1}); })]});
       });
-      rows.push({cells:[...lead('點班者'),...recs.map(r=>C(r?r.by:'',{sm:1}))]});
+      rows.push({cells:[...lead(SOL?'檢測者簽名':'點班者'),...recs.map(r=>C(r?r.by:'',{sm:1}))]});
+      if(SOL) rows.push({cells:[...lead('更換者簽名'),...cols.map(c=>C(chgBy[c.d]||'',{sm:1}))]});
       if(f.kind==='narc') rows.push({cells:[...lead('交班者'),...recs.map(r=>C(r?r.x._giver||'':'',{sm:1}))]});
       rows.push({cells:[...lead('單位主管核簽'),...days.map(i=>{ const rv=revs['d'+pad(i)]; return C(rv?rv.by:'',{cs:ks.length,sm:1}); })]});
       out.push({t:'tbl',widths:[nameW,...(hasQ?[setW]:[]),...cols.map(()=>cw)],rows});
@@ -2156,7 +2201,7 @@ function modelHtml(mdl){
   return `<div class="pf" style="font-family:${PFONT};color:#000">`+mdl.map(b=>{
     if(b.t==='h') return `<p style="font-size:14pt;margin:0 0 2pt"><b>${esc(b.text)}</b>　　${esc(b.sub)}</p>`;
     if(b.t==='h2') return `<p style="font-size:11pt;font-weight:bold;margin:8pt 0 2pt">${esc(b.text)}</p>`;
-    if(b.t==='p') return `<p style="font-size:8pt;margin:0 0 4pt">${esc(b.text)}</p>`;
+    if(b.t==='p') return `<p style="font-size:${b.big?'10.5pt':'8pt'};margin:0 0 ${b.big?'2pt':'4pt'}">${esc(b.text)}</p>`;
     if(b.t==='chart') return `<div style="margin:0 0 6pt;page-break-inside:avoid">${b.svg.replace('<svg ',`<svg style="display:block;width:${b.w}mm;height:${b.h}mm" `)}</div>`;
     const head=b.rows.filter(r=>r.h), body=b.rows.filter(r=>!r.h), tr=(r,tag)=>`<tr style="page-break-inside:avoid">${r.cells.map(c=>cellHtml(c,tag)).join('')}</tr>`;
     return `<table style="border-collapse:collapse;table-layout:fixed;width:${b.widths.reduce((x,y)=>x+y,0)*MM}pt;margin:0 0 8pt"><colgroup>${b.widths.map(w=>`<col style="width:${w*MM}pt">`).join('')}</colgroup>`+
@@ -2226,7 +2271,7 @@ async function docxBlob(models){
   const body=models.map((mdl,i)=>(i?'<w:p><w:r><w:br w:type="page"/></w:r></w:p>':'')+mdl.map(b=>{
     if(b.t==='h') return wPara(wRun(b.text,28,1)+wRun('　　'+b.sub,24),null,40);
     if(b.t==='h2') return wPara(wRun(b.text,22,1),null,40);
-    if(b.t==='p') return wPara(wRun(b.text,16),null,60);
+    if(b.t==='p') return wPara(wRun(b.text,b.big?21:16),null,b.big?30:60);
     if(b.t==='chart') return b.img?wImg(b.img,b.w,b.h):'';
     return wTable(b)+wPara('',null,0);
   }).join('')).join('');
@@ -2260,7 +2305,7 @@ async function showRec(d,fid,k,pp){
   let h=`<h2>${esc(F.full||F.name)}${posTag(pp)}<button class="btn mini ghost" data-act="close">關閉</button></h2><div class="hint">${dayLabel(d)} ${slotLab(F,k)}・${esc(r.by)}${r.rn?`（原簽 ${esc(r.rn.from)}${r.rn.mby?`，${esc(r.rn.mby)} 更正`:'，已更正'}）`:''} ${whenLabel(r.at)}${r.at>slotEnd(d,k)?'（補登）':''}${r.tk?`・${esc(tkTxt(r.tk))}`:''}${(r.h||[]).length?`・改過 ${(r.h||[]).length} 次（之前：${r.h.map(x=>esc(x.by)+' '+whenLabel(x.at)).join('、')}）`:''}</div>`;
   if(F.kind==='narc') h+=`<div class="hint">交班者：${esc(r.x._giver||'—')}${r.x._face?'（已當面核對）':''}</div>`;
   if((r.h||[]).length) h+=histHtml(r,F);
-  if(F.kind==='virus'&&r.x._chg) h+=`<div class="hint">這一班更換了消毒溶液</div>`;
+  if(F.kind==='virus'&&r.x._chg){ const s=r.x._vs||d; h+=`<div class="hint">這一班更換了消毒溶液：有效日期 ${dayLabel(s)}～${dayLabel(r.x._ve||addDays(s,13))}</div>`; }
   const bad=items.filter(it=>r.v[it.id]===0), ok=items.filter(it=>r.v[it.id]!==0);
   const line=it=>{ const v=r.v[it.id], x=r.x[it.id]||{};
     let val=F.kind==='narc'?`未用 ${esc(x.u)}・空瓶 ${esc(x.e)}・總量 ${(+x.u||0)+(+x.e||0)}（設定 ${esc(it.q)}）`:F.kind==='temp'?`當時 ${esc(x.now)}℃・最高 ${esc(x.max)}℃・最低 ${esc(x.min)}℃${x.def?'・除霜中':''}`:'';
@@ -2437,7 +2482,7 @@ function formEditor(){
       <div class="edrow"><label>簡稱</label><input type="text" data-ed="name" value="${esc(f.name)}" style="flex:1;min-width:120px"></div>
       <div class="edrow"><label>全名</label><input type="text" data-ed="full" value="${esc(f.full||'')}" style="flex:1;min-width:160px"></div>
       <div class="edrow"><label>頻率</label><select data-ed="freq">${Object.keys(FREQ).map(k=>`<option value="${k}"${f.freq===k?' selected':''}>${FREQ[k].lab}</option>`).join('')}</select>
-        <label><input type="checkbox" data-ed="on"${f.on===false?'':' checked'}> 使用中</label>${f.kind==='temp'?`<label>範圍</label><input type="number" data-ed="lo" value="${esc(f.lo)}" style="width:64px">～<input type="number" data-ed="hi" value="${esc(f.hi)}" style="width:64px">℃`:''}</div>
+        <label><input type="checkbox" data-ed="on"${f.on===false?'':' checked'}> 使用中</label>${f.kind==='temp'?`<label>範圍</label><input type="number" data-ed="lo" value="${esc(f.lo)}" style="width:64px">～<input type="number" data-ed="hi" value="${esc(f.hi)}" style="width:64px">℃`:''}${f.kind==='virus'?`<label>溶液效期</label><input type="number" min="1" inputmode="numeric" data-ed="life" value="${esc(solLife(f))}" style="width:64px">天`:''}</div>
       <div class="edrow"><label>負責人</label><select data-ed="who" style="flex:1;min-width:0"><option value="">不指定（照位置分工）</option>${[...new Set([...(f.who?[f.who]:[]),...staffNames()])].sort((a,b)=>a.localeCompare(b,'zh-Hant')).map(n=>`<option value="${esc(n)}"${f.who===n?' selected':''}>${esc(n)}</option>`).join('')}</select></div>
       ${special(f)?'':`<div class="edrow"><label><input type="checkbox" data-ed="exp"${f.exp?' checked':''}> 每一項可以填「到期日」</label></div>`}
       <div class="edrow" style="align-items:flex-start"><label>說明</label><textarea data-ed="notes" rows="3" style="flex:1;min-width:0" placeholder="一行一條">${esc((f.notes||[]).join('\n'))}</textarea></div>
@@ -2809,7 +2854,8 @@ document.addEventListener('input',e=>{
     else if(ds.in==='rp'){ if(!dr.rp) dr.rp={}; dr.rp[ds.id]=t.value; }
     else if(ds.in==='rw'){ if(!dr.rw) dr.rw={}; dr.rw[ds.id]=t.value; }
     else if(ds.in==='face') dr.x._face=t.checked?1:0;
-    else if(ds.in==='chg') dr.x._chg=t.checked?1:0;
+    else if(ds.in==='chg'){ if(t.checked){ dr.x._chg=1; dr.x._vs=dr.x._vs||fvs.d; } else { dr.x._chg=0; delete dr.x._vs; delete dr.x._ve; } saveDraft(); renderForm(); return; }
+    else if(ds.in==='vs'){ const v=/^\d{4}-\d\d-\d\d$/.test(t.value)&&t.value<=fvs.d?t.value:fvs.d; dr.x._vs=v; delete dr.x._ve; const el=$('vs-end'); if(el) el.textContent=dayLabel(addDays(v,solLife(fvs.f)-1)); }
     else if(ds.in==='sk-other'){ soakForm.other=t.value; return; }
     if((ds.in==='n'||ds.in==='o'||ds.in==='op'||ds.in==='opu'||ds.in==='e')&&fvs.showMiss) fvs.showMiss=fvs.showMiss.filter(z=>z!==ds.id);
     refreshCnt(); saveDraft(); return;
@@ -2828,6 +2874,7 @@ document.addEventListener('input',e=>{
     else if(ds.ed==='who'){ if(t.value) f.who=t.value; else delete f.who; }
     else if(ds.ed==='notes') f.notes=t.value.split('\n').map(s=>s.trim()).filter(Boolean);
     else if(ds.ed==='lo'||ds.ed==='hi') f[ds.ed]=t.value===''?undefined:+t.value;
+    else if(ds.ed==='life') f.life=t.value===''||!(+t.value>0)?undefined:Math.round(+t.value);
     else f[ds.ed]=t.value;
     if(f.on===undefined) delete f.on;
     markDirty(); return; }
