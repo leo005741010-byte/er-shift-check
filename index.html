@@ -399,7 +399,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.8.3';
+const VERSION='3.8.4';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -766,6 +766,7 @@ const holdIds=(r,f,kind)=>xIds(r,f).filter(id=>holdOf(r,fidOf(r,f),id)===kind);
 const openCount=(r,f)=>xIds(r,f).filter(id=>!isFixed(r,id)&&!holdOf(r,fidOf(r,f),id)).length;   // 異常（還沒處理）
 const warnCount=(r,f)=>xIds(r,f).filter(id=>isFixed(r,id)&&!holdOf(r,fidOf(r,f),id)).length;    // 警示（打過 ✗、已經處理好）
 const HOLD_LAB={rep:'送修中',ster:'送消中'}, HOLD_ICO={rep:'🔧',ster:'🧺'};
+const holdLeft=(r,it)=>it&&it.t==='n'&&r&&r.a&&isNum(r.a[it.id])?String(r.a[it.id]):'';   // 送修中／送消中的數量類：剩幾個（主任 11/05：輪椅送修剩 6 台要寫出來）
 const holdTxt=(r,f)=>['rep','ster'].map(k=>{ const n=holdIds(r,f,k).length; return n?`${HOLD_LAB[k]} ${n}`:''; }).filter(Boolean).join('・');
 // 送修中／送消中的東西每一班都會自動打 ✗：同一張單的同一項只列第一次（主任 10/17），more＝之後還有幾班
 // 上一班沒處理、帶到下一班的同一個問題（cy）：只列最新那一班，chain＝前面還有幾班、first＝最早那一班
@@ -2067,7 +2068,7 @@ function monthTable(S){
     const r=slotRec(`${S.mk}-01`,f0,'M');
     if(!r) return h+`<div class="mut">${isQ(f0)?'這一季':'這個月'}還沒做</div>`;
     return h+`<div class="tw"><table class="mt"><tr><th class="l">項目</th><th>${dayLabel(r._d)}</th><th class="l">處理情形</th></tr>${f.items.map(it=>{ const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):'', fx=!hk&&v===0&&isFixed(r,it.id), rs=r.res&&r.res[it.id];
-      return `<tr><td class="l">${esc(it.name)}</td><td class="${hk?'hd':fx?'o wf':v===0?'x':v===1?'o':''}">${hk?HOLD_ICO[hk]:v===1||fx?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r.n[it.id]||'')}${hk?`（${HOLD_LAB[hk]}）`:rs?`→ ${esc(rs.txt||'已處理')}（${esc(rs.by||'')}）`:''}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(r.by)}</td><td></td></tr></table></div>`;
+      return `<tr><td class="l">${esc(it.name)}</td><td class="${hk?'hd':fx?'o wf':v===0?'x':v===1?'o':''}">${hk?HOLD_ICO[hk]+(holdLeft(r,it)?`<b>${holdLeft(r,it)}</b>`:''):v===1||fx?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r.n[it.id]||'')}${hk?`（${HOLD_LAB[hk]}${holdLeft(r,it)?`，剩 ${holdLeft(r,it)}`:''}）`:rs?`→ ${esc(rs.txt||'已處理')}（${esc(rs.by||'')}）`:''}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(r.by)}</td><td></td></tr></table></div>`;
   }
   if(f.kind==='temp') h+=f.items.map(it=>(f.items.length>1?`<div class="cumh">${esc(it.name)}</div>`:'')+tempSvg(f0,S.mk,it)).join('');
   const SOL=f.kind==='virus'?solMonth(S.mk):null, chgBy={};
@@ -2079,7 +2080,7 @@ function monthTable(S){
     if(!r) return '<td></td>';
     if(f.kind==='narc'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.u)}/${esc(x.e)}</td>`; }
     if(f.kind==='temp'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.now)}<br><small>${esc(x.max)}/${esc(x.min)}</small>${x.def?'※':''}</td>`; }
-    const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return `<td class="hd" title="${HOLD_LAB[hk]}">${HOLD_ICO[hk]}</td>`;
+    const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return `<td class="hd" title="${HOLD_LAB[hk]}${holdLeft(r,it)?`，剩 ${holdLeft(r,it)}`:''}">${HOLD_ICO[hk]}${holdLeft(r,it)?`<b>${holdLeft(r,it)}</b>`:''}</td>`;
     const fx=v===0&&isFixed(r,it.id); if(fx) return `<td class="o wf" title="已處理（警示）">${'✓'}</td>`;
     return `<td class="${v===0?'x':v===1?'o':''}">${v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):'✗'):v===2?'Δ':''}</td>`;
   };
@@ -2150,7 +2151,7 @@ function formModel(f0,mk,title){
           const v=r.v[it.id], x=r.x[it.id]||{};
           if(f.kind==='narc') return C(`${x.u==null?'':x.u}/${x.e==null?'':x.e}`,{x:v===0});
           if(f.kind==='temp') return C(`${x.now==null?'':x.now}\n${x.max==null?'':x.max}/${x.min==null?'':x.min}${x.def?'※':''}`,{x:v===0});
-          const hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return C(hk==='rep'?'修':'消',{b:1});   // 送修中印「修」、送消中印「消」（主任 10/17）
+          const hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return C((hk==='rep'?'修':'消')+holdLeft(r,it),{b:1});   // 送修中印「修」、送消中印「消」（主任 10/17）；數量類後面接剩幾個（11/05）
           if(v===0&&isFixed(r,it.id)) return C('✓',{ok:1});   // 已處理好：打勾（原本的問題列在下面的異常與警示紀錄）
           return C(v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?r.a[it.id]:'X'):v===2?'Δ':'',{x:v===0,ok:v===1}); })]});
       });
