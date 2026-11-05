@@ -399,7 +399,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.8.2';
+const VERSION='3.8.3';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1825,7 +1825,7 @@ function monthStats(mk){
     activeForms().forEach(f=>{ slotsOf(f).forEach(k=>{
       if(k==='M') return;
       partsOf(f,k).forEach(pp=>{ const pf=partForm(f,k,pp);   // 分給好幾個位置的單子：每個位置那一份各算一張
-        const r=recOf(d,pf,k), isDue=!!r||(!pre&&slotEnd(d,k)<=now&&slotEnd(d,k)>wt);
+        const r=recOf(d,pf,k), od=!r&&!pre&&overdue(d,k,now,pp), isDue=!!r||od||(!pre&&slotEnd(d,k)<=now&&slotEnd(d,k)>wt);   // od＝上班超過 1 小時還沒點：當下就算未點（主任 11/05），不等下班
         const bf=byForm[f.id]||(byForm[f.id]={f,due:0,done:0,bad:0});
         if(isDue){ o.due++; bf.due++; }
         if(r){ const b=partBad(pf,r), wv=warnCount(r,pf); o.done++; bf.done++; o.bad+=b; bf.bad+=b; o.warn+=wv;
@@ -1835,7 +1835,7 @@ function monthStats(mk){
             const ok=lm?(tk&&tk.k==='late'&&tk.at&&firstAt(r)<=tk.at+3600e3):(tk&&tk.k==='early');   // 延後接班、接班後 1 小時內點完；提早接班：都算有說明
             (ok?tkOk:lm?late:early).push(x); }
           pf.items.forEach(it=>{ if(r.v[it.id]===0){ const hold=holdOf(r,f.id,it.id); abn.push({d,k,f,p:pp,it,r,hold,fixed:!hold&&(!!r.r[it.id]||!!(r.res&&r.res[it.id]))}); } }); }
-        else if(isDue){ o.miss++; missL.push({d,k,f,p:pp,end:slotEnd(d,k)}); }
+        else if(isDue){ o.miss++; missL.push({d,k,f,p:pp,end:slotEnd(d,k),on:slotEnd(d,k)>now}); }
       });
     }); });
     days.push(o); due+=o.due; done+=o.done; bad+=o.bad; warn+=o.warn;
@@ -1899,10 +1899,8 @@ function renderManage(){
     const banner=(c,cls,title,lines,more,unit,cardName)=>`<div class="note ${cls} jump" data-act="jump" data-c="${c}"><div class="nb"><b>${title}</b><br>${lines.join('<br>')}${more>0?`<br>…還有 ${more} ${unit}`:''}<div class="go">點這裡看「${cardName}」詳細內容 ›</div></div><button class="btn mini outline" data-act="ack" data-c="${c}">知道了</button></div>`;
     const no=A.filter(a=>!a.fixed).length, wn=A.length-no;
     const MG=missGroups([...S.missL,...(P?P.missL:[])].filter(x=>now-x.end<24*3600e3)).filter(g=>!ak[g.key]&&!mSeen(g)); _alertKeys.miss=MG.map(g=>g.key);
-    if(MG.length) h+=`<div class="note bad jump" data-act="jump" data-c="abn"><div class="nb"><b>⚠ 最近 24 小時有 ${MG.reduce((a,g)=>a+g.fs.length,0)} 張整班沒點</b><br>${MG.slice(0,5).map(g=>`${missLab(g)}：${g.fs.map(f=>esc(f.name)).join('、')}${missWho(g)}`).join('<br>')}${MG.length>5?`<br>…還有 ${MG.length-5} 班`:''}<div class="go">點這裡看「異常與警示」詳細內容 ›</div></div><button class="btn mini outline" data-act="ack" data-c="miss">知道了</button></div>`;
-    if(PN.length){ const grp={}; PN.forEach(x=>{ (grp[x.d+'|'+x.s]||(grp[x.d+'|'+x.s]=[])).push(x); });
-      h+=`<div class="note bad nbx"><div class="nb"><b>⏰ 上班超過 1 小時還沒點：${PN.length} 張</b>${Object.keys(grp).map(g=>{ const [gd,gs]=g.split('|'), L=grp[g], on=onDuty(gd,gs);
-        return `<br>${dayLabel(gd)} ${SHIFT[gs].name}${on.length?`（這班：${on.map(esc).join('、')}）`:''}<br>${L.slice(0,8).map(x=>{ const t=tkPos(x.d,x.s,x.p); return `・${esc(x.f.name)}${x.p?`（${esc(posLab(x.p,gs))}）`:''}${x.k==='AM'||x.k==='PM'?' '+SLOT[x.k].lab:''}${t?`・${esc(t.by)} ${esc(tkTxt(t))}`:''}`; }).join('<br>')}${L.length>8?`<br>…還有 ${L.length-8} 張`:''}`; }).join('')}</div><button class="btn mini outline" data-act="ack" data-c="pend">知道了</button></div>`; }
+    if(MG.length) h+=`<div class="note bad jump" data-act="jump" data-c="abn"><div class="nb"><b>⚠ 未點（超過 1 小時）：${MG.reduce((a,g)=>a+g.fs.length,0)} 張</b><br>${MG.slice(0,5).map(g=>`${missLab(g)}：${g.fs.map(f=>esc(f.name)).join('、')}${missWho(g)}`).join('<br>')}${MG.length>5?`<br>…還有 ${MG.length-5} 班`:''}<div class="go">點這裡看「異常與警示」詳細內容 ›</div></div><button class="btn mini outline" data-act="ack" data-c="miss">知道了</button></div>`;
+    // 上班超過 1 小時還沒點：併進上面「未點」紅框（主任 11/05），這裡不再另列；通知照舊（notifyPending）
     if(A.length) h+=banner('abn',no?'bad':'warn',`⚠ 最近 24 小時有${no?` ${no} 項異常（還沒處理）`:''}${no&&wn?'、':''}${wn?`${no?'':' '}${wn} 項警示（已處理）`:''}`,A.slice(0,5).map(abnLine),A.length-5,'項','異常與警示');
     if(L.length){ const ne=L.filter(x=>x.type==='early').length, nl=L.length-ne;
       h+=banner('late','warn',`⏰ 最近 24 小時點班時間不對：${nl?`延遲 ${nl} 筆`:''}${nl&&ne?'、':''}${ne?`過早 ${ne} 筆`:''}（沒有說明提早／延後接班）`,L.slice(0,5).map(lateLine),L.length-5,'筆','點班時間'); }
@@ -1993,11 +1991,11 @@ const seenPath=(d,k)=>`seen/${mkey(d)}/${seenEnc(k)}`, isSeen=(d,k)=>!!getAt(see
 const tkKey=x=>'L|'+x.key, wSeen=a=>a.fixed&&isSeen(a.d,abnKey(a)), tSeen=x=>isSeen(x.d,tkKey(x));
 const seenBtn=(d,k,on)=>`<button class="btn mini ${on?'ghost':'outline'}" data-act="${on?'unseen':'seen'}" data-d="${d}" data-k="${esc(k)}">${on?'復原':'看過'}</button>`;
 // 整班結束都沒點（主任 11/05：白班 A2 整班沒點，管理頁沒有跳異常）：同一天、同一班、同一個位置合成一列
-function missGroups(L){ const g={}; L.forEach(x=>{ const key=`M|${x.d}|${x.k}|${x.p||''}`; (g[key]||(g[key]={key,d:x.d,k:x.k,p:x.p||'',end:x.end,fs:[]})).fs.push(x.f); });
+function missGroups(L){ const g={}; L.forEach(x=>{ const key=`M|${x.d}|${x.k}|${x.p||''}`; (g[key]||(g[key]={key,d:x.d,k:x.k,p:x.p||'',end:x.end,on:!!x.on,fs:[]})).fs.push(x.f); });
   return Object.values(g).sort((a,b)=>b.end-a.end); }
 const mSeen=g=>isSeen(g.d,g.key);
 const missLab=g=>`${dayLabel(g.d)} ${g.k==='M'?'每月／每季':esc(slotLab(g.fs[0],g.k))}${g.p?`・${esc(posLab(g.p,slotSh(g.k)))}`:''}`;
-const missWho=g=>{ const sh=slotShOf(g.k), on=sh?onDuty(g.d,sh):[]; return on.length?`（這班：${on.map(esc).join('、')}）`:''; };
+const missWho=g=>{ const sh=slotShOf(g.k), on=sh?onDuty(g.d,sh):[], t=g.on&&sh?tkPos(g.d,sh,g.p):null; return `${on.length?`（這班：${on.map(esc).join('、')}）`:''}${t?`・${esc(t.by)} ${esc(tkTxt(t))}`:''}`; };
 let _seenAll={};   // 「全部看過」：每一區目前列出的 [日期, key]
 // 有新的延遲點班：管理頁上跳提示，允許通知的裝置另跳系統通知。第一次打開時只記下來、不通知舊的
 function notifyLate(S){
@@ -2048,7 +2046,7 @@ function dataCard(){ const lb=getAt('cfg/lastBackup'), wa=getAt('cfg/wipeAt');
   return `<div class="edrow"><button class="btn" data-act="backup">下載全部資料備份</button><span class="mut">${lb?`上次備份：${whenLabel(lb.at)}${lb.by?'（'+esc(lb.by)+'）':''}`:'還沒有備份過'}</span></div>`; }
 const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':''} data-tg="${id}"><summary>${title}<span class="r">${right}</span></summary>${body}</details>`;
 function dayDetail(d){
-  const cell=(f,k,pp,lab)=>{ const pf=partForm(f,k,pp), r=recOf(d,pf,k), due=slotEnd(d,k)<=Date.now()&&slotEnd(d,k)>wipeT(), L=`${lab}${pp?'·'+esc(pp):''}`;
+  const cell=(f,k,pp,lab)=>{ const pf=partForm(f,k,pp), r=recOf(d,pf,k), due=(slotEnd(d,k)<=Date.now()&&slotEnd(d,k)>wipeT())||overdue(d,k,Date.now(),pp), L=`${lab}${pp?'·'+esc(pp):''}`;
     if(r){ const b=partBad(pf,r), wv=warnCount(r,pf), hr=holdIds(r,pf,'rep').length, hs=holdIds(r,pf,'ster').length, hi=(hr?'🔧'+hr:'')+(hs?'🧺'+hs:'');
       return `<button class="cell ${b?'bad':hi?'hd':wv?'wn':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="${k}" data-p="${esc(pp)}">${L} ${b?'⚠'+b:hi||(wv?'！'+wv:'✓')} ${esc(r.by)}</button>`; }
     return `<span class="cell ${due?'miss':'wait'}">${L} ${due?'未點':'—'}</span>`; };
