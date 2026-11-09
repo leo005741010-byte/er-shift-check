@@ -284,6 +284,7 @@ details.oth[open]>summary::before{content:'▾ '}
 .mtabs button+button{border-left:1px solid var(--line)}
 .mtabs button.on{background:var(--navy);color:#fff}
 #supf{display:block;width:100%;border:0;min-height:70vh;background:transparent}
+.fv iframe.supf{flex:1;display:block;width:100%;border:0;background:var(--bg)}
 .tile{background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;position:relative;text-align:left;color:var(--txt)}
 .tile:hover{border-color:#8fc4cb;box-shadow:0 2px 10px rgba(19,96,110,.12)}
 .tile .l{font-size:12.5px;color:var(--mut)}
@@ -404,7 +405,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.9.0';
+const VERSION='3.10.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -906,7 +907,7 @@ function renderNurse(){
   const soakOpen=soakList().filter(x=>!x.outAt).length, soakBad=soakList().filter(x=>soakShort(x)&&!soakRes(x)&&Date.now()-x.outAt<24*3600e3).length;
   h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakBad?' bad':soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄</span><span class="fs">${soakBad?`⚠ ${soakBad} 件未滿 ${SOAK_MIN} 分${soakOpen?'・':''}`:''}${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button>${(()=>{ const O=sterList().filter(x=>!x.inAt).reverse(), so=O.length, g={}; O.forEach(x=>{ g[x.item]=(g[x.item]||0)+(+x.qty||1); });
     const lst=Object.keys(g).map(k=>esc(k)+(g[k]>1?` ×${g[k]}`:'')).join('、');
-    return `<button class="frow${so?' part':''}" data-act="ster"><span class="dot"></span><span class="fn">送消登記${so?`<small><span class="sow">送消中：${lst}</span></small>`:''}</span><span class="fs">${so?`送消中 ${so} 件`:''}</span><span class="chev">›</span></button>`; })()}${repRow()}</div>`;
+    return `<button class="frow${so?' part':''}" data-act="ster"><span class="dot"></span><span class="fn">送消登記${so?`<small><span class="sow">送消中：${lst}</span></small>`:''}</span><span class="fs">${so?`送消中 ${so} 件`:''}</span><span class="chev">›</span></button>`; })()}${repRow()}${supRows()}</div>`;
   h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderBar();
@@ -1748,6 +1749,27 @@ function repRow(){ const O=repList().filter(x=>!x.inAt).reverse(), g={}; O.forEa
   const lst=Object.keys(g).map(k=>esc(k)+(g[k]>1?` ×${g[k]}`:'')).join('、');
   return `<button class="frow${O.length?' part':''}" data-act="rep"><span class="dot"></span><span class="fn">送修簽收${O.length?`<small><span class="sow">送修中：${lst}</span></small>`:''}</span><span class="fs">${O.length?`送修中 ${O.length} 件`:''}</span><span class="chev">›</span></button>`; }
 
+// ---------- 衛材（2026-11-09 併入，原 er-crash-cart 衛材管理）----------
+// 高貴衛材使用＝每個人都能登記；衛材點班＝管理頁「衛材管理」勾了權限的人（cfg/supAcc）。畫面是同網站的 supplies.html（嵌在這裡，不用再輸入密碼）
+const SUP_PAGE=window.SUP_PAGE||'supplies.html';
+const supAcc=()=>{ const v=getAt('cfg/supAcc'); return (Array.isArray(v)?v:v&&typeof v==='object'?Object.values(v):[]).map(x=>String(x||'').trim()).filter(Boolean); };
+function supRows(){
+  return `<button class="frow" data-act="supuse"><span class="dot"></span><span class="fn">高貴衛材使用</span><span class="fs"></span><span class="chev">›</span></button>`+
+    (supAcc().includes(me())?`<button class="frow" data-act="supinv"><span class="dot"></span><span class="fn">衛材點班</span><span class="fs"></span><span class="chev">›</span></button>`:'');
+}
+function openSup(m){
+  const t=m==='use'?'高貴衛材使用':'衛材點班';
+  fvs={sup:m}; $('fv').classList.add('on'); document.body.style.overflow='hidden';
+  $('fv').innerHTML=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>${t}</b></div></div><iframe class="supf" src="${SUP_PAGE}?m=${m}&me=${encodeURIComponent(me())}" allow="camera" title="${t}"></iframe>`;
+}
+function closeSup(){
+  const fr=$('fv').querySelector('iframe'); let dirty=false, pend=0;
+  try{ const w=fr&&fr.contentWindow; dirty=!!(w&&w.supDirty&&w.supDirty()); pend=w&&w.supPending?w.supPending():0; }catch(e){}
+  if(dirty&&!confirm('還沒儲存，確定要離開？')) return;
+  if(pend&&!confirm(`還有 ${pend} 筆沒上傳到雲端（目前沒有網路）。\n下次打開這一頁會自動補傳，確定要離開？`)) return;
+  fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse();
+}
+
 // ---------- 讀資料 ----------
 let _busy=false, _cfgAt=0;
 function applyWipe(){
@@ -1763,7 +1785,7 @@ async function refreshView(){
     const {d,s}=view, t=ymd(new Date());
     if(await pull('cfg/wipeAt')) applyWipe();
     if(Date.now()-_cfgAt>10*60e3||cloud.st!=='ok'){   // 點班單內容十分鐘讀一次就好
-      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null,authLoad()]); _cfgAt=Date.now(); }
+      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),pull('cfg/supAcc'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null,authLoad()]); _cfgAt=Date.now(); }
       applyCfg();
     }
     const ps=prevShift(d,s);
@@ -1773,6 +1795,7 @@ async function refreshView(){
     flush();
   } finally{ _busy=false; }
   if(typing()) return;   // 下一次（一分鐘後）再重畫
+  if(fvs&&fvs.sup) return;   // 衛材那一頁自己會更新
   if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.ster) renderSter(true); else if(fvs&&fvs.rep) renderRep(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
 }
 
@@ -1781,14 +1804,15 @@ async function refreshView(){
 // ======================================================================
 let appStart=null;   // 第一筆點班紀錄的日期：之前的日子還沒開始用，不算應點
 let mcur=mkey(ymd(new Date())), mOpen={}, edF=null, edSel=null, pjSel=null, edDirty=false, mtForm='cart1';
-// 管理頁上方切換：急診點班／衛材管理（衛材那頁＝衛材管理 App 的後台，同一個網站的 ../er-crash-cart/manage.html，只看不改）
+// 管理頁上方切換：急診點班／衛材管理（衛材那頁＝同網站 supplies.html 的後台：效期、高貴衛材使用紀錄、高貴衛材品項、衛材點班權限）
 let mTab='chk';
-const SUP_URL=window.SUP_URL||'../er-crash-cart/manage.html';
+const SUP_URL=window.SUP_URL||'supplies.html?mg=1';
 const mTabs=()=>`<div class="mtabs"><button class="${mTab==='chk'?'on':''}" data-act="mtab" data-t="chk">急診點班</button><button class="${mTab==='sup'?'on':''}" data-act="mtab" data-t="sup">衛材管理</button></div>`;
 function renderSupTab(){
-  $('bar').style.display='none'; $('pick').classList.remove('on');
-  const m=$('main'); if(m.querySelector('#supf')) return;   // 已經開著：每分鐘的自動重畫不要重新載入
-  m.innerHTML=mTabs()+`<iframe id="supf" src="${SUP_URL}" title="衛材管理"></iframe>`;
+  renderMBar();   // 最下面的月份列兩頁共用：衛材那頁的使用紀錄跟著這個月份
+  const m=$('main'), f=m.querySelector('#supf');
+  if(f){ try{ f.contentWindow.setMK&&f.contentWindow.setMK(mcur); }catch(e){} return; }   // 已經開著：每分鐘的自動重畫不要重新載入
+  m.innerHTML=mTabs()+`<iframe id="supf" src="${SUP_URL}&mk=${mcur}" title="衛材管理"></iframe>`;
 }
 // 衛材那頁告訴這裡它多高（iframe 跟著長高，只有一層捲軸）；點了數字磚要捲到哪裡
 window.addEventListener('message',e=>{
@@ -2617,6 +2641,9 @@ document.addEventListener('click',async e=>{
   if(a==='open'){ openForm(ds.f,view.d,ds.k,false,ds.p||''); return; }
   if(a==='setpos'){ setPos(ds.p); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='pos'){ posSel[`${view.d}|${view.s}`]=''; renderNurse(); return; }
+  if(a==='supuse'){ openSup('use'); return; }
+  if(a==='supinv'){ openSup('inv'); return; }
+  if(a==='back'&&fvs&&fvs.sup){ closeSup(); return; }
   if(a==='back'&&fvs&&fvs.rep){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'&&fvs&&fvs.ster){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'){ if(fvs&&fvs.restock){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
