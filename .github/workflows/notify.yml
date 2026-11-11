@@ -1,9 +1,11 @@
-# 急診點班：上班超過 1 小時還有單子沒點 → 推播給那一班有上班的人（每 5 分鐘檢查一次；GitHub 的排程常常會晚幾分鐘）
+# 急診點班：上班超過 1 小時還有單子沒點 → 推播給那一班有上班的人（每班上班後兩小時內每 5 分鐘檢查一次；GitHub 的排程常常會晚幾分鐘）
 name: 點班未點通知
 
 on:
   schedule:
-    - cron: '2-59/5 * * * *'   # 每 5 分鐘（避開 0、5、10… 分這些大家都擠的時間；第 2、7、12… 分跑）
+    # 只在每班上班後那兩小時、每 5 分鐘檢查（「上班超過 1 小時還沒點」只會在這段時間出現）；GitHub 的時間是 UTC＝台灣時間減 8 小時
+    #   白班 09:00–10:59＝UTC 01–02 點、小夜 17:00–18:59＝UTC 09–10 點、大夜 01:00–02:59＝UTC 17–18 點；第 2、7、12… 分跑（避開整點擁擠）
+    - cron: '2-59/5 1,2,9,10,17,18 * * *'
   workflow_dispatch:
     inputs:
       test_name:
@@ -48,7 +50,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "$(date -u +%H%M)" \< "0005" ]; then
+          if [ "$(date -u +%H)" = "01" ] && [ "$(date -u +%M)" -lt 7 ]; then
             curl -s -X PUT -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
               "https://api.github.com/repos/${{ github.repository }}/actions/workflows/notify.yml/enable" && echo enabled
           fi
