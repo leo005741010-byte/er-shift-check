@@ -416,7 +416,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.13.0';
+const VERSION='3.14.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -921,7 +921,8 @@ function renderNurse(){
   h+=`<div class="grp">登錄</div><div class="flist"><button class="frow${soakBad?' bad':soakOpen?' part':''}" data-act="soak"><span class="dot"></span><span class="fn">Virusolve 泡消登錄</span><span class="fs">${soakBad?`⚠ ${soakBad} 件未滿 ${SOAK_MIN} 分${soakOpen?'・':''}`:''}${soakOpen?`浸泡中 ${soakOpen} 件`:''}</span><span class="chev">›</span></button>${(()=>{ const O=sterList().filter(x=>!x.inAt).reverse(), so=O.length, g={}; O.forEach(x=>{ g[x.item]=(g[x.item]||0)+(+x.qty||1); });
     const lst=Object.keys(g).map(k=>esc(k)+(g[k]>1?` ×${g[k]}`:'')).join('、');
     return `<button class="frow${so?' part':''}" data-act="ster"><span class="dot"></span><span class="fn">送消登記${so?`<small><span class="sow">送消中：${lst}</span></small>`:''}</span><span class="fs">${so?`送消中 ${so} 件`:''}</span><span class="chev">›</span></button>`; })()}${repRow()}${supRows()}</div>`;
-  h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>・v${VERSION}</div>`;
+  h+=pushRow();
+  h+=`<div class="foot"><span id="cloudst">${cloudLine()}</span>${pushState()==='on'?'・🔔 通知已開':''}・v${VERSION}</div>`;
   $('main').innerHTML=h;
   renderBar();
 }
@@ -933,6 +934,7 @@ function renderPosPick(){
     <div class="names">${posOn(s).map(p=>`<button class="${p===last?'duty':''}" data-act="setpos" data-p="${esc(p)}">${esc(posLab(p,s))}</button>`).join('')}</div>
     <div class="edrow"><button class="btn ghost mini" data-act="setpos" data-p="*">先看全部的單子</button></div></div>`;
   if(supAcc().includes(me())) h+=`<div class="flist">${supInvRow()}</div>`;
+  h+=pushRow();
   h+=`<div class="foot">點班者：<b>${esc(me())}</b> <button class="lk" data-act="who">換人</button></div>`;
   $('main').innerHTML=h;
 }
@@ -1046,6 +1048,7 @@ function authReset(m){ Object.assign(authUI,{m:m||'',n:'',buf:'',p1:'',err:'',bu
 function authDone(n,P){
   myAuth={n,pin:P}; lsSet(AUTH_LS,myAuth);   // 這支手機下次打開直接問這個人
   authReset(); ME=n; renderNurse(); window.scrollTo({top:0}); toast('你好，'+n); checkMisSign(n);
+  pushSub(false).catch(()=>{});
 }
 // 點了名單上的名字：設定過的→輸入密碼；第一次→先確認名字再設定
 async function whoPick(n){
@@ -1831,6 +1834,35 @@ function closeSup(){
   if(pend&&!confirm(`還有 ${pend} 筆沒上傳到雲端（目前沒有網路）。\n下次打開這一頁會自動補傳，確定要離開？`)) return;
   fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse();
 }
+
+// ---------- 推播通知（主任 11/11：上班超過 1 小時還有單子沒點，通知那一班有上班的人）----------
+// 這支手機開了通知 → 雲端 push/dev/<dev>＝{n:登入的人,sub,at,ua}；換人登入就改成新的人。
+// 送通知的是 GitHub Actions 排程（.github/workflows/notify.yml，每 5 分鐘）：讀班表找那一班有誰、push/sent/<日期> 記已通知過的單子
+const VAPID_PUB='BPWJx_Q4-OJJWFvubFqJuAxGbt7D3zbeVLnb8hgYjF2O60OVmJybaOFBZfC92VqrnaHt9oVcGcGbtiGu0R-DjTA';   // 推播公鑰（公開的；私鑰只在 GitHub 的 secrets）
+const LS_PUSH='erCheck_push';   // 這支手機最後寫到雲端的 {n,ep}
+const pushOK=()=>'serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;
+const isIOS=()=>/iPhone|iPad|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+const isStandalone=()=>!!(window.matchMedia&&matchMedia('(display-mode: standalone)').matches)||navigator.standalone===true;
+function pushState(){ if(!pushOK()) return isIOS()&&!isStandalone()?'ios':'no';
+  const p=Notification.permission; return p==='denied'?'denied':p==='granted'&&lsGet(LS_PUSH,null)?'on':'off'; }
+// ask＝按了「開啟通知」（會跳出允許通知）；沒按＝登入時默默更新（已經允許過的才做）
+async function pushSub(ask){
+  if(!pushOK()||!me()) return false;
+  if(ask&&Notification.permission!=='granted'){ const pm=await Notification.requestPermission(); if(pm!=='granted') return false; }
+  if(Notification.permission!=='granted') return false;
+  const reg=(await navigator.serviceWorker.getRegistration())||(await navigator.serviceWorker.register('sw.js'));
+  await navigator.serviceWorker.ready;
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub) sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u.dec(VAPID_PUB)});
+  const j=JSON.parse(JSON.stringify(sub)), last=lsGet(LS_PUSH,null);
+  if(ask||!last||last.n!==me()||last.ep!==j.endpoint){ write('PUT',`push/dev/${dev}`,{n:me(),sub:j,at:Date.now(),ua:navigator.userAgent.slice(0,160)}); lsSet(LS_PUSH,{n:me(),ep:j.endpoint}); }
+  return true;
+}
+function pushRow(){ const st=pushState();
+  if(st==='ios') return '<div class="note info">🔔 要收到點班通知：先把急診點班「加入主畫面」，再從主畫面的圖示打開</div>';
+  if(st==='denied') return '<div class="note warn">🔔 通知被關掉了：到手機「設定」把急診點班的通知打開</div>';
+  if(st!=='off') return '';
+  return '<div class="flist"><button class="frow" data-act="pushon"><span class="dot"></span><span class="fn">🔔 開啟通知</span><span class="fs"></span><span class="chev">›</span></button></div>'; }
 
 // ---------- 讀資料 ----------
 let _busy=false, _cfgAt=0;
@@ -2723,7 +2755,7 @@ document.addEventListener('click',async e=>{
   if(a==='whoth'){ uiOther.who=!uiOther.who; renderNurse(); const inp=$('who-in'); if(inp) inp.focus(); return; }
   if(a==='setme-in'){ const v=($('who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; } uiOther.whoText='';
     if(staffNames().includes(v)||authOf(v)){ uiOther.who=false; whoPick(v); return; }   // 名單上的人打字也要驗證
-    ME=v; renderNurse(); window.scrollTo({top:0}); checkMisSign(v); return; }   // 支援人力（不在名單上）：不用設定登入
+    ME=v; renderNurse(); window.scrollTo({top:0}); checkMisSign(v); pushSub(false).catch(()=>{}); return; }   // 支援人力（不在名單上）：不用設定登入
   if(a==='who'){ ME=''; posSel={}; authReset(); renderNurse(); window.scrollTo({top:0}); return; }
   if(a==='step'){ const v=+ds.d<0?prevShift(view.d,view.s):nextShift(view.d,view.s); const c=nowShift();
     if(+ds.d>0&&shiftStart(v.d,v.s)-EARLY_MIN*60e3>Date.now()&&!tkOf(v.d,v.s,me())){ const t=await tkAsk('early',v.d,v.s,'*'); if(!t) return; }   // 還沒到換班時間：要說明提早接班
@@ -2740,6 +2772,8 @@ document.addEventListener('click',async e=>{
   if(a==='pos'){ posSel[`${view.d}|${view.s}`]=''; renderNurse(); return; }
   if(a==='supuse'){ openSup('use'); return; }
   if(a==='supinv'){ openSup('inv'); return; }
+  if(a==='pushon'){ try{ const ok=await pushSub(true); if(ok){ toast('已開啟通知'); showNoti('急診點班','通知已開啟：這一班上班超過 1 小時還有單子沒點，會通知你'); } else toast('沒有允許通知'); }
+    catch(e){ toast('開不了通知：'+(e&&e.message||e)); } renderNurse(); return; }
   if(a==='back'&&fvs&&fvs.sup){ closeSup(); return; }
   if(a==='back'&&fvs&&fvs.rep){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'&&fvs&&fvs.ster){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }

@@ -1,6 +1,6 @@
 // 急診點班 Service Worker
 // 改版後手機還看到舊畫面：把 CACHE 版本號 +1 再推
-const CACHE='er-shift-check-v60';
+const CACHE='er-shift-check-v61';
 const CORE=['./','./index.html','./manage.html','./supplies.html','./manifest.json','./icon-192.png','./icon-512.png','./apple-touch-icon.png'];
 
 self.addEventListener('install', e=>{
@@ -43,11 +43,17 @@ self.addEventListener('fetch', e=>{
   );
 });
 
-// 點通知（延遲點班）：管理頁已經開著就切回去，否則打開管理頁
+// 推播（排程送來的「上班超過 1 小時還有單子沒點」）：{title,body,tag,url}
+self.addEventListener('push', e=>{
+  let d={}; try{ d=e.data?e.data.json():{}; }catch(x){ d={body:e.data?e.data.text():''}; }
+  e.waitUntil(self.registration.showNotification(d.title||'急診點班',{body:d.body||'',tag:d.tag||'ershift',renotify:true,icon:'icon-192.png',badge:'icon-192.png',data:{url:d.url||'./index.html'}}));
+});
+// 點通知：推播＝打開點班；管理頁自己跳的（延遲點班等，沒有 url）＝管理頁已經開著就切回去，否則打開管理頁
 self.addEventListener('notificationclick', e=>{
   e.notification.close();
+  const u=(e.notification.data&&e.notification.data.url)||'./manage.html', mg=/manage\.html/.test(u);
   e.waitUntil(self.clients.matchAll({type:'window',includeUncontrolled:true}).then(cs=>{
-    for(const c of cs){ if(/manage\.html/.test(c.url)&&'focus' in c) return c.focus(); }
-    return self.clients.openWindow('./manage.html');
+    for(const c of cs){ if((mg?/manage\.html/.test(c.url):!/manage\.html|supplies\.html/.test(c.url))&&'focus' in c) return c.focus(); }
+    return self.clients.openWindow(u);
   }));
 });

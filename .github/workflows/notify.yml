@@ -1,0 +1,54 @@
+# 急診點班：上班超過 1 小時還有單子沒點 → 推播給那一班有上班的人（每 5 分鐘檢查一次；GitHub 的排程常常會晚幾分鐘）
+name: 點班未點通知
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      test_name:
+        description: '只送一則測試通知給這個人（填名字）'
+        required: false
+        default: ''
+      dry:
+        description: '填 1＝只試算、不送出'
+        required: false
+        default: ''
+
+concurrency:
+  group: notify
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write   # 每天叫一次「啟用」，免得 60 天沒更新時排程被 GitHub 自動停掉
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 安裝
+        run: pip install -q playwright==1.65.0 pywebpush==2.5.0
+      - name: 檢查並通知
+        env:
+          FB_REFRESH_TOKEN: ${{ secrets.FB_REFRESH_TOKEN }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          TEST_NAME: ${{ github.event.inputs.test_name }}
+          DRY: ${{ github.event.inputs.dry }}
+        run: python .github/scripts/notify.py
+      - name: 保持排程（每天一次）
+        if: github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "$(date -u +%H%M)" \< "0005" ]; then
+            curl -s -X PUT -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/notify.yml/enable" && echo enabled
+          fi
