@@ -3,7 +3,7 @@ name: 點班未點通知
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '2-59/5 * * * *'   # 每 5 分鐘（避開 0、5、10… 分這些大家都擠的時間；第 2、7、12… 分跑）
   workflow_dispatch:
     inputs:
       test_name:
