@@ -152,6 +152,13 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 @media(min-width:621px){ .ir .exp .expt{display:inline-block;min-width:118px} }
 .note.nbx{display:flex;gap:10px;align-items:flex-start}.note.nbx .nb{flex:1;min-width:0}
 .e1{display:inline-flex;align-items:center;gap:6px}
+.dt{display:inline-flex;gap:4px;align-items:stretch;vertical-align:middle}
+.dt input[type=text]{width:7.4em;font-variant-numeric:tabular-nums}
+.dt input.bad{border-color:var(--bad);background:var(--badbg)}
+.dt .cal{position:relative;flex:0 0 36px;min-height:34px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dt .cal svg{width:19px;height:19px;pointer-events:none}
+.dt .cal input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;min-height:0;font-size:16px;cursor:pointer}
+.dt input:disabled+.cal,.dt .cal:has(input:disabled){opacity:.5}
 .e1 small{color:var(--mut);font-size:12.5px;min-width:6.5em}
 .e1 .ev{min-width:0;line-height:1.5}
 .e2{display:inline-flex;align-items:flex-start;gap:6px 10px}.e2>small{color:var(--mut);font-size:12.5px;min-width:6.5em;padding-top:8px}
@@ -405,7 +412,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.10.0';
+const VERSION='3.11.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -919,6 +926,7 @@ function renderPosPick(){
   let h=cloudAlert()+`<div class="card who"><h2>你今天上哪個位置？</h2>
     <div class="names">${posOn(s).map(p=>`<button class="${p===last?'duty':''}" data-act="setpos" data-p="${esc(p)}">${esc(posLab(p,s))}</button>`).join('')}</div>
     <div class="edrow"><button class="btn ghost mini" data-act="setpos" data-p="*">先看全部的單子</button></div></div>`;
+  if(supAcc().includes(me())) h+=`<div class="flist">${supInvRow()}</div>`;
   h+=`<div class="foot">點班者：<b>${esc(me())}</b> <button class="lk" data-act="who">換人</button></div>`;
   $('main').innerHTML=h;
 }
@@ -1257,17 +1265,62 @@ function vnSet(it,dr,id,L,cnt){   // 選的細項改了：沿用原本填的，�
   if(!dr.vn) dr.vn={}; if(L.length) dr.vn[id]=L.map(l=>old[l]!=null?old[l]:Math.max(0,kindQ(it,l)-(cnt?cnt(l)||1:1))); else delete dr.vn[id]; }
 // 自動打的 ✗（過期、送消中、還在送修中的）不用選是哪一個
 const autoX=(f,it,n)=>n===EXPIRED||isSterN(n)||(n===REP_N&&!!fvs&&!!fvs.hold&&repOut(f,it,fvs.hold).length>0);
-function lastExp(f){
-  const id=(f._base||f).id, R0=getAt('rec')||{}; let best=null;
-  const has=r=>r&&((r.e&&Object.keys(r.e).length)||(r.op&&Object.keys(r.op).length));
+// 每張單每一項「最近一次點到它」的紀錄：{單:{項目:紀錄}}。同一張單會分好幾份存（例：急救車白班 A2、大夜併給 A1 → ~A2、~A1 各一份），
+//   要逐項取最新的，不然到期提醒同一個出現兩次、帶日期也可能帶到另一份的舊日期
+function lastExpRecs(){
+  const R0=getAt('rec')||{}, best={};
   Object.keys(R0).forEach(mk=>{ const M=R0[mk]||{}; Object.keys(M).forEach(dk=>{ if(dk[0]==='_') return; const D=M[dk]||{};
-    Object.keys(D).forEach(key=>{ if(key.slice(0,key.lastIndexOf('_'))!==id) return; const r=D[key]; if(has(r)&&(!best||r.at>best.at)) best=r; }); }); });
-  const e={}, op={}; if(best) f.items.forEach(it=>{ const a=toArr((best.e||{})[it.id]), b=toArr((best.op||{})[it.id]);
+    Object.keys(D).forEach(key=>{ const r=D[key]; if(!r||typeof r!=='object'||!(r.e||r.op)) return; const fid=key.slice(0,key.lastIndexOf('_')), f=formById(fid); if(!f) return;
+      const B=best[fid]||(best[fid]={});
+      f.items.forEach(it=>{ const id=it.id; if(!((r.v&&r.v[id]!==undefined)||(r.e&&r.e[id]!==undefined)||(r.op&&r.op[id]!==undefined))) return;
+        if(!B[id]||r.at>B[id].at) B[id]=r; }); }); }); });
+  return best;
+}
+function lastExp(f){
+  const B=lastExpRecs()[(f._base||f).id]||{};
+  const e={}, op={}; f.items.forEach(it=>{ const best=B[it.id]; if(!best) return; const a=toArr((best.e||{})[it.id]), b=toArr((best.op||{})[it.id]);
     if(isFixed(R(best),it.id)) a.forEach((v,i)=>{ if(v&&isExpired(v)){ a[i]=''; b[i]=''; } });   // 上一班過期、已經換新（按過已更換）：舊日期（連開封日）不帶，請填新的
     if(a.some(Boolean)) e[it.id]=a; if(b.some(Boolean)) op[it.id]=b; });
   return {e,op};
 }
 const fmtExp=v=>String(v||'').replace('T',' ').replace(/-/g,'/');
+// 日期格：可以直接打數字（20280503 → 2028/05/03；民國 1170503；只打年月 202805＝月底），旁邊日曆鈕照舊可以點（同衛材）
+const CAL_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>';
+function dateBox(kind,id,i,v,max,dis){
+  const k=kind+'|'+id+'|'+i, raw=fvs&&fvs.et&&fvs.et[k], bad=fvs&&fvs.etX&&fvs.etX[k], D=dis?' disabled':'';
+  return `<span class="dt"><input type="text" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="年/月/日" data-in="${kind}" data-dt="1" data-id="${id}" data-i="${i}" value="${esc(raw!=null?raw:fmtExp(v))}"${bad?' class="bad"':''}${D}>`+
+    `<span class="cal">${CAL_SVG}<input type="date" tabindex="-1" aria-label="日曆" data-in="${kind}" data-cal="1" data-id="${id}" data-i="${i}" value="${isD(v)&&!isDT(v)?esc(v):''}"${max?` max="${max}"`:''}${D}></span></span>`;
+}
+function ymdOk(y,m,d){ y=+y; m=+m; d=d==null||d===''?0:+d; if(y<100) y+=2000;
+  if(y<1990||y>2099||m<1||m>12) return ''; const last=new Date(y,m,0).getDate(); if(!d) d=last; if(d>last) return '';
+  return y+'-'+pad(m)+'-'+pad(d); }
+const rocY=y=>{ y=+y; return y>=100&&y<200?y+1911:y; };   // 民國年
+// 打的字 → 'YYYY-MM-DD'；空白 → ''；看不懂 → null。strict＝打字中：要打完整（年月日都有）才算
+function parseDateIn(v,strict){
+  const s=String(v||'').trim(); if(!s) return '';
+  let p=s.split(/[^0-9]+/).filter(Boolean);
+  if(p.length===1){ const d=p[0], yl=(d[0]==='1'&&d[1]!=='9')?3:4;
+    if(d.length===yl+4) p=[d.slice(0,yl),d.slice(yl,yl+2),d.slice(yl+2)];
+    else if(d.length===yl+2&&!strict) p=[d.slice(0,yl),d.slice(yl)];
+    else return null; }
+  if(p.length<2||p.length>3) return null;
+  if(strict&&(p.length<3||p[2].length<2)) return null;
+  if(p[1].length===1&&p.length===2||p.length===3&&(+p[2]===0||p[1].length===2&&p[2].length===1)) return null;   // 沒打完（20251、2028050）不要猜成月底
+  return ymdOk(rocY(p[0]),p[1],p[2])||null;
+}
+// 只打數字時自動補「/」：西元 2028/05/03、民國 117/05/03；自己打了別的分隔就不動
+function maskDate(v){
+  if(/[^0-9\/]/.test(v)) return v;
+  const d=v.replace(/\//g,''), yl=(d[0]==='1'&&d[1]&&d[1]!=='9')?3:4;
+  for(let k=0;k<v.length;k++) if(v[k]==='/'&&k!==yl&&k!==yl+3) return v;
+  const x=d.slice(0,yl+4);
+  let o=x.length<=yl?x:x.length<=yl+2?x.slice(0,yl)+'/'+x.slice(yl):x.slice(0,yl)+'/'+x.slice(yl,yl+2)+'/'+x.slice(yl+2);
+  if(v.endsWith('/')&&(x.length===yl||x.length===yl+2)) o+='/';
+  return o;
+}
+let _dtBlur=false;   // 離開日期格時補算（例：只打年月）：重畫後不要再把游標放回去
+function refocus(id,sel){ if(_dtBlur) return; const ne=$('it-'+id), inp=ne&&ne.querySelector(sel); if(!inp) return; inp.focus();
+  if(inp.type==='text'){ const L=inp.value.length; try{ inp.setSelectionRange(L,L); }catch(_){} } }
 function expTag(v){ if(!v) return ''; if(isExpired(v)) return '<span class="tag no">已過期</span>';
   if(isDT(v)){ const h=hoursLeft(v); return h<=EXP_SOON_H?`<span class="tag no">${Math.max(1,Math.ceil(h))} 小時內到期</span>`:h<48?`<span class="tag w">${Math.floor(h)} 小時後到期</span>`:''; }
   const dd=expDays(v);
@@ -1310,13 +1363,9 @@ function sterBack(x,txt){ const T=sterTargets(x.item); if(T.length!==1) return [
   return out; }
 // 1 天內到期、已過期的（看每張單每一份最近一次的紀錄）。only＝只看這些單子（護理師首頁只看自己位置的）
 function expAlerts(only){
-  const R0=getAt('rec')||{}, best={};
-  Object.keys(R0).forEach(mk=>{ const M=R0[mk]||{}; Object.keys(M).forEach(dk=>{ if(dk[0]==='_') return; const D=M[dk]||{};
-    Object.keys(D).forEach(key=>{ const r=D[key]; if(!r||typeof r!=='object'||!r.e) return; const fid=key.slice(0,key.lastIndexOf('_')), bk=fid+'|'+(key.split('~')[1]||'');
-      if(!best[bk]||r.at>best[bk].r.at) best[bk]={r,fid}; }); }); });
-  const out=[];
-  Object.values(best).forEach(({r,fid})=>{ const f=formById(fid); if(!f||!anyExp(f)||f.on===false||(only&&!only.has(fid))) return; const rr=R(r);
-    f.items.forEach(it=>{ if(!hasExp(f,it)) return; const fx=isFixed(rr,it.id), SL=expSlots(it);   // 已經換新（按過已更換）的：過期那個不再提醒，其他快到期的照樣提醒
+  const B=lastExpRecs(), out=[];
+  Object.keys(B).forEach(fid=>{ const f=formById(fid); if(!f||!anyExp(f)||f.on===false||(only&&!only.has(fid))) return;
+    f.items.forEach(it=>{ const r=B[fid][it.id]; if(!r||!r.e||!hasExp(f,it)) return; const fx=isFixed(R(r),it.id), SL=expSlots(it);   // 已經換新（按過已更換）的：過期那個不再提醒，其他快到期的照樣提醒
       toArr(r.e[it.id]).forEach((v,i)=>{ if(!isD(v)) return; const ex=isExpired(v), dt=isDT(v), dd=ex?-1:expDays(v), soon=dt?hoursLeft(v)<=EXP_SOON_H:dd<=1;
         if((ex||soon)&&!(fx&&ex)) out.push({f,it,lab:SL.length>1?SL[i]||'':'',v,dd,dt,key:`X|${fid}|${it.id}|${i}|${v}`}); }); }); });
   return out.sort((a,b)=>a.dd-b.dd||a.f.name.localeCompare(b.f.name));
@@ -1337,10 +1386,11 @@ function itemHtml(f,it,dr,ro){
   const od=!!it.od&&!special(f), SL=hasExp(f,it)?expSlots(it):[], EV=SL.length?toArr((dr.e||{})[it.id]):[], OV=od?toArr((dr.op||{})[it.id]):[], fxd=ro&&isFixed(dr,it.id);
   const one=(i,lab)=>{ const v=EV[i]||'', ov=OV[i]||'', L=lab?`<small>${esc(lab)}</small>`:'';
     if(ro){ if(!v&&!ov) return ''; return `<span class="e1">${L}<span class="ev">${od?(ov===UNOPENED?'未開封・到期 ':ov?`開封 <b>${esc(fmtExp(ov))}</b>・到期 `:'到期 '):''}${v?`<b>${esc(fmtExp(v))}</b> ${fxd&&isExpired(v)?'':expTag(v)}`:'—'}</span></span>`; }
-    const ein=`<input type="date" data-in="e" data-id="${it.id}" data-i="${i}" value="${esc(v)}"><span class="expt">${expTag(v)}</span>`;
+    const ein=`${dateBox('e',it.id,i,v)}<span class="expt">${expTag(v)}</span>`;
     if(!od) return `<label class="e1">${L}${ein}</label>`;
     const tm=odTime(it), un=ov===UNOPENED, auto=!!odLife(it)&&!un;   // auto＝到期由開封日（時間）自動算
-    const oin=`<input type="${tm?'datetime-local':'date'}" data-in="op" data-id="${it.id}" data-i="${i}" value="${tm?(isDT(ov)?esc(ov):''):(isD(ov)?esc(ov.slice(0,10)):'')}" max="${ymd(new Date())}${tm?'T23:59':''}"${un?' disabled':''}>`;
+    const oin=tm?`<input type="datetime-local" data-in="op" data-id="${it.id}" data-i="${i}" value="${isDT(ov)?esc(ov):''}" max="${ymd(new Date())}T23:59"${un?' disabled':''}>`
+      :dateBox('op',it.id,i,isD(ov)?ov.slice(0,10):'',ymd(new Date()),un);
     const eout=auto?`<span class="e1 eauto" data-i="${i}">到期${v?`<b>${esc(fmtExp(v))}</b>`:'<span class="mut">填開封後自動算</span>'}<span class="expt">${v?expTag(v):''}</span><small class="mut">${odLab(it)}</small></span>`
       :`<label class="e1">${un&&odLife(it)?'原廠效期':'到期日'}${ein}</label>`;
     return `<span class="e2">${L}<span class="e2r"><label class="e1${un?' off':''}">${tm?'開封時間':'開封日'}${oin}</label><label class="e1 un"><input type="checkbox" data-in="opu" data-id="${it.id}" data-i="${i}"${un?' checked':''}> 未開封</label>${eout}</span></span>`; };
@@ -1506,6 +1556,10 @@ async function submitForm(){
   if(fvs.hold){ fvs.hold=Math.min(Date.now(),slotEnd(d,k)); const snap=()=>JSON.stringify([dr.v,dr.n,dr.a,dr.rp||{},dr.rw||{}]), b4=snap();
     f.items.forEach(it=>{ syncSter(f,it,dr,fvs.hold); syncRep(f,it,dr,fvs.hold); }); dr.hs=Date.now();
     if(snap()!==b4){ renderForm(); saveDraft(); toast('剛好有東西送消／送修或簽收回來，已自動更新打勾，請看過再按送出'); return; } }
+  const bdk=Object.keys(fvs.etX||{}).concat(Object.keys(fvs.et||{}).filter(x=>parseDateIn(fvs.et[x])===null));
+  if(bdk.length){ const id=bdk[0].split('|')[1];
+    if(isPaged(f)){ const G=secs(f), gi=G.findIndex(g=>g.items.some(it=>it.id===id)); if(gi>=0&&gi!==fvs.pg){ fvs.pg=gi; renderForm(); } }
+    const el=$('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); toast('有日期看不懂，請打 20280503 或 2028/05/03'); return; }
   const p=progressOf(f,dr);
   if(p.miss.length){
     fvs.showMiss=p.miss;
@@ -1753,9 +1807,11 @@ function repRow(){ const O=repList().filter(x=>!x.inAt).reverse(), g={}; O.forEa
 // 高貴衛材使用＝每個人都能登記；衛材點班＝管理頁「衛材管理」勾了權限的人（cfg/supAcc）。畫面是同網站的 supplies.html（嵌在這裡，不用再輸入密碼）
 const SUP_PAGE=window.SUP_PAGE||'supplies.html';
 const supAcc=()=>{ const v=getAt('cfg/supAcc'); return (Array.isArray(v)?v:v&&typeof v==='object'?Object.values(v):[]).map(x=>String(x||'').trim()).filter(Boolean); };
+const supInvRow=()=>`<button class="frow" data-act="supinv"><span class="dot"></span><span class="fn">衛材點班</span><span class="fs"></span><span class="chev">›</span></button>`;
+// 首頁「登錄」：高貴衛材使用（每個人）。衛材點班放在選位置的畫面（主任 11/11：輸入密碼後、選位置下面，不用先選位置）；沒有分位置時才放這裡
 function supRows(){
   return `<button class="frow" data-act="supuse"><span class="dot"></span><span class="fn">高貴衛材使用</span><span class="fs"></span><span class="chev">›</span></button>`+
-    (supAcc().includes(me())?`<button class="frow" data-act="supinv"><span class="dot"></span><span class="fn">衛材點班</span><span class="fs"></span><span class="chev">›</span></button>`:'');
+    (!hasPos()&&supAcc().includes(me())?supInvRow():'');
 }
 function openSup(m){
   const t=m==='use'?'高貴衛材使用':'衛材點班';
@@ -2894,7 +2950,12 @@ function pickDone(n){ closeDlg(); const r=_pickRes; _pickRes=null; if(n&&!_pkT) 
 document.addEventListener('input',e=>{
   const t=e.target, ds=t.dataset;
   if(ds.in&&fvs&&fvs.f){   // 點班單畫面的輸入（泡消、送消、待補畫面沒有 fvs.f）
-    const dr=fvs.dr;
+    const dr=fvs.dr; let val=t.value;
+    if((ds.in==='e'||ds.in==='op')&&(ds.dt||ds.cal)){ const k=ds.in+'|'+ds.id+'|'+ds.i; if(!fvs.et) fvs.et={}; if(!fvs.etX) fvs.etX={};
+      if(ds.dt){ const m=maskDate(t.value); if(m!==t.value) t.value=m; let p=parseDateIn(m,1); if(p&&ds.in==='op'&&p>ymd(new Date())) p=null;   // 開封日不能晚於今天
+        if(p===null){ fvs.et[k]=m; return; }   // 還沒打完：先記著，不改紀錄
+        delete fvs.et[k]; if(fvs.etX[k]){ delete fvs.etX[k]; t.classList.remove('bad'); } val=p; }
+      else { delete fvs.et[k]; delete fvs.etX[k]; const tx=t.closest('.dt')&&t.closest('.dt').querySelector('input[data-dt]'); if(tx){ tx.value=fmtExp(val); tx.classList.remove('bad'); } } }
     if(ds.in==='n') dr.n[ds.id]=t.value;
     else if(ds.in==='a'){ dr.a[ds.id]=t.value===''?null:+t.value; const it=fvs.f.items.find(i=>i.id===ds.id), el=$('it-'+ds.id), b=el&&el.querySelector('.ngx .fix b'), sh=shortOf(it,dr.a[ds.id]);
       if(b) b.textContent=sh?`缺 ${sh}`:''; else if(sh&&el){ const st=el.querySelector('.ngx .stp'); if(st) st.insertAdjacentHTML('afterend',`<b style="color:var(--bad)">缺 ${sh}</b>`); } }
@@ -2909,15 +2970,15 @@ document.addEventListener('input',e=>{
           if((v===0)!==hasNg){ el.outerHTML=itemHtml(fvs.f,it,dr,false); const ne=$('it-'+ds.id), inp=ne&&ne.querySelector(`input[data-fld="${ds.fld}"]`); if(inp){ inp.focus(); const L=inp.value.length; try{ inp.setSelectionRange(L,L); }catch(_){} } } }
         refreshCnt(); saveDraft(); return; } }
     else if(ds.in==='e'){ if(!dr.e) dr.e={}; const it=fvs.f.items.find(x=>x.id===ds.id), n=expSlots(it).length, arr=toArr(dr.e[ds.id]), ix=+ds.i||0;
-      while(arr.length<n) arr.push(''); arr[ix]=t.value; if(arr.some(Boolean)) dr.e[ds.id]=arr; else delete dr.e[ds.id];
+      while(arr.length<n) arr.push(''); arr[ix]=val; if(arr.some(Boolean)) dr.e[ds.id]=arr; else delete dr.e[ds.id];
       const bv=dr.v[ds.id], bn=dr.n[ds.id]; syncExp(fvs.f,it,dr);
-      if(bv!==dr.v[ds.id]||bn!==dr.n[ds.id]){ refreshItem(ds.id); const ne=$('it-'+ds.id), inp=ne&&ne.querySelector(`input[data-in=e][data-i="${ix}"]`); if(inp) inp.focus();
+      if(bv!==dr.v[ds.id]||bn!==dr.n[ds.id]){ refreshItem(ds.id); if(ds.dt) refocus(ds.id,`input[data-in=e][data-dt][data-i="${ix}"]`);
         if(dr.v[ds.id]===0&&dr.n[ds.id]===EXPIRED) toast('已過期：這一項自動打 ✗。換新以後把到期日改成新的'); }
-      else { const tg=t.parentNode.querySelector('.expt'); if(tg) tg.innerHTML=expTag(t.value); } }
+      else { const box=t.closest('.e1'), tg=box&&box.querySelector('.expt'); if(tg) tg.innerHTML=expTag(val); } }
     else if(ds.in==='op'){ if(!dr.op) dr.op={}; const it=fvs.f.items.find(x=>x.id===ds.id), n=expSlots(it).length, arr=toArr(dr.op[ds.id]), ix=+ds.i||0;   // 開封日
-      while(arr.length<n) arr.push(''); arr[ix]=t.value; if(arr.some(Boolean)) dr.op[ds.id]=arr; else delete dr.op[ds.id];
+      while(arr.length<n) arr.push(''); arr[ix]=val; if(arr.some(Boolean)) dr.op[ds.id]=arr; else delete dr.op[ds.id];
       if(odLife(it)){ const bv=dr.v[ds.id], bn=dr.n[ds.id]; syncOd(fvs.f,it,dr); syncExp(fvs.f,it,dr);
-        if(bv!==dr.v[ds.id]||bn!==dr.n[ds.id]){ refreshItem(ds.id); const ne=$('it-'+ds.id), inp=ne&&ne.querySelector(`input[data-in=op][data-i="${ix}"]`); if(inp) inp.focus();
+        if(bv!==dr.v[ds.id]||bn!==dr.n[ds.id]){ refreshItem(ds.id); if(!ds.cal) refocus(ds.id,`input[data-in=op]${ds.dt?'[data-dt]':''}[data-i="${ix}"]`);
           if(dr.v[ds.id]===0&&dr.n[ds.id]===EXPIRED) toast('已過期：這一項自動打 ✗。換新以後改開封日（時間）'); }
         else { const ev=toArr((dr.e||{})[ds.id])[ix]||'', box=t.closest('.e2r'), ea=box&&box.querySelector('.eauto');
           if(ea) ea.innerHTML=`到期${ev?`<b>${esc(fmtExp(ev))}</b>`:'<span class="mut">填開封後自動算</span>'}<span class="expt">${ev?expTag(ev):''}</span><small class="mut">${odLab(it)}</small>`; } } }
@@ -2968,8 +3029,13 @@ document.addEventListener('input',e=>{
     markDirty(); return; }
   if(ds.eds!=null&&edF){ const f=edF.find(x=>x.id===edSel); f.items.forEach(it=>{ if(it.s===ds.eds) it.s=t.value; }); t.dataset.eds=t.value; markDirty(); return; }
 });
+document.addEventListener('click',e=>{ const c=e.target.closest&&e.target.closest('input[data-cal]'); if(c&&c.showPicker&&!c.disabled){ try{ c.showPicker(); }catch(x){} } },true);
 document.addEventListener('change',e=>{
   const t=e.target;
+  if(t.dataset.dt&&fvs&&fvs.f&&(t.dataset.in==='e'||t.dataset.in==='op')){ const ds=t.dataset, k=ds.in+'|'+ds.id+'|'+ds.i; if(!fvs.et) fvs.et={}; if(!fvs.etX) fvs.etX={};
+    let p=parseDateIn(t.value); const late=p&&ds.in==='op'&&p>ymd(new Date());
+    if(p===null||late){ fvs.et[k]=t.value; fvs.etX[k]=1; t.classList.add('bad'); toast(late?'開封日不能晚於今天':'看不懂這個日期，請打 20280503 或 2028/05/03'); return; }
+    t.value=fmtExp(p); _dtBlur=true; try{ t.dispatchEvent(new Event('input',{bubbles:true})); }finally{ _dtBlur=false; } return; }
   if(t.id==='pk-date'&&t.value){ setView({d:t.value,s:view.s},false); return; }
   if(t.id==='pr-title'){ const v=t.value.trim(); if(v!==printTitle()){ write('PUT','cfg/printTitle',v||null); toast('表頭已存'); } return; }
   if(t.dataset.ed==='freq'||t.dataset.edi==='t'||t.dataset.ed==='on'||t.dataset.edi==='od'||t.dataset.edi==='ex'||t.dataset.edi==='odN'||t.dataset.edi==='odU') renderManage();
