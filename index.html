@@ -416,7 +416,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.12.0';
+const VERSION='3.12.1';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1935,8 +1935,10 @@ function pendingNow(){
 function earlyMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((slotStart(d,k)-firstAt(r))/60000); return m>EARLY_MIN?m:0; }   // 上班前 2 小時以前就點
 function lateMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((firstAt(r)-(parseD(d).getTime()+SLOT_START[k]*3600e3))/60000); return m>60?m:0; }
 // 超過上班 1 小時才點的（月表、列印、每日紀錄標「遲」，主任 11/11：打勾以後表格上要看得出來）：r＝某個位置那一份紀錄
+//   寫了延後接班、接班後 1 小時內點完的不標（主任 11/11）
 function lateInfo(d,k,r){ const m=lateMin(d,k,r); if(!m) return null; const sh=slotShOf(k), pp=String(r._path||'').split('~')[1]||'', tk=r.tk||tkOf(d,sh,r.by)||tkPos(d,sh,pp);
-  return {m,at:firstAt(r),by:r.by||'',pos:pp,tk,ok:!!(tk&&tk.k==='late'&&tk.at&&firstAt(r)<=tk.at+3600e3)}; }
+  if(tk&&tk.k==='late'&&tk.at&&firstAt(r)<=tk.at+3600e3) return null;
+  return {m,at:firstAt(r),by:r.by||'',pos:pp,tk}; }
 // 月表、列印的一格（整張單這一班，各位置那幾份合起來）：每一份遲不遲
 const colLate=(d,k,r)=>r&&r.parts?r.parts.map(p=>({p,L:lateInfo(d,k,p)})):[];
 const itemLate=(CL,it)=>{ const x=CL.find(x=>x.p.v&&x.p.v[it.id]!==undefined); return x?x.L:null; };
@@ -2310,7 +2312,7 @@ function formModel(f0,mk,title){
     out[1].text+='　遲＝超過上班 1 小時才點';
     out.push({t:'h2',text:`延遲點班紀錄（${lateL.length} 筆；超過上班 1 小時才點）`});
     const rows=[{h:1,cells:['日期','班別','位置','點班者','點班時間','晚幾分','說明'].map((v,i)=>C(v,{...H,al:i===6?'l':''}))}];
-    lateL.forEach(x=>rows.push({cells:[C(dayLabel(x.d)),C(slotLab(f,x.k)),C(x.pos||''),C(x.by),C(hm(x.at)),C(x.m),C(x.tk?tkTxt(x.tk)+(x.ok?'（接班後 1 小時內點完）':''):'',{al:'l'})]}));
+    lateL.forEach(x=>rows.push({cells:[C(dayLabel(x.d)),C(slotLab(f,x.k)),C(x.pos||''),C(x.by),C(hm(x.at)),C(x.m),C(x.tk?tkTxt(x.tk):'',{al:'l'})]}));
     out.push({t:'tbl',widths:[24,14,14,26,20,16,90],rows});
   }
   return out;
