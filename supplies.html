@@ -223,6 +223,10 @@ body.emb header.top{display:none}
 .hvl label input{width:19px;height:19px;flex:0 0 auto}
 .hvl label.chg{color:#a85800;font-weight:700}
 .sact{display:flex;gap:10px;justify-content:flex-end;margin-top:12px}
+.mgfm{background:#fff;border:1px solid var(--line);border-radius:12px;margin-bottom:10px;padding:14px 15px}
+.mgfm h2{font-size:17px;margin:0;color:var(--pri-dark)}
+.mgfm .acts{display:flex;gap:10px;justify-content:flex-end;margin-top:14px}
+.mgfm input.tx{max-width:520px}
 .trend{width:100%;height:auto;display:block;margin:2px 0 8px}
 .mrow .h .r b{font-size:15px}
 </style>
@@ -256,7 +260,7 @@ body.emb header.top{display:none}
 (function(){ let bad=location.protocol==='file:';
   try{ if(window.parent!==window&&window.parent.__mockLog&&!window.__mockLog) bad=true; }catch(e){}
   if(bad){ document.addEventListener('DOMContentLoaded',()=>{ document.body.textContent='請從急診點班打開'; }); throw new Error('stop'); } })();
-const VERSION='0.7.1';
+const VERSION='0.8.0';
 const LIB_URL='https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js';
 const AREAS=['急救車・桌面','急救車・第二層抽屜','急救車・第三層抽屜（小兒急救用品組）','急救車・第四層抽屜','急救車・側面'];
 const DEF_ITEMS=[{"id":"c01","s":"急救車・桌面","name":"Ambu Bag＋Mask＋O2 雙接管（床頭處）","q":"1"},{"id":"c02a","p":"c02","s":"急救車・桌面","name":"Endo Tube","sz":"7.0 號","q":"1"},{"id":"c02b","p":"c02","s":"急救車・桌面","name":"Endo Tube","sz":"7.5 號","q":"1"},{"id":"c03a","p":"c03","s":"急救車・桌面","name":"喉頭鏡柄＋葉片（亮度正常）","sz":"3.0","q":"2","ne":1},{"id":"c03b","p":"c03","s":"急救車・桌面","name":"喉頭鏡柄＋葉片（亮度正常）","sz":"4.0","q":"2","ne":1},{"id":"c04a","p":"c04","s":"急救車・桌面","name":"Bite","sz":"大","q":"1"},{"id":"c04b","p":"c04","s":"急救車・桌面","name":"Oral Airway","sz":"80mm","q":"1"},{"id":"c04c","p":"c04","s":"急救車・桌面","name":"Oral Airway","sz":"90mm","q":"1"},{"id":"c04d","p":"c04","s":"急救車・桌面","name":"Oral Airway","sz":"100mm","q":"1"},{"id":"c05a","p":"c05","s":"急救車・桌面","name":"通條","q":"1"},{"id":"c05b","p":"c05","s":"急救車・桌面","name":"10cc 空針","q":"1"},{"id":"c06","s":"急救車・桌面","name":"Endo 固定帶","q":"4"},{"id":"c07a","p":"c07","s":"急救車・桌面","name":"Jelly","q":"1"},{"id":"c07b","p":"c07","s":"急救車・桌面","name":"筆燈","q":"1","ne":1},{"id":"c07c","p":"c07","s":"急救車・桌面","name":"瞳孔尺","q":"1","ne":1},{"id":"c08a","p":"c08","s":"急救車・桌面","name":"無菌手套","sz":"6.5 號","q":"1"},{"id":"c08b","p":"c08","s":"急救車・桌面","name":"無菌手套","sz":"7.0 號","q":"1"},{"id":"c08c","p":"c08","s":"急救車・桌面","name":"無菌手套","sz":"7.5 號","q":"1"},{"id":"c09","s":"急救車・桌面","name":"EMMA-ETCO2","q":"1","ne":1},{"id":"c10a","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"2 號","q":"4"},{"id":"c10b","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"3 號","q":"4"},{"id":"c10c","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"4 號","q":"4"},{"id":"c10d","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"9V","q":"4"},{"id":"c11","s":"急救車・桌面","name":"張口器（鐵製）","q":"1","ne":1},{"id":"c12a","p":"c12","s":"急救車・桌面","name":"托舌鉗","sz":"大","q":"1","ne":1},{"id":"c12b","p":"c12","s":"急救車・桌面","name":"托舌鉗","sz":"小","q":"1","ne":1},{"id":"c13","s":"急救車・桌面","name":"大 Kelly（彎）","q":"1","ne":1},{"id":"c14","s":"急救車・桌面","name":"感染垃圾袋（放急救盤下）","q":"1","ne":1},{"id":"c35","s":"急救車・第二層抽屜","name":"Bite 大","q":"3"},{"id":"c36","s":"急救車・第二層抽屜","name":"心肌長針","q":"3"},{"id":"c37a","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"6.0","q":"1"},{"id":"c37b","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"6.5","q":"1"},{"id":"c37c","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"7.0","q":"1"},{"id":"c37d","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"7.5","q":"1"},{"id":"c38a","p":"c38","s":"急救車・第二層抽屜","name":"Oral Airway","sz":"80mm","q":"2"},{"id":"c38b","p":"c38","s":"急救車・第二層抽屜","name":"Oral Airway","sz":"90mm","q":"2"},{"id":"c38c","p":"c38","s":"急救車・第二層抽屜","name":"Oral Airway","sz":"100mm","q":"2"},{"id":"c39a","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"6.0 號","q":"2"},{"id":"c39b","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"6.5 號","q":"2"},{"id":"c39c","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"7.0 號","q":"2"},{"id":"c39d","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"7.5 號","q":"2"},{"id":"c39e","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"8.0 號","q":"2"},{"id":"c40","s":"急救車・第二層抽屜","name":"硬式抽吸管 大","q":"1"},{"id":"c41","s":"急救車・第二層抽屜","name":"通條","q":"2"},{"id":"c42","s":"急救車・第三層抽屜（小兒急救用品組）","name":"葉片可與成人喉頭鏡柄卡榫密合","q":"1","ne":1},{"id":"c43","s":"急救車・第三層抽屜（小兒急救用品組）","name":"直－喉頭鏡葉片 0#（亮度正常）","q":"1","ne":1},{"id":"c44","s":"急救車・第三層抽屜（小兒急救用品組）","name":"直－喉頭鏡葉片 1#（亮度正常）","q":"1","ne":1},{"id":"c45","s":"急救車・第三層抽屜（小兒急救用品組）","name":"彎－喉頭鏡葉片 0#（亮度正常）","q":"1","ne":1},{"id":"c46","s":"急救車・第三層抽屜（小兒急救用品組）","name":"彎－喉頭鏡葉片 1#（亮度正常）","q":"1","ne":1},{"id":"c47","s":"急救車・第三層抽屜（小兒急救用品組）","name":"彎－喉頭鏡葉片 2#（亮度正常）","q":"2","ne":1},{"id":"c48","s":"急救車・第三層抽屜（小兒急救用品組）","name":"喉頭鏡葉片 3#（亮度正常）","q":"1","ne":1},{"id":"c49a","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"40mm","q":"1"},{"id":"c49b","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"50mm","q":"1"},{"id":"c49c","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"60mm","q":"1"},{"id":"c49d","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"70mm","q":"1"},{"id":"c50","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Bite 小","q":"2"},{"id":"c51","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒急救尺","q":"1","ne":1},{"id":"c52","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒 Ambu Bag＋Mask＋O2 雙接管","q":"1"},{"id":"c53a","p":"c53","s":"急救車・第三層抽屜（小兒急救用品組）","name":"LMA","sz":"1.5","q":"1"},{"id":"c53b","p":"c53","s":"急救車・第三層抽屜（小兒急救用品組）","name":"LMA","sz":"2.0","q":"1"},{"id":"c54a","p":"c54","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"4.5 號（有 cuff）","q":"1"},{"id":"c54b","p":"c54","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"5.0 號（有 cuff）","q":"1"},{"id":"c54c","p":"c54","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"5.5 號（有 cuff）","q":"1"},{"id":"c55a","p":"c55","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"3.0 號（無 cuff）","q":"1"},{"id":"c55b","p":"c55","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"3.5 號（無 cuff）","q":"1"},{"id":"c55c","p":"c55","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"4.0 號（無 cuff）","q":"1"},{"id":"c56a","p":"c56","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒胃管","sz":"10 號","q":"1"},{"id":"c56b","p":"c56","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒胃管","sz":"12 號","q":"1"},{"id":"c57","s":"急救車・第三層抽屜（小兒急救用品組）","name":"硬式抽吸管 小","q":"1"},{"id":"c58","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒通條","q":"2"},{"id":"c59","s":"急救車・第四層抽屜","name":"電子喉頭鏡","q":"1","ne":1},{"id":"c60","s":"急救車・第四層抽屜","name":"電子喉頭鏡鏡葉","q":"3"},{"id":"c61","s":"急救車・第四層抽屜","name":"電動骨針電鑽","q":"1","ne":1},{"id":"c62","s":"急救車・第四層抽屜","name":"骨針 45mm","q":"2"},{"id":"c63","s":"急救車・第四層抽屜","name":"骨針 25mm","q":"2"},{"id":"c64","s":"急救車・第四層抽屜","name":"骨針 15mm","q":"1"},{"id":"c65a","p":"c65","s":"急救車・第四層抽屜","name":"LMA","sz":"3.0","q":"1"},{"id":"c65b","p":"c65","s":"急救車・第四層抽屜","name":"LMA","sz":"4.0","q":"1"},{"id":"c66","s":"急救車・第四層抽屜","name":"防護裝備","q":"1組"},{"id":"c67","s":"急救車・側面","name":"聽診器（右邊）","q":"2","ne":1},{"id":"c68","s":"急救車・側面","name":"急救板（急救車背面）","q":"1","ne":1},{"id":"c69","s":"急救車・側面","name":"N95 口罩","q":"5"},{"id":"c70a","p":"c70","s":"急救車・側面","name":"i-Bougie（橘色）","q":"2"},{"id":"c70b","p":"c70","s":"急救車・側面","name":"S-guide（透明黃）","q":"2"},{"id":"c71","s":"急救車・側面","name":"小兒血氧線","q":"1","ne":1},{"id":"c72","s":"急救車・側面","name":"小兒壓脈帶","q":"1","ne":1}];   // 急救車裡的衛材（藥品 2026-11-09 起不列；v0.4.0 起每個尺寸一項）
@@ -277,7 +281,7 @@ const SPLIT_FROM={"c02":"Endo 7.0／7.5 Fr","c03":"喉頭鏡柄＋葉片 3.0／4
 const FB_DB='https://tenchener-488d2-default-rtdb.firebaseio.com', NODE='erCrashCartData';
 const STAFF_NODE='erShiftCheckData', SCHED_NODE='erNurseScheduleData';   // 名單、4 位數密碼跟急診點班共用（名單唯讀；密碼雜湊在點班的 auth/）
 const QS=new URLSearchParams(location.search);
-const MANAGE=!!window.MANAGE||QS.has('mg');   // 後台（嵌在急診點班管理頁）：不用登入；只能改高貴衛材品項、衛材點班權限
+const MANAGE=!!window.MANAGE||QS.has('mg');   // 後台（嵌在急診點班管理頁）：不用登入；可以新增品項、改高貴衛材品項、衛材點班權限
 const MODE=QS.get('m')==='use'?'use':'inv';
 const EMBED=(()=>{ try{ return !MANAGE&&window.parent!==window&&window.parent.location.origin===location.origin; }catch(e){ return false; } })();
 const FB_API_KEY='AIzaSyB6w2D8gaqSBHoDmtWsWGWGY-DQtDEcyFY';   // Firebase Web API key：本來就設計成公開內嵌，不是密碼
@@ -570,6 +574,7 @@ let toastT=0;
 function toast(m,ms){
   if(MANAGE) try{ if(window.parent!==window&&window.parent.toast){ window.parent.toast(m); return; } }catch(e){}   // 後台的 iframe 很長，用管理頁的提示
   const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(toastT); toastT=setTimeout(()=>t.style.display='none',ms||2600); }
+function mgConfirm(html){ const d=document.createElement('div'); d.innerHTML=String(html).replace(/<br\s*\/?>/g,'\n'); return Promise.resolve(confirm(d.textContent)); }
 function ask(html,ok,cancel){
   return new Promise(res=>{
     const h=$('#dlgHost');
@@ -886,6 +891,7 @@ function renderManage(){
     const e=xs.filter(x=>x.st.s==='exp').length, w=xs.filter(x=>x.st.s==='d30').length, l=xs.filter(x=>x.st.low).length;
     h+=mgCard('a_'+a,esc(a)+(e?' <span class="tag bad">過期 '+e+'</span>':'')+(w?' <span class="tag warn">30 天內 '+w+'</span>':'')+(l?' <span class="tag bad">不足 '+l+'</span>':''),xs.length+' 項',xs.map(x=>mgRow(x,false)).join(''));
   });
+  h+=FM&&FM.mode==='add'?'<div class="mgfm">'+formHtml()+'</div>':'<button class="btn outline wide addbtn" data-act="addItem">＋ 新增品項</button>';
   // 本月誰登記：分色橫條＋清單（由多到少）
   const cnt={}; ML.forEach(x=>{ const k=x.by||'（沒記名字）'; cnt[k]=(cnt[k]||0)+1; });
   const W=Object.keys(cnt).map(k=>({k,n:cnt[k]})).sort((a,b)=>b.n-a.n), tot=ML.length;
@@ -1056,8 +1062,9 @@ async function saveItem(){
 /* ---------- 新增／編輯品項 ---------- */
 let FM=null; // {mode:'add'|'edit', id, name, sizes:[], szIn, area, other, areaText, q, ne}
 function openAdd(){
-  FM={mode:'add',name:'',sizes:[],szIn:'',area:'',other:false,areaText:'',q:'',ne:false,bind:BIND};
+  FM={mode:'add',name:'',sizes:[],szIn:'',area:'',other:false,areaText:'',q:'',ne:false,hv:false,bind:BIND};
   SH={type:'form'}; $('#sheetHost').innerHTML=''; drawForm();
+  if(MANAGE){ const i=document.querySelector('[data-fm=name]'); if(i) i.focus(); }
 }
 function openEdit(id){
   const it=itemById(id); if(!it) return;
@@ -1067,6 +1074,10 @@ function openEdit(id){
 }
 function splitSizes(s){ return String(s||'').split(/[,，、;；\/／\n]+/).map(x=>x.trim()).filter(Boolean); }
 function drawForm(){
+  if(MANAGE){ render(); return; }   // 後台：表單直接畫在頁面上（renderManage）
+  showSheet(formHtml());
+}
+function formHtml(){
   const F=FM, add=F.mode==='add';
   let h='<div class="fm"><h2>'+(add?'新增品項':'編輯品項')+'</h2>';
   if(add&&F.bind) h+='<div class="found">條碼 <b>'+esc(F.bind.key)+'</b>'+(scanInfo(F.bind)?'<br>'+scanInfo(F.bind):'')+'</div>';
@@ -1081,9 +1092,10 @@ function drawForm(){
   if(F.other) h+='<input class="tx" data-fm="areaText" value="'+esc(F.areaText)+'" autocomplete="off" style="margin-top:6px">';
   h+='<div class="lb">設定量'+(add&&F.sizes.length>1?'（每種）':'')+'</div><input class="tx" data-fm="q" value="'+esc(F.q)+'" '+(add?'type="number" inputmode="numeric" min="0"':'')+' autocomplete="off">';
   h+='<label class="chk"><input type="checkbox" data-fm="ne"'+(F.ne?' checked':'')+'> 不用管效期</label>';
+  if(MANAGE&&add) h+='<label class="chk"><input type="checkbox" data-fm="hv"'+(F.hv?' checked':'')+'> 高貴衛材</label>';
   if(!add) h+='<button class="btn danger wide" data-act="hideItem" style="margin-top:10px">移除這一項</button>';
   h+='<div class="acts"><button class="btn ghost" data-act="formCancel">取消</button><button class="btn" data-act="'+(add?'saveNew':'saveEdit')+'">'+(add?'新增':'儲存')+'</button></div></div>';
-  showSheet(h);
+  return h;
 }
 function formArea(){ return FM.other?String(FM.areaText||'').trim():FM.area; }
 async function saveNew(){
@@ -1100,8 +1112,21 @@ async function saveNew(){
     '<br>位置：'+esc(area)+(q?'<br>設定量：'+(mk.length>1?'各 ':'')+esc(q):'')+(F.ne?'<br>不用管效期':'')+
     (dup.length?'<br><span class="mut">已經有的不重複新增：'+dup.map(z=>esc(z||name)).join('、')+'</span>':'');
   if(F.bind&&mk.length===1) msg+='<br>條碼 <b>'+esc(F.bind.key)+'</b> 設為這一項';
-  if(!await ask(msg,'新增')) return;
+  if(MANAGE&&F.hv) msg+='<br>設為高貴衛材';
+  if(!await (MANAGE?mgConfirm(msg):ask(msg,'新增'))) return;
   const ids=[], t0=Date.now();
+  if(MANAGE){   // 後台：直接寫進雲端，寫成功才算
+    const W=[];
+    mk.forEach((z,i)=>{ const id='u'+(t0+i).toString(36)+Math.random().toString(36).slice(2,5), t=t0+i; ids.push(id);
+      W.push(['items/'+id,itemData({name,sz:z,s:area,q,ne:F.ne,cu:1},{by:'管理頁'})]);
+      if(F.hv) W.push(['hv/'+id,true]);
+      W.push(['log/'+t.toString(36)+Math.random().toString(36).slice(2,6),{t,i:id,x:'新增品項'+(F.hv?'（高貴衛材）':''),dev:DEV,by:'管理頁'}]); });
+    try{ await Promise.all(W.map(([p,v])=>fb('PUT',p,v))); }
+    catch(e){ toast(e.kind==='denied'?'雲端還沒開通':'存不進去，請確認網路'); return; }
+    W.forEach(([p,v])=>setAt(p,v)); lsSet(LS.cache,db);
+    if(HVD&&F.hv) ids.forEach(id=>HVD.add(id));
+    mgOpen.add('a_'+area); derive(); toast('已新增 '+ids.length+' 項'); closeSheet(); return;
+  }
   mk.forEach((z,i)=>{
     const id='u'+(t0+i).toString(36)+Math.random().toString(36).slice(2,5);
     write('items/'+id,itemData({name,sz:z,s:area,q,ne:F.ne,cu:1}));
