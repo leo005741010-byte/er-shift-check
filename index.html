@@ -416,7 +416,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.12.1';
+const VERSION='3.13.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -713,6 +713,8 @@ const secs=f=>{ const o=[]; f.items.forEach(it=>{ let g=o.find(x=>x.s===it.s); i
 // 大夜沒有 A2：A2 的項目大夜由 A1 點。
 const POS=['A1','A2','檢傷','B1','B2','助理'];
 const POS_MERGE={N:{A2:'A1'}};
+const FREE_POS=new Set(['助理']);   // 上班時間不固定的位置（主任 11/11）：那一份不算延遲／過早、不算「上班超過 1 小時還沒點」，下班前沒點才算未點
+const recPos=r=>String(r&&r._path||'').split('~')[1]||'';
 const POS_COLOR={A1:'#13606e',A2:'#2f6fb5','檢傷':'#7a4fb0',B1:'#c06a12',B2:'#8a5a2b','助理':'#5f7180'};
 const slotSh=k=>SLOT[k]&&SLOT[k].sh!=='*'?SLOT[k].sh:'';
 const effPos=(it,sh)=>{ const p=it.p||''; return (POS_MERGE[sh]&&POS_MERGE[sh][p])||p; };
@@ -1575,7 +1577,7 @@ async function submitForm(){
   }
   // 太早（上班前 2 小時以前）或太晚（上班超過 1 小時）第一次送出：先問是不是提早／延後接班
   let tk=null;
-  if(!fvs.rec&&(k in SLOT_START)){ const sh=slotShOf(k), st=slotStart(d,k), nw=Date.now(); tk=tkOf(d,sh,me());
+  if(!fvs.rec&&(k in SLOT_START)&&!FREE_POS.has(f._part||'')){ const sh=slotShOf(k), st=slotStart(d,k), nw=Date.now(); tk=tkOf(d,sh,me());
     const kind=nw>st+3600e3?'late':nw<st-EARLY_MIN*60e3?'early':'';
     if(kind&&!(tk&&tk.k===kind)){ tk=await tkAsk(kind,d,sh); if(!tk) return; if(!fvs||fvs.f!==f) return; } }
   // 重要按鍵一律再確認（主任 10/15）
@@ -1921,7 +1923,7 @@ function tkOf(d,sh,by){ let b=null; tkList(d,sh).forEach(x=>{ if(x.by===by&&(!b|
 // 這一班這個位置有人寫「延後接班」：實際接班時間（照他寫的）
 function tkPos(d,sh,pos){ let b=null; tkList(d,sh).forEach(x=>{ if(x.k==='late'&&x.at&&(!pos||x.pos==='*'||x.pos===pos)&&(!b||x.set>b.set)) b=x; }); return b; }
 const tkTxt=t=>t?`${t.why}${t.at?' '+hm(t.at):''}`:'';
-function overdue(d,k,now,pos){ if(!(k in SLOT_START)) return false; const st0=slotStart(d,k); if(st0<wipeT()) return false;
+function overdue(d,k,now,pos){ if(!(k in SLOT_START)||FREE_POS.has(pos||'')) return false; const st0=slotStart(d,k); if(st0<wipeT()) return false;
   const t=tkPos(d,slotShOf(k),pos), st=t&&t.at>st0?t.at:st0;   // 延後接班：從接班時間起算 1 小時
   return now>=st+3600e3&&now<slotEnd(d,k); }
 function pendingNow(){
@@ -1932,8 +1934,8 @@ function pendingNow(){
         if(!recOf(d,pf,k)) out.push({d,k,s:sh,f:pf,p,key}); }); }); });
   return out;
 }
-function earlyMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((slotStart(d,k)-firstAt(r))/60000); return m>EARLY_MIN?m:0; }   // 上班前 2 小時以前就點
-function lateMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub) return 0; const m=Math.floor((firstAt(r)-(parseD(d).getTime()+SLOT_START[k]*3600e3))/60000); return m>60?m:0; }
+function earlyMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub||FREE_POS.has(recPos(r))) return 0; const m=Math.floor((slotStart(d,k)-firstAt(r))/60000); return m>EARLY_MIN?m:0; }   // 上班前 2 小時以前就點
+function lateMin(d,k,r){ if(!(k in SLOT_START)||!r||r._stub||FREE_POS.has(recPos(r))) return 0; const m=Math.floor((firstAt(r)-(parseD(d).getTime()+SLOT_START[k]*3600e3))/60000); return m>60?m:0; }
 // 超過上班 1 小時才點的（月表、列印、每日紀錄標「遲」，主任 11/11：打勾以後表格上要看得出來）：r＝某個位置那一份紀錄
 //   寫了延後接班、接班後 1 小時內點完的不標（主任 11/11）
 function lateInfo(d,k,r){ const m=lateMin(d,k,r); if(!m) return null; const sh=slotShOf(k), pp=String(r._path||'').split('~')[1]||'', tk=r.tk||tkOf(d,sh,r.by)||tkPos(d,sh,pp);
@@ -1941,6 +1943,13 @@ function lateInfo(d,k,r){ const m=lateMin(d,k,r); if(!m) return null; const sh=s
   return {m,at:firstAt(r),by:r.by||'',pos:pp,tk}; }
 // 月表、列印的一格（整張單這一班，各位置那幾份合起來）：每一份遲不遲
 const colLate=(d,k,r)=>r&&r.parts?r.parts.map(p=>({p,L:lateInfo(d,k,p)})):[];
+// 打 ✗ 的原因＋後來怎麼處理（月表、每日紀錄的滑鼠提示）
+function whyTxt(r,it){ const id=it.id, n=String((r.n||{})[id]||'').replace(OTHER_P,''), vx=vxTxt(r,id), a=it.t==='n'&&isNum((r.a||{})[id])?`實際 ${r.a[id]}`:'', w=r.w&&r.w[id]?`請 ${r.w[id]} 補`:'', rp=r.rp&&r.rp[id]?`${r.rp[id]} 送修`:'';
+  let s=`${r.by||''} ${r.at?whenLabel(firstAt(r)):''} 打 ✗：${[n,vx,a,w,rp].filter(Boolean).join('・')||'（沒寫原因）'}`.trim();
+  const rs=r.res&&r.res[id];
+  if(rs) s+=`\n→ ${rs.txt||'已處理'}（${[rs.by,rs.at?whenLabel(rs.at):''].filter(Boolean).join(' ')}）`; else if(r.r&&r.r[id]) s+='\n→ 已處理';
+  return s; }
+const lateTip=L=>`遲：${L.by} ${whenLabel(L.at)} 才點（晚 ${L.m} 分）${L.tk?'・'+tkTxt(L.tk):''}`;
 const itemLate=(CL,it)=>{ const x=CL.find(x=>x.p.v&&x.p.v[it.id]!==undefined); return x?x.L:null; };
 function monthStats(mk){
   const D=dim(mk), now=Date.now(), today=ymd(new Date()), days=[], abn=[], byForm={}, late=[], early=[], tkOk=[], lateSeen=new Set(), wt=wipeT(), missL=[];   // missL＝整班結束都沒點的（每張單每一份一筆）
@@ -2175,8 +2184,9 @@ const card=(id,title,right,body)=>`<details class="card sec"${mOpen[id]?' open':
 function dayDetail(d){
   const cell=(f,k,pp,lab)=>{ const pf=partForm(f,k,pp), r=recOf(d,pf,k), due=(slotEnd(d,k)<=Date.now()&&slotEnd(d,k)>wipeT())||overdue(d,k,Date.now(),pp), L=`${lab}${pp?'·'+esc(pp):''}`;
     if(r){ const b=partBad(pf,r), wv=warnCount(r,pf), hr=holdIds(r,pf,'rep').length, hs=holdIds(r,pf,'ster').length, hi=(hr?'🔧'+hr:'')+(hs?'🧺'+hs:'');
-      const lt=lateInfo(d,k,r);
-      return `<button class="cell ${b?'bad':hi?'hd':wv?'wn':'ok'}" data-act="rec" data-d="${d}" data-f="${f.id}" data-k="${k}" data-p="${esc(pp)}">${L} ${b?'⚠'+b:hi||(wv?'！'+wv:'✓')} ${esc(r.by)}${lt?` <b class="ltg">遲 ${hm(lt.at)}</b>`:''}</button>`; }
+      const lt=lateInfo(d,k,r), tip=pf.kind==='narc'||pf.kind==='temp'?[]:pf.items.filter(it=>r.v[it.id]===0&&!holdOf(r,f.id,it.id)).map(it=>`${it.name}\n${whyTxt(r,it)}`);
+      if(lt) tip.push(lateTip(lt));
+      return `<button class="cell ${b?'bad':hi?'hd':wv?'wn':'ok'}"${tip.length?` title="${esc(tip.join('\n'))}"`:''} data-act="rec" data-d="${d}" data-f="${f.id}" data-k="${k}" data-p="${esc(pp)}">${L} ${b?'⚠'+b:hi||(wv?'！'+wv:'✓')} ${esc(r.by)}${lt?` <b class="ltg">遲 ${hm(lt.at)}</b>`:''}</button>`; }
     return `<span class="cell ${due?'miss':'wait'}">${L} ${due?'未點':'—'}</span>`; };
   return activeForms().filter(f=>!slotsOf(f).includes('M')).map(f=>`<div class="frm"><span class="n">${esc(f.name)}</span>${slotsOf(f).map(k=>partsOf(f,k).map(pp=>cell(f,k,pp,slotLab(f,k))).join('')).join('')}</div>`).join('')+
     activeForms().filter(f=>slotsOf(f).includes('M')).map(f=>{ const L=partsOf(f,'M').filter(pp=>{ const r=recOf(d,partForm(f,'M',pp),'M'); return r&&r._d===d; });
@@ -2195,7 +2205,7 @@ function monthTable(S){
     const r=slotRec(`${S.mk}-01`,f0,'M');
     if(!r) return h+`<div class="mut">${isQ(f0)?'這一季':'這個月'}還沒做</div>`;
     return h+`<div class="tw"><table class="mt"><tr><th class="l">項目</th><th>${dayLabel(r._d)}</th><th class="l">處理情形</th></tr>${f.items.map(it=>{ const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):'', fx=!hk&&v===0&&isFixed(r,it.id), rs=r.res&&r.res[it.id];
-      return `<tr><td class="l">${esc(it.name)}</td><td class="${hk?'hd':fx?'o wf':v===0?'x':v===1?'o':''}">${hk?HOLD_ICO[hk]+(holdLeft(r,it)?`<b>${holdLeft(r,it)}</b>`:''):v===1||fx?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r.n[it.id]||'')}${hk?`（${HOLD_LAB[hk]}${holdLeft(r,it)?`，剩 ${holdLeft(r,it)}`:''}）`:rs?`→ ${esc(rs.txt||'已處理')}（${esc(rs.by||'')}）`:''}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(r.by)}</td><td></td></tr></table></div>`;
+      return `<tr><td class="l">${esc(it.name)}</td><td class="${hk?'hd':fx?'o wf':v===0?'x':v===1?'o':''}"${v===0&&!hk?` title="${esc(whyTxt(r,it))}"`:''}>${hk?HOLD_ICO[hk]+(holdLeft(r,it)?`<b>${holdLeft(r,it)}</b>`:''):v===1||fx?'✓':v===0?'✗':v===2?'Δ':''}</td><td class="l">${esc(r.n[it.id]||'')}${hk?`（${HOLD_LAB[hk]}${holdLeft(r,it)?`，剩 ${holdLeft(r,it)}`:''}）`:rs?`→ ${esc(rs.txt||'已處理')}（${esc(rs.by||'')}）`:''}</td></tr>`; }).join('')}<tr><td class="l">查核者</td><td>${esc(r.by)}</td><td></td></tr></table></div>`;
   }
   if(f.kind==='temp') h+=f.items.map(it=>(f.items.length>1?`<div class="cumh">${esc(it.name)}</div>`:'')+tempSvg(f0,S.mk,it)).join('');
   const SOL=f.kind==='virus'?solMonth(S.mk):null, chgBy={};
@@ -2203,13 +2213,17 @@ function monthTable(S){
     h+=`<div class="soll">${SOL.length?SOL.map(x=>`<div>有效日期：<b>${rocD(x.s)}－${rocD(x.e)}</b>${x.by?`　更換者 ${esc(x.by)}`:''}</div>`).join(''):'<div class="mut">這個月沒有更換紀錄</div>'}</div>`; }
   const cols=[]; for(let i=1;i<=D;i++) ks.forEach(k=>cols.push({d:`${S.mk}-${pad(i)}`,k,i}));
   const recs=cols.map(c=>slotRec(c.d,f0,c.k)), LT=cols.map((c,i)=>colLate(c.d,c.k,recs[i]));
-  const cellOf=(it,r,i)=>{ const h=cellOf0(it,r), L=r&&itemLate(LT[i],it); return L&&h!=='<td></td>'?h.replace('<td class="','<td class="lt '):h; };
+  const cellOf=(it,r,i)=>{ let h=cellOf0(it,r); if(!r||h==='<td></td>') return h;
+    const P=LT[i].find(x=>x.p.v&&x.p.v[it.id]!==undefined), L=P&&P.L, tip=[];
+    if(r.v[it.id]===0&&f.kind!=='narc'&&f.kind!=='temp'&&!/class="hd"/.test(h)) tip.push(whyTxt(P?P.p:r,it));   // 黃底＝打過 ✗ 已處理、紅底＝異常：寫原因與處理
+    if(L){ tip.push(lateTip(L)); h=h.replace('<td class="','<td class="lt '); }   // 橘底＝超過上班 1 小時才點
+    return tip.length?h.replace('<td ',`<td title="${esc(tip.join('\n'))}" `):h; };
   const cellOf0=(it,r)=>{
     if(!r) return '<td></td>';
     if(f.kind==='narc'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.u)}/${esc(x.e)}</td>`; }
     if(f.kind==='temp'){ const x=r.x[it.id]||{}; return `<td class="${r.v[it.id]===0?'x':''}">${esc(x.now)}<br><small>${esc(x.max)}/${esc(x.min)}</small>${x.def?'※':''}</td>`; }
     const v=r.v[it.id], hk=v===0?holdOf(r,f.id,it.id):''; if(hk) return `<td class="hd" title="${HOLD_LAB[hk]}${holdLeft(r,it)?`，剩 ${holdLeft(r,it)}`:''}">${HOLD_ICO[hk]}${holdLeft(r,it)?`<b>${holdLeft(r,it)}</b>`:''}</td>`;
-    const fx=v===0&&isFixed(r,it.id); if(fx) return `<td class="o wf" title="已處理（警示）">${'✓'}</td>`;
+    const fx=v===0&&isFixed(r,it.id); if(fx) return `<td class="o wf">${'✓'}</td>`;
     return `<td class="${v===0?'x':v===1?'o':''}">${v===1?'✓':v===0?(it.t==='n'&&isNum(r.a[it.id])?esc(r.a[it.id]):vnCell(r,it)||'✗'):v===2?'Δ':''}</td>`;
   };
   h+=`<div class="tw"><table class="mt"><tr><th class="l" rowspan="${ks.length>1?2:1}">項目${f.kind==='narc'?'（未用/空瓶）':f.kind==='temp'?'（當時、最高/最低℃）':''}</th><th rowspan="${ks.length>1?2:1}">設定</th>${[...Array(D)].map((_,i)=>`<th colspan="${ks.length}">${i+1}</th>`).join('')}</tr>`;
