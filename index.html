@@ -147,16 +147,16 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .soh{display:inline-block;font-size:12.5px;color:#8a6d00;background:#fff6cc;border-radius:6px;padding:3px 8px;margin:4px 0 2px;line-height:1.45}
 .ir .exp{flex:0 0 auto;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--mut);flex-wrap:wrap}
 .ir .exp b{color:var(--txt);font-weight:600}
-.ir .exp input{font:inherit;font-size:14px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;color:var(--txt);background:#fff}
+.ir .exp input{font:inherit;font-size:16px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;color:var(--txt);background:#fff}
 @media(max-width:620px){ .ir{flex-wrap:wrap} .ir .exp{order:3;flex-basis:100%;margin:2px 0 0} }
 @media(min-width:621px){ .ir .exp .expt{display:inline-block;min-width:118px} }
 .note.nbx{display:flex;gap:10px;align-items:flex-start}.note.nbx .nb{flex:1;min-width:0}
 .e1{display:inline-flex;align-items:center;gap:6px}
-.dt{display:inline-flex;gap:4px;align-items:stretch;vertical-align:middle}
-.dt input[type=text]{width:7.4em;font-variant-numeric:tabular-nums}
+.dt{display:inline-flex;gap:6px;align-items:stretch;vertical-align:middle}
+.dt input[type=text]{width:7.2em;min-height:44px;padding:8px 10px;font-size:17px;font-variant-numeric:tabular-nums}
 .dt input.bad{border-color:var(--bad);background:var(--badbg)}
-.dt .cal{position:relative;flex:0 0 36px;min-height:34px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);display:flex;align-items:center;justify-content:center;overflow:hidden}
-.dt .cal svg{width:19px;height:19px;pointer-events:none}
+.dt .cal{position:relative;flex:0 0 46px;min-height:44px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--navy);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.dt .cal svg{width:22px;height:22px;pointer-events:none}
 .dt .cal input[type=date]{position:absolute;inset:0;width:100%;height:100%;opacity:0;border:0;padding:0;margin:0;min-height:0;font-size:16px;cursor:pointer}
 .dt input:disabled+.cal,.dt .cal:has(input:disabled){opacity:.5}
 .e1 small{color:var(--mut);font-size:12.5px;min-width:6.5em}
@@ -170,7 +170,7 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .expm{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:6px 16px;margin:6px 0 2px;font-size:13px;color:var(--mut)}
 .expm .el{grid-column:1/-1;font-size:12.5px}
 .expm b{color:var(--txt);font-weight:600}
-.expm input{font:inherit;font-size:14px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;color:var(--txt);background:#fff}
+.expm input{font:inherit;font-size:16px;padding:5px 6px;border:1px solid var(--line);border-radius:8px;color:var(--txt);background:#fff}
 .ib .b{width:46px;height:42px;border-radius:10px;border:1.5px solid #cfdade;background:#fff;font-size:20px;line-height:1;cursor:pointer;color:#9aaab0}
 .ib .b.ok.on{background:#2eb872;border-color:#2eb872;color:#fff}
 .ib .b.ng.on{background:#e2574c;border-color:#e2574c;color:#fff}
@@ -238,6 +238,17 @@ details.notes ol{margin:6px 0 0;padding-left:20px}
 .pgt button.on{border-color:var(--navy);box-shadow:inset 0 0 0 1.5px var(--navy);font-weight:700}
 .soakrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #edf1f3}
 .soakrow:last-child{border-bottom:none}
+.stcard .sth{display:flex;align-items:center;gap:8px;margin-bottom:10px}.stcard .sth b{flex:1}
+.stcard .sth .btn.mini{font-size:14px;padding:6px 14px}
+.stc .chip{padding:9px 14px;font-size:15px}
+.stl{margin-top:10px;border-top:1px solid var(--line)}
+.stli{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #edf1f3}
+.stli .n{flex:1;min-width:0;font-weight:600;color:var(--navy-dark)}
+.stcard .stgo{display:block;width:100%;margin-top:12px;font-size:16px;padding:11px 12px;border-radius:10px}
+.secb>.sh2 .btn.mini{font-size:14px;padding:6px 12px}
+.soakrow.stck{cursor:pointer}.soakrow.stck.on{background:#eaf4f6}
+.ckb{flex:0 0 24px;width:24px;height:24px;border:2px solid #9fb6bd;border-radius:6px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:15px;color:#fff;background:#fff}
+.stck.on .ckb{background:var(--navy);border-color:var(--navy)}
 .soakrow .w{flex:1;min-width:0}
 .soakrow .w small{display:block;color:var(--mut);font-size:12.5px}
 .soakrow .min{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -425,7 +436,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.16.0';
+const VERSION='3.17.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1308,30 +1319,48 @@ const fmtExp=v=>String(v||'').replace('T',' ').replace(/-/g,'/');
 const CAL_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>';
 function dateBox(kind,id,i,v,max,dis){
   const k=kind+'|'+id+'|'+i, raw=fvs&&fvs.et&&fvs.et[k], bad=fvs&&fvs.etX&&fvs.etX[k], D=dis?' disabled':'';
-  return `<span class="dt"><input type="text" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="年/月/日" data-in="${kind}" data-dt="1" data-id="${id}" data-i="${i}" value="${esc(raw!=null?raw:fmtExp(v))}"${bad?' class="bad"':''}${D}>`+
+  return `<span class="dt"><input type="text" inputmode="decimal" enterkeyhint="done" autocomplete="off" maxlength="12" placeholder="年/月/日" data-in="${kind}" data-dt="1" data-id="${id}" data-i="${i}" value="${esc(raw!=null?raw:fmtExp(v))}"${bad?' class="bad"':''}${D}>`+
     `<span class="cal">${CAL_SVG}<input type="date" tabindex="-1" aria-label="日曆" data-in="${kind}" data-cal="1" data-id="${id}" data-i="${i}" value="${isD(v)&&!isDT(v)?esc(v):''}"${max?` max="${max}"`:''}${D}></span></span>`;
 }
 function ymdOk(y,m,d){ y=+y; m=+m; d=d==null||d===''?0:+d; if(y<100) y+=2000;
   if(y<1990||y>2099||m<1||m>12) return ''; const last=new Date(y,m,0).getDate(); if(!d) d=last; if(d>last) return '';
   return y+'-'+pad(m)+'-'+pad(d); }
 const rocY=y=>{ y=+y; return y>=100&&y<200?y+1911:y; };   // 民國年
+// 只打月日（12/31、1231）：到期日＝今天起最近的那一天（今年過了就算明年）；開封日＝今天以前最近的那一天
+function mdYear(m,d,kind){ const t=ymd(new Date()), y=+t.slice(0,4), s=ymdOk(y,m,d);
+  if(!s) return ymdOk(kind==='op'?y-1:y+1,m,d)||null;   // 2/29
+  if(kind==='op') return s>t?ymdOk(y-1,m,d)||null:s;
+  return s<t?ymdOk(y+1,m,d)||null:s; }
+// 全形數字、全形斜線、句點都可以（手機中文輸入法常打成全形）
+const fwDate=v=>String(v==null?'':v).replace(/[０-９]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
 // 打的字 → 'YYYY-MM-DD'；空白 → ''；看不懂 → null。strict＝打字中：要打完整（年月日都有）才算
-function parseDateIn(v,strict){
-  const s=String(v||'').trim(); if(!s) return '';
-  let p=s.split(/[^0-9]+/).filter(Boolean);
-  if(p.length===1){ const d=p[0], yl=(d[0]==='1'&&d[1]!=='9')?3:4;
+//   認得：20261231、1151231（民國）、2026/12/31、115.12.31、11512 31（數字中間有空白＝黏起來看）、12/31 或 1231（只打月日）、12/2027（月/西元年＝月底）
+//   kind＝'e' 到期日／'op' 開封日（只打月日時決定是哪一年）
+function parseDateIn(v,strict,kind){
+  const s=fwDate(v).trim(); if(!s) return '';
+  const p=s.split(/[^0-9]+/).filter(Boolean); if(!p.length) return null;
+  const r=dateParts(p,strict,kind);
+  return r===null&&p.length>1?dateParts([p.join('')],strict,kind):r;
+}
+function dateParts(p,strict,kind){
+  if(p.length===1){ const d=p[0];
+    if(d.length===4&&!strict&&+d.slice(0,2)>=1&&+d.slice(0,2)<=12&&+d.slice(2)) return mdYear(+d.slice(0,2),+d.slice(2),kind);   // 1231＝12/31（打字中不算：可能是民國年還沒打完）
+    const yl=(d[0]==='1'&&d[1]!=='9')?3:4;
     if(d.length===yl+4) p=[d.slice(0,yl),d.slice(yl,yl+2),d.slice(yl+2)];
     else if(d.length===yl+2&&!strict) p=[d.slice(0,yl),d.slice(yl)];
     else return null; }
   if(p.length<2||p.length>3) return null;
   if(!strict&&p.length===2&&p[0].length<=2&&p[1].length===4) p=[p[1],p[0]];   // 包裝上常見的「月/西元年」：12/2027＝2027/12（月底）
+  if(!strict&&p.length===2&&p[0].length<=2&&p[1].length<=2&&+p[1]){ const md=mdYear(+p[0],+p[1],kind); if(md) return md; }   // 12/31：只打月日
   if(strict&&(p.length<3||p[2].length<2)) return null;
   if(p[1].length===1&&p.length===2||p.length===3&&(+p[2]===0||p[1].length===2&&p[2].length===1)) return null;   // 沒打完（20251、2028050）不要猜成月底
   return ymdOk(rocY(p[0]),p[1],p[2])||null;
 }
 // 只打數字時自動補「/」：西元 2028/05/03、民國 117/05/03；自己打了別的分隔就不動
+//   打到第 5 個數字才補（1231 可能是只打月日）
 function maskDate(v){
   if(/[^0-9\/]/.test(v)) return v;
+  if(!v.includes('/')&&v.length<=4) return v;
   const d=v.replace(/\//g,''), yl=(d[0]==='1'&&d[1]&&d[1]!=='9')?3:4;
   for(let k=0;k<v.length;k++) if(v[k]==='/'&&k!==yl&&k!==yl+3) return v;
   const x=d.slice(0,yl+4);
@@ -1340,7 +1369,8 @@ function maskDate(v){
   return o;
 }
 let _dtBlur=false;   // 離開日期格時補算（例：只打年月）：重畫後不要再把游標放回去
-function refocus(id,sel){ if(_dtBlur) return; const ne=$('it-'+id), inp=ne&&ne.querySelector(sel); if(!inp) return; inp.focus();
+let _refocusing=false;   // 重畫後把游標放回去：不要整格反白（下面 focusin）
+function refocus(id,sel){ if(_dtBlur) return; const ne=$('it-'+id), inp=ne&&ne.querySelector(sel); if(!inp) return; _refocusing=true; try{ inp.focus(); }finally{ _refocusing=false; }
   if(inp.type==='text'){ const L=inp.value.length; try{ inp.setSelectionRange(L,L); }catch(_){} } }
 function expTag(v){ if(!v) return ''; if(isExpired(v)) return '<span class="tag no">已過期</span>';
   if(isDT(v)){ const h=hoursLeft(v); return h<=EXP_SOON_H?`<span class="tag no">${Math.max(1,Math.ceil(h))} 小時內到期</span>`:h<48?`<span class="tag w">${Math.floor(h)} 小時後到期</span>`:''; }
@@ -1577,10 +1607,13 @@ async function submitForm(){
   if(fvs.hold){ fvs.hold=Math.min(Date.now(),slotEnd(d,k)); const snap=()=>JSON.stringify([dr.v,dr.n,dr.a,dr.rp||{},dr.rw||{}]), b4=snap();
     f.items.forEach(it=>{ syncSter(f,it,dr,fvs.hold); syncRep(f,it,dr,fvs.hold); }); dr.hs=Date.now();
     if(snap()!==b4){ renderForm(); saveDraft(); toast('剛好有東西送消／送修或簽收回來，已自動更新打勾，請看過再按送出'); return; } }
-  const bdk=Object.keys(fvs.etX||{}).concat(Object.keys(fvs.et||{}).filter(x=>parseDateIn(fvs.et[x])===null));
+  // 日期格打了、還沒離開格子就按送出（例：1231、202805 這種要離開格子才算）：先算進去
+  Object.keys(fvs.et||{}).forEach(x=>{ if(fvs.etX&&fvs.etX[x]) return; const [kd,id,i]=x.split('|'), el=document.querySelector(`input[data-dt][data-in="${kd}"][data-id="${id}"][data-i="${i}"]`);
+    if(el&&parseDateIn(fvs.et[x],0,kd)!==null) el.dispatchEvent(new Event('change',{bubbles:true})); });
+  const bdk=Object.keys(fvs.etX||{}).concat(Object.keys(fvs.et||{}).filter(x=>parseDateIn(fvs.et[x],0,x.split('|')[0])===null));
   if(bdk.length){ const id=bdk[0].split('|')[1];
     if(isPaged(f)){ const G=secs(f), gi=G.findIndex(g=>g.items.some(it=>it.id===id)); if(gi>=0&&gi!==fvs.pg){ fvs.pg=gi; renderForm(); } }
-    const el=$('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); toast('有日期看不懂，請打 20280503 或 2028/05/03'); return; }
+    const el=$('it-'+id); if(el) el.scrollIntoView({block:'center',behavior:'smooth'}); toast('有日期看不懂，請打 1151231 或 2026/12/31'); return; }
   const p=progressOf(f,dr);
   if(p.miss.length){
     fvs.showMiss=p.miss;
@@ -1735,23 +1768,33 @@ function sterList(){
   ks.forEach(mk=>{ const o=getAt('ster/'+mk)||{}; Object.keys(o).forEach(id=>{ if(o[id]) out.push(Object.assign({id,mk},o[id])); }); });
   return out.sort((a,b)=>b.outAt-a.outAt);
 }
-let sterForm={item:'',other:'',qty:1,oth:false};
+// 送消可以一次選好幾項（護理師問卷 11/15：「器消的時候可以一次輸入全部的器械」）：sel＝品名→數量；一項還是寫成一筆 ster/<月>/<id>
+let sterForm={sel:{},other:'',othQ:1,oth:false}, sterSel=new Set();   // sterSel＝送消中勾了要一起簽收的
 const STER_EXTRA=['喉頭鏡葉片','V60 面罩 M','V60 面罩 L','Astral 面罩 M','Astral 面罩 L','張口器','托舌鉗 大','托舌鉗 小','大 Kelly'];
 // 送消品名直接對到哪一張單的哪一項（tag＝點班時 ✗ 的理由寫「M 送消」）：面罩要選哪一台，才知道是哪一項（主任 10/17）
 const STER_MAP={'V60 面罩 M':{f:'vent',s:'V60',tag:'M'},'V60 面罩 L':{f:'vent',s:'V60',tag:'L'},'Astral 面罩 M':{f:'vent',s:'Astral',tag:'M'},'Astral 面罩 L':{f:'vent',s:'Astral',tag:'L'}};   // 器械（A）以外也會送消的（主任 10/16 加）
 const sterItems=()=>{ const f=formById('inst'); return [...new Set([...(f?f.items.map(it=>it.name):[]),...STER_EXTRA])]; };
-function openSter(){ fvs={ster:1}; sterForm={item:'',other:'',qty:1,oth:false}; $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSter(); }
+function openSter(){ fvs={ster:1}; sterForm={sel:{},other:'',othQ:1,oth:false}; sterSel=new Set(); $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSter(); }
+// 這次要送出的（照按鈕順序，其他放最後）
+function sterPicked(){ const its=sterItems(), S=sterForm.sel, L=its.filter(n=>S[n]).map(n=>({item:n,qty:Math.max(1,+S[n]||1)}));
+  Object.keys(S).forEach(n=>{ if(S[n]&&!its.includes(n)) L.push({item:n,qty:Math.max(1,+S[n]||1)}); });   // 點班單改名後還選著的
+  if(sterForm.oth) L.push({item:String(sterForm.other||'').trim(),qty:Math.max(1,+sterForm.othQ||1),oth:1});
+  return L; }
 function renderSter(keep){
   const L=sterList(), open=L.filter(x=>!x.inAt), done=L.filter(x=>x.inAt&&Date.now()-x.inAt<3*864e5);
-  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0, its=sterItems();
+  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0, its=sterItems(), S=sterForm.sel, P=sterPicked(), allOn=its.every(n=>S[n]);
+  [...sterSel].forEach(id=>{ if(!open.some(x=>x.id===id)) sterSel.delete(id); });   // 別人已經簽收／取消的
+  const nck=sterSel.size, allCk=open.length&&open.every(x=>sterSel.has(x.id));
   const age=t=>{ const h=Math.floor((Date.now()-t)/3600e3); return h<24?`${h} 小時`:`${Math.floor(h/24)} 天`; };
   let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>送消登記</b></div></div><div class="fb"><div class="in">`;
   // 按錯的補救：送錯了按「取消」（整筆拿掉、留底在 del/）；簽收按錯按「復原」（變回送消中）（主任 10/17）
-  h+=`<div class="card"><b>送出</b><div class="chips" style="margin:8px 0">${its.map(x=>`<button class="chip${!sterForm.oth&&sterForm.item===x?' on':''}" data-act="st-item" data-n="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip${sterForm.oth?' on':''}" data-act="st-item" data-oth="1">其他</button></div>
-    ${sterForm.oth?`<input type="text" placeholder="請寫品名" data-in="st-other" value="${esc(sterForm.other)}" style="width:100%;margin-bottom:8px">`:''}
-    <div class="edrow"><span>數量</span><span class="stp"><button data-act="st-q" data-d="-1">−</button><input type="number" inputmode="numeric" data-in="st-qty" value="${sterForm.qty}"><button data-act="st-q" data-d="1">＋</button></span>
-    <button class="btn" data-act="st-out" style="margin-left:auto">送出（${esc(me())}）</button></div></div>`;
-  h+=`<div class="secb"><div class="sh2"><b>送消中<small>${open.length} 件</small></b></div>${open.length?open.map(x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.outBy)} ${whenLabel(x.outAt)} 送出・已 ${age(x.outAt)}${x.ub?`・${esc(x.ub.by)} 已復原簽收`:''}</small></div><button class="btn mini ghost" data-act="st-cx" data-id="${x.id}">取消</button><button class="btn mini" data-act="st-in" data-id="${x.id}" data-mk="${x.mk}">簽收</button></div>`).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
+  h+=`<div class="card stcard"><div class="sth"><b>送出</b><button class="btn mini ghost" data-act="st-all">${allOn?'全不選':'全選'}</button></div>
+    <div class="chips stc">${its.map(x=>`<button class="chip${S[x]?' on':''}" data-act="st-item" data-n="${esc(x)}">${esc(x)}</button>`).join('')}<button class="chip${sterForm.oth?' on':''}" data-act="st-item" data-oth="1">其他</button></div>
+    ${sterForm.oth?`<input type="text" placeholder="請寫品名" data-in="st-other" value="${esc(sterForm.other)}" style="width:100%;margin-top:8px">`:''}
+    ${P.length?`<div class="stl">${P.map(x=>{ const A=x.oth?'data-oth="1"':`data-n="${esc(x.item)}"`;
+      return `<div class="stli"><span class="n${x.oth?' stoth':''}">${x.oth?(x.item?esc(x.item):'<span class="mut">其他</span>'):esc(x.item)}</span><span class="stp"><button data-act="st-q" ${A} data-d="-1" aria-label="減一">−</button><input type="number" inputmode="numeric" data-in="st-qty" ${A} value="${x.qty}"><button data-act="st-q" ${A} data-d="1" aria-label="加一">＋</button></span></div>`; }).join('')}</div>`:''}
+    <button class="btn stgo" data-act="st-out"${P.length?'':' disabled'}>${P.length>1?`送出 ${P.length} 項`:'送出'}（${esc(me())}）</button></div>`;
+  h+=`<div class="secb"><div class="sh2"><b>送消中<small>${open.length} 件</small></b>${open.length>1?`<button class="btn mini ghost" data-act="st-ckall">${allCk?'全不選':'全選'}</button>`:''}${nck?`<button class="btn mini" data-act="st-inm">簽收 ${nck} 件</button>`:''}</div>${open.length?open.map(x=>`<div class="soakrow stck${sterSel.has(x.id)?' on':''}" data-act="st-ck" data-id="${x.id}"><span class="ckb" aria-hidden="true">${sterSel.has(x.id)?'✓':''}</span><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.outBy)} ${whenLabel(x.outAt)} 送出・已 ${age(x.outAt)}${x.ub?`・${esc(x.ub.by)} 已復原簽收`:''}</small></div><button class="btn mini ghost" data-act="st-cx" data-id="${x.id}">取消</button><button class="btn mini" data-act="st-in" data-id="${x.id}" data-mk="${x.mk}">簽收</button></div>`).join(''):'<div class="soakrow mut">目前沒有</div>'}</div>`;
   h+=`<div class="secb"><div class="sh2"><b>最近三天已簽收<small>${done.length} 件</small></b></div>${done.length?done.map(x=>`<div class="soakrow"><div class="w"><b>${esc(x.item)} ×${esc(x.qty)}</b><small>${esc(x.outBy)} ${whenLabel(x.outAt)} 送出 → ${esc(x.inBy)} ${whenLabel(x.inAt)} 簽收</small></div><button class="btn mini ghost" data-act="st-undo" data-id="${x.id}">復原</button></div>`).join(''):'<div class="soakrow mut">還沒有</div>'}</div>`;
   h+=`</div></div>`;
   $('fv').innerHTML=h;
@@ -2998,12 +3041,24 @@ document.addEventListener('click',async e=>{
   if(a==='pgstep'&&fvs){ fvs.pg=Math.max(0,(fvs.pg||0)+(+ds.d)); renderForm(true); return; }
   if(a==='soak'){ openSoak(); return; }
   if(a==='ster'){ openSter(); return; }
-  if(a==='st-item'){ if(ds.oth){ sterForm.oth=true; sterForm.item=''; } else { sterForm.oth=false; sterForm.item=ds.n; } renderSter(true); if(ds.oth){ const i=document.querySelector('input[data-in=st-other]'); if(i) i.focus(); } return; }
-  if(a==='st-q'){ sterForm.qty=Math.max(1,(+sterForm.qty||1)+(+ds.d)); renderSter(true); return; }
-  if(a==='st-out'){ const item=sterForm.oth?(sterForm.other||'').trim():sterForm.item; if(!item){ toast(sterForm.oth?'請寫品名':'請選要送消的物品'); return; }
-    const now=Date.now(), id=now.toString(36)+Math.random().toString(36).slice(2,5);
-    if(!confirm(`確定登記送消？\n${item} ×${+sterForm.qty||1}\n送出人：${me()}`)) return;
-    write('PUT',`ster/${mkey(ymd(new Date()))}/${id}`,{item,qty:+sterForm.qty||1,outBy:me(),outAt:now,outDev:dev}); sterForm={item:'',other:'',qty:1,oth:false}; renderSter(true); toast('已登記送消'); return; }
+  if(a==='st-item'){ const S=sterForm.sel; if(ds.oth) sterForm.oth=!sterForm.oth; else if(S[ds.n]) delete S[ds.n]; else S[ds.n]=1;
+    renderSter(true); if(ds.oth&&sterForm.oth){ const i=document.querySelector('input[data-in=st-other]'); if(i) i.focus(); } return; }
+  if(a==='st-all'){ const its=sterItems(), S=sterForm.sel; if(its.every(n=>S[n])){ sterForm.sel={}; sterForm.oth=false; } else its.forEach(n=>{ if(!S[n]) S[n]=1; }); renderSter(true); return; }
+  if(a==='st-q'){ if(ds.oth) sterForm.othQ=Math.max(1,(+sterForm.othQ||1)+(+ds.d)); else if(sterForm.sel[ds.n]) sterForm.sel[ds.n]=Math.max(1,(+sterForm.sel[ds.n]||1)+(+ds.d)); renderSter(true); return; }
+  if(a==='st-out'){ const P=sterPicked(); if(!P.length){ toast('請選要送消的物品'); return; }
+    if(P.some(x=>x.oth&&!x.item)){ toast('請寫品名'); const i=document.querySelector('input[data-in=st-other]'); if(i) i.focus(); return; }
+    if(!confirm(`確定登記送消${P.length>1?`？共 ${P.length} 項`:'？'}\n${P.map(x=>`・${x.item} ×${x.qty}`).join('\n')}\n送出人：${me()}`)) return;
+    const now=Date.now(), mk=mkey(ymd(new Date())), rnd=Math.random().toString(36).slice(2,5);
+    P.forEach((x,i)=>{ const id=now.toString(36)+rnd+(P.length>1?String(i).padStart(2,'0'):'');   // 一次送好幾項＝每項一筆（同一個送出時間）
+      write('PUT',`ster/${mk}/${id}`,{item:x.item,qty:x.qty,outBy:me(),outAt:now,outDev:dev}); });
+    sterForm={sel:{},other:'',othQ:1,oth:false}; renderSter(true); toast(P.length>1?`已登記送消 ${P.length} 項`:'已登記送消'); return; }
+  if(a==='st-ck'){ if(sterSel.has(ds.id)) sterSel.delete(ds.id); else sterSel.add(ds.id); renderSter(true); return; }
+  if(a==='st-ckall'){ const O=sterList().filter(y=>!y.inAt); if(O.length&&O.every(y=>sterSel.has(y.id))) sterSel.clear(); else O.forEach(y=>sterSel.add(y.id)); renderSter(true); return; }
+  if(a==='st-inm'){ const X=sterList().filter(y=>!y.inAt&&sterSel.has(y.id)); if(!X.length){ sterSel.clear(); renderSter(true); return; }
+    if(!confirm(`確定簽收${X.length>1?`？共 ${X.length} 件`:'？'}\n${X.map(x=>`・${x.item} ×${x.qty}（${x.outBy} ${whenLabel(x.outAt)} 送出）`).join('\n')}\n簽收人：${me()}`)) return;
+    // 一件一件簽（跟一次簽一件一樣）：同一項有好幾件的，最後一件簽收時才把點班的「送消中」改 ✓
+    const now=Date.now(); let n=0; X.forEach(x=>{ const bk=sterBack(x); n+=bk.length; write('PATCH',`ster/${x.mk}/${x.id}`,{inBy:me(),inAt:now,inDev:dev,bk:bk.length?bk:null}); });
+    sterSel.clear(); renderSter(true); toast(`已簽收 ${X.length} 件${n?`；${n} 筆點班的「送消中」改成 ✓`:''}`); return; }
   if(a==='st-in'){ const x=sterList().find(y=>y.id===ds.id);
     if(!confirm(`確定簽收？\n${x?`${x.item} ×${x.qty}（${x.outBy} ${whenLabel(x.outAt)} 送出）`:''}\n簽收人：${me()}`)) return;
     const bk=x?sterBack(x):[]; write('PATCH',`ster/${ds.mk}/${ds.id}`,{inBy:me(),inAt:Date.now(),inDev:dev,bk:bk.length?bk:null}); renderSter(true); toast(bk.length?`已簽收；${bk.length} 筆點班的「送消中」改成 ✓`:'已簽收'); return; }
@@ -3170,7 +3225,7 @@ document.addEventListener('input',e=>{
   if(ds.in&&fvs&&fvs.f){   // 點班單畫面的輸入（泡消、送消、待補畫面沒有 fvs.f）
     const dr=fvs.dr; let val=t.value;
     if((ds.in==='e'||ds.in==='op')&&(ds.dt||ds.cal)){ const k=ds.in+'|'+ds.id+'|'+ds.i; if(!fvs.et) fvs.et={}; if(!fvs.etX) fvs.etX={};
-      if(ds.dt){ const m=maskDate(t.value); if(m!==t.value) t.value=m; let p=parseDateIn(m,1); if(p&&ds.in==='op'&&p>ymd(new Date())) p=null;   // 開封日不能晚於今天
+      if(ds.dt){ const m=maskDate(t.value); if(m!==t.value) t.value=m; let p=parseDateIn(m,1,ds.in); if(p&&ds.in==='op'&&p>ymd(new Date())) p=null;   // 開封日不能晚於今天
         if(p===null){ fvs.et[k]=m; return; }   // 還沒打完：先記著，不改紀錄
         delete fvs.et[k]; if(fvs.etX[k]){ delete fvs.etX[k]; t.classList.remove('bad'); } val=p; }
       else { delete fvs.et[k]; delete fvs.etX[k]; const tx=t.closest('.dt')&&t.closest('.dt').querySelector('input[data-dt]'); if(tx){ tx.value=fmtExp(val); tx.classList.remove('bad'); } } }
@@ -3224,8 +3279,8 @@ document.addEventListener('input',e=>{
   if(ds.in==='sk-time'){ soakForm.time=t.value; return; }
   if(ds.in==='sk-otime'){ soakOut[ds.id]=t.value; return; }
   if(ds.in==='sk-qty'){ soakForm.qty=Math.max(1,+t.value||1); return; }
-  if(ds.in==='st-other'){ sterForm.other=t.value; return; }
-  if(ds.in==='st-qty'){ sterForm.qty=Math.max(1,+t.value||1); return; }
+  if(ds.in==='st-other'){ sterForm.other=t.value; const o=document.querySelector('#fv .stoth'); if(o) o.innerHTML=t.value.trim()?esc(t.value.trim()):'<span class="mut">其他</span>'; return; }
+  if(ds.in==='st-qty'){ const q=Math.max(1,+t.value||1); if(ds.oth) sterForm.othQ=q; else if(sterForm.sel[ds.n]) sterForm.sel[ds.n]=q; return; }
   // 管理頁：點班單內容編輯
   if(ds.ed&&edF){ const f=edF.find(x=>x.id===edSel);
     if(ds.ed==='on') f.on=t.checked?undefined:false;
@@ -3248,11 +3303,15 @@ document.addEventListener('input',e=>{
   if(ds.eds!=null&&edF){ const f=edF.find(x=>x.id===edSel); f.items.forEach(it=>{ if(it.s===ds.eds) it.s=t.value; }); t.dataset.eds=t.value; markDirty(); return; }
 });
 document.addEventListener('click',e=>{ const c=e.target.closest&&e.target.closest('input[data-cal]'); if(c&&c.showPicker&&!c.disabled){ try{ c.showPicker(); }catch(x){} } },true);
+// 點進日期格：舊日期整格反白，直接打新的就蓋掉（器械換新後改到期日，不用先一個一個刪）
+document.addEventListener('focusin',e=>{ const t=e.target; if(_refocusing||!t||!t.dataset||!t.dataset.dt||t.disabled||!t.value) return;
+  const sel=()=>{ if(document.activeElement===t) try{ t.setSelectionRange(0,t.value.length); }catch(_){} }, h=ev=>{ ev.preventDefault(); sel(); };
+  t.addEventListener('mouseup',h,{once:true}); setTimeout(()=>t.removeEventListener('mouseup',h),600); setTimeout(sel,0); });
 document.addEventListener('change',e=>{
   const t=e.target;
   if(t.dataset.dt&&fvs&&fvs.f&&(t.dataset.in==='e'||t.dataset.in==='op')){ const ds=t.dataset, k=ds.in+'|'+ds.id+'|'+ds.i; if(!fvs.et) fvs.et={}; if(!fvs.etX) fvs.etX={};
-    let p=parseDateIn(t.value); const late=p&&ds.in==='op'&&p>ymd(new Date());
-    if(p===null||late){ fvs.et[k]=t.value; fvs.etX[k]=1; t.classList.add('bad'); toast(late?'開封日不能晚於今天':'看不懂這個日期，請打 20280503 或 2028/05/03'); return; }
+    let p=parseDateIn(t.value,0,ds.in); const late=p&&ds.in==='op'&&p>ymd(new Date());
+    if(p===null||late){ fvs.et[k]=t.value; fvs.etX[k]=1; t.classList.add('bad'); toast(late?'開封日不能晚於今天':'看不懂這個日期，請打 1151231 或 2026/12/31'); return; }
     t.value=fmtExp(p); _dtBlur=true; try{ t.dispatchEvent(new Event('input',{bubbles:true})); }finally{ _dtBlur=false; } return; }
   if(t.id==='pk-date'&&t.value){ setView({d:t.value,s:view.s},false); return; }
   if(t.id==='pr-title'){ const v=t.value.trim(); if(v!==printTitle()){ write('PUT','cfg/printTitle',v||null); toast('表頭已存'); } return; }
