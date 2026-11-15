@@ -50,10 +50,13 @@ header.top .wrap{display:flex;align-items:center;gap:10px}
 body.mg header.top{display:none}
 html:has(body.mg),body.mg{background:transparent}
 body.mg main.wrap{max-width:1100px;padding-top:10px}
-.mg .tiles{grid-template-columns:repeat(7,1fr)}
-@media (max-width:980px){.mg .tiles{grid-template-columns:repeat(4,1fr)}}
-@media (max-width:760px){.mg .tiles{grid-template-columns:repeat(3,1fr)}}
+.mg .tiles{grid-template-columns:repeat(4,1fr)}
 @media (max-width:420px){.mg .tiles{grid-template-columns:repeat(2,1fr)}}
+.pbar{height:8px;border-radius:5px;background:#e8eff1;overflow:hidden;margin:5px 0 2px}
+.pbar span{display:block;height:100%;background:var(--ok)}
+.urow .ubt{display:flex;gap:6px;flex-shrink:0}
+.achk{padding:10px 0 4px;text-align:right}
+.it .ck{color:var(--ok);font-weight:800;margin-right:6px}
 .mrow{border-top:1px solid #e8eff1;padding:8px 2px}
 .mrow:first-child{border-top:none}
 .mrow .h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
@@ -260,7 +263,9 @@ body.emb header.top{display:none}
 (function(){ let bad=location.protocol==='file:';
   try{ if(window.parent!==window&&window.parent.__mockLog&&!window.__mockLog) bad=true; }catch(e){}
   if(bad){ document.addEventListener('DOMContentLoaded',()=>{ document.body.textContent='請從急診點班打開'; }); throw new Error('stop'); } })();
-const VERSION='0.8.0';
+const VERSION='0.9.0';
+// 掃描程式（iPhone 用；Android Chrome 有內建就不載入）：放在自己網站的 lib/，載不到才用外面的
+const LIB_LOCAL='lib/barcode-detector-3.2.2.js', LIB_WASM='lib/zxing_reader-3.1.3.wasm';
 const LIB_URL='https://cdn.jsdelivr.net/npm/barcode-detector@3.2.2/dist/iife/ponyfill.js';
 const AREAS=['急救車・桌面','急救車・第二層抽屜','急救車・第三層抽屜（小兒急救用品組）','急救車・第四層抽屜','急救車・側面'];
 const DEF_ITEMS=[{"id":"c01","s":"急救車・桌面","name":"Ambu Bag＋Mask＋O2 雙接管（床頭處）","q":"1"},{"id":"c02a","p":"c02","s":"急救車・桌面","name":"Endo Tube","sz":"7.0 號","q":"1"},{"id":"c02b","p":"c02","s":"急救車・桌面","name":"Endo Tube","sz":"7.5 號","q":"1"},{"id":"c03a","p":"c03","s":"急救車・桌面","name":"喉頭鏡柄＋葉片（亮度正常）","sz":"3.0","q":"2","ne":1},{"id":"c03b","p":"c03","s":"急救車・桌面","name":"喉頭鏡柄＋葉片（亮度正常）","sz":"4.0","q":"2","ne":1},{"id":"c04a","p":"c04","s":"急救車・桌面","name":"Bite","sz":"大","q":"1"},{"id":"c04b","p":"c04","s":"急救車・桌面","name":"Oral Airway","sz":"80mm","q":"1"},{"id":"c04c","p":"c04","s":"急救車・桌面","name":"Oral Airway","sz":"90mm","q":"1"},{"id":"c04d","p":"c04","s":"急救車・桌面","name":"Oral Airway","sz":"100mm","q":"1"},{"id":"c05a","p":"c05","s":"急救車・桌面","name":"通條","q":"1"},{"id":"c05b","p":"c05","s":"急救車・桌面","name":"10cc 空針","q":"1"},{"id":"c06","s":"急救車・桌面","name":"Endo 固定帶","q":"4"},{"id":"c07a","p":"c07","s":"急救車・桌面","name":"Jelly","q":"1"},{"id":"c07b","p":"c07","s":"急救車・桌面","name":"筆燈","q":"1","ne":1},{"id":"c07c","p":"c07","s":"急救車・桌面","name":"瞳孔尺","q":"1","ne":1},{"id":"c08a","p":"c08","s":"急救車・桌面","name":"無菌手套","sz":"6.5 號","q":"1"},{"id":"c08b","p":"c08","s":"急救車・桌面","name":"無菌手套","sz":"7.0 號","q":"1"},{"id":"c08c","p":"c08","s":"急救車・桌面","name":"無菌手套","sz":"7.5 號","q":"1"},{"id":"c09","s":"急救車・桌面","name":"EMMA-ETCO2","q":"1","ne":1},{"id":"c10a","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"2 號","q":"4"},{"id":"c10b","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"3 號","q":"4"},{"id":"c10c","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"4 號","q":"4"},{"id":"c10d","p":"c10","s":"急救車・桌面","name":"備用電池","sz":"9V","q":"4"},{"id":"c11","s":"急救車・桌面","name":"張口器（鐵製）","q":"1","ne":1},{"id":"c12a","p":"c12","s":"急救車・桌面","name":"托舌鉗","sz":"大","q":"1","ne":1},{"id":"c12b","p":"c12","s":"急救車・桌面","name":"托舌鉗","sz":"小","q":"1","ne":1},{"id":"c13","s":"急救車・桌面","name":"大 Kelly（彎）","q":"1","ne":1},{"id":"c14","s":"急救車・桌面","name":"感染垃圾袋（放急救盤下）","q":"1","ne":1},{"id":"c35","s":"急救車・第二層抽屜","name":"Bite 大","q":"3"},{"id":"c36","s":"急救車・第二層抽屜","name":"心肌長針","q":"3"},{"id":"c37a","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"6.0","q":"1"},{"id":"c37b","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"6.5","q":"1"},{"id":"c37c","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"7.0","q":"1"},{"id":"c37d","p":"c37","s":"急救車・第二層抽屜","name":"Nasal Airway","sz":"7.5","q":"1"},{"id":"c38a","p":"c38","s":"急救車・第二層抽屜","name":"Oral Airway","sz":"80mm","q":"2"},{"id":"c38b","p":"c38","s":"急救車・第二層抽屜","name":"Oral Airway","sz":"90mm","q":"2"},{"id":"c38c","p":"c38","s":"急救車・第二層抽屜","name":"Oral Airway","sz":"100mm","q":"2"},{"id":"c39a","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"6.0 號","q":"2"},{"id":"c39b","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"6.5 號","q":"2"},{"id":"c39c","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"7.0 號","q":"2"},{"id":"c39d","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"7.5 號","q":"2"},{"id":"c39e","p":"c39","s":"急救車・第二層抽屜","name":"Endo Tube","sz":"8.0 號","q":"2"},{"id":"c40","s":"急救車・第二層抽屜","name":"硬式抽吸管 大","q":"1"},{"id":"c41","s":"急救車・第二層抽屜","name":"通條","q":"2"},{"id":"c42","s":"急救車・第三層抽屜（小兒急救用品組）","name":"葉片可與成人喉頭鏡柄卡榫密合","q":"1","ne":1},{"id":"c43","s":"急救車・第三層抽屜（小兒急救用品組）","name":"直－喉頭鏡葉片 0#（亮度正常）","q":"1","ne":1},{"id":"c44","s":"急救車・第三層抽屜（小兒急救用品組）","name":"直－喉頭鏡葉片 1#（亮度正常）","q":"1","ne":1},{"id":"c45","s":"急救車・第三層抽屜（小兒急救用品組）","name":"彎－喉頭鏡葉片 0#（亮度正常）","q":"1","ne":1},{"id":"c46","s":"急救車・第三層抽屜（小兒急救用品組）","name":"彎－喉頭鏡葉片 1#（亮度正常）","q":"1","ne":1},{"id":"c47","s":"急救車・第三層抽屜（小兒急救用品組）","name":"彎－喉頭鏡葉片 2#（亮度正常）","q":"2","ne":1},{"id":"c48","s":"急救車・第三層抽屜（小兒急救用品組）","name":"喉頭鏡葉片 3#（亮度正常）","q":"1","ne":1},{"id":"c49a","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"40mm","q":"1"},{"id":"c49b","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"50mm","q":"1"},{"id":"c49c","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"60mm","q":"1"},{"id":"c49d","p":"c49","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Oral Airway","sz":"70mm","q":"1"},{"id":"c50","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Bite 小","q":"2"},{"id":"c51","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒急救尺","q":"1","ne":1},{"id":"c52","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒 Ambu Bag＋Mask＋O2 雙接管","q":"1"},{"id":"c53a","p":"c53","s":"急救車・第三層抽屜（小兒急救用品組）","name":"LMA","sz":"1.5","q":"1"},{"id":"c53b","p":"c53","s":"急救車・第三層抽屜（小兒急救用品組）","name":"LMA","sz":"2.0","q":"1"},{"id":"c54a","p":"c54","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"4.5 號（有 cuff）","q":"1"},{"id":"c54b","p":"c54","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"5.0 號（有 cuff）","q":"1"},{"id":"c54c","p":"c54","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"5.5 號（有 cuff）","q":"1"},{"id":"c55a","p":"c55","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"3.0 號（無 cuff）","q":"1"},{"id":"c55b","p":"c55","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"3.5 號（無 cuff）","q":"1"},{"id":"c55c","p":"c55","s":"急救車・第三層抽屜（小兒急救用品組）","name":"Endo Tube","sz":"4.0 號（無 cuff）","q":"1"},{"id":"c56a","p":"c56","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒胃管","sz":"10 號","q":"1"},{"id":"c56b","p":"c56","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒胃管","sz":"12 號","q":"1"},{"id":"c57","s":"急救車・第三層抽屜（小兒急救用品組）","name":"硬式抽吸管 小","q":"1"},{"id":"c58","s":"急救車・第三層抽屜（小兒急救用品組）","name":"小兒通條","q":"2"},{"id":"c59","s":"急救車・第四層抽屜","name":"電子喉頭鏡","q":"1","ne":1},{"id":"c60","s":"急救車・第四層抽屜","name":"電子喉頭鏡鏡葉","q":"3"},{"id":"c61","s":"急救車・第四層抽屜","name":"電動骨針電鑽","q":"1","ne":1},{"id":"c62","s":"急救車・第四層抽屜","name":"骨針 45mm","q":"2"},{"id":"c63","s":"急救車・第四層抽屜","name":"骨針 25mm","q":"2"},{"id":"c64","s":"急救車・第四層抽屜","name":"骨針 15mm","q":"1"},{"id":"c65a","p":"c65","s":"急救車・第四層抽屜","name":"LMA","sz":"3.0","q":"1"},{"id":"c65b","p":"c65","s":"急救車・第四層抽屜","name":"LMA","sz":"4.0","q":"1"},{"id":"c66","s":"急救車・第四層抽屜","name":"防護裝備","q":"1組"},{"id":"c67","s":"急救車・側面","name":"聽診器（右邊）","q":"2","ne":1},{"id":"c68","s":"急救車・側面","name":"急救板（急救車背面）","q":"1","ne":1},{"id":"c69","s":"急救車・側面","name":"N95 口罩","q":"5"},{"id":"c70a","p":"c70","s":"急救車・側面","name":"i-Bougie（橘色）","q":"2"},{"id":"c70b","p":"c70","s":"急救車・側面","name":"S-guide（透明黃）","q":"2"},{"id":"c71","s":"急救車・側面","name":"小兒血氧線","q":"1","ne":1},{"id":"c72","s":"急救車・側面","name":"小兒壓脈帶","q":"1","ne":1}];   // 急救車裡的衛材（藥品 2026-11-09 起不列；v0.4.0 起每個尺寸一項）
@@ -277,12 +282,15 @@ const SPLIT_FROM={"c02":"Endo 7.0／7.5 Fr","c03":"喉頭鏡柄＋葉片 3.0／4
      use/<月>/<id>  = {i,nm,s,d:日期,k:班別,u:使用的護理師,p:病歷號末3碼,n,tk:[{m,e,l,n}]扣了哪一批,short,by,at,dev}  高貴衛材使用登記
      udel/<月>/<id> = 同上＋cx:{by,at,dev}                               取消的使用登記（留底）
      log/<id>       = {t, i, x, dev}                                     異動紀錄
+     chk/<月>/<品項> = {at,by,dev}                                        那個月最後一次點班（儲存或按「數量正確」）
+     sum            = {e:'最早效期,…', low, at, dev, by}                   給點班首頁／管理頁分頁顯示過期、不足幾項（有人打開衛材點班就更新）
    erShiftCheckData/cfg/supAcc = [名字…]                                 誰可以進衛材點班（管理頁勾選；真名只放雲端） */
 const FB_DB='https://tenchener-488d2-default-rtdb.firebaseio.com', NODE='erCrashCartData';
 const STAFF_NODE='erShiftCheckData', SCHED_NODE='erNurseScheduleData';   // 名單、4 位數密碼跟急診點班共用（名單唯讀；密碼雜湊在點班的 auth/）
 const QS=new URLSearchParams(location.search);
 const MANAGE=!!window.MANAGE||QS.has('mg');   // 後台（嵌在急診點班管理頁）：不用登入；可以新增品項、改高貴衛材品項、衛材點班權限
 const MODE=QS.get('m')==='use'?'use':'inv';
+const BG=QS.get('m')==='bg';   // 點班首頁在背景開的（看不到）：只把這支手機還沒上傳的補傳上去
 const EMBED=(()=>{ try{ return !MANAGE&&window.parent!==window&&window.parent.location.origin===location.origin; }catch(e){ return false; } })();
 const FB_API_KEY='AIzaSyB6w2D8gaqSBHoDmtWsWGWGY-DQtDEcyFY';   // Firebase Web API key：本來就設計成公開內嵌，不是密碼
 const LS={cache:'erCart_cache',out:'erCart_out',rt:'erCart_rt',dev:'erCart_dev',old:'erCart_data',mig:'erCart_mig'};
@@ -318,7 +326,7 @@ async function fb(method,path,body,q,base){
     const msg=await r.text().catch(()=>'');
     if((r.status===401||r.status===403)&&i===0&&/expired|invalid|token/i.test(msg)) continue;   // 憑證過期：重拿一次
     if(r.status===401||r.status===403) throw Object.assign(new Error('雲端規則尚未開放'),{kind:'denied'});
-    throw new Error('雲端回應 HTTP '+r.status);
+    throw Object.assign(new Error('雲端回應 HTTP '+r.status),{status:r.status});
   }
 }
 // 這支手機上的雲端副本＋還沒上傳成功的寫入（沒網路、雲端還沒開通都能用，連上後自動補傳）
@@ -332,6 +340,12 @@ function setAt(path,val){
   if(val==null) delete o[ks[ks.length-1]]; else o[ks[ks.length-1]]=val;
 }
 const encKey=k=>String(k).replace(/[%.#$\[\]\/\x00-\x1f\x7f]/g,c=>'%'+c.charCodeAt(0).toString(16).toUpperCase().padStart(2,'0'));
+// 條碼在雲端的位置：太長的（一大段文字的 QR Code）雲端不收，改用雜湊（內容照樣存在 k）
+function codeKey(k){
+  const e=encKey(k); if(new TextEncoder().encode(e).length<=600) return e;
+  let a=0x811c9dc5, b=5381; for(const ch of String(k)){ const c=ch.codePointAt(0); a=Math.imul(a^c,16777619)>>>0; b=(Math.imul(b,33)+c)>>>0; }
+  return 'h'+a.toString(36)+b.toString(36)+'_'+String(k).length;
+}
 async function pull(path,q){
   try{
     const v=await fb('GET',path,undefined,q);
@@ -341,33 +355,93 @@ async function pull(path,q){
     return true;
   }catch(e){ cloud.st=e.kind==='denied'?'denied':'off'; return false; }
 }
-function write(path,body){
-  if(MANAGE) return;
+// meta（只有數量 stock/ 用）：base＝改之前雲端那一版的時間；dl＝這次是「扣掉／加回」哪幾個（高貴衛材使用、取消）
+// 沒網路時存的，補傳前會先看雲端：中間別人改過 → 扣掉／加回的照樣扣在最新的數量上；自己點的數量以比較晚改的為準
+let _inflight=null;   // 正在上傳的那一筆（上傳中又改同一個位置：那一筆留著，新的排在後面）
+const newOp=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function write(path,body,meta){
+  if(MANAGE||BG) return;
   setAt(path,body);
-  outbox=outbox.filter(o=>o.p!==path);   // 同一個位置改了又改只留最後一筆
-  outbox.push({p:path,b:body==null?null:body,t:Date.now()}); lsSet(LS.out,outbox); lsSet(LS.cache,db);
+  const prev=outbox.find(o=>o.p===path&&o!==_inflight);
+  outbox=outbox.filter(o=>o.p!==path||o===_inflight);   // 同一個位置改了又改只留最後一筆
+  const o={p:path,b:body==null?null:body,t:Date.now()};
+  if(meta&&body){
+    o.base=prev&&prev.base!==undefined?prev.base:(meta.base||0);
+    o.dl=meta.dl&&(!prev||prev.dl)?(prev?prev.dl:[]).concat(meta.dl):undefined;
+    body.op=newOp();
+  }
+  outbox.push(o); lsSet(LS.out,outbox); lsSet(LS.cache,db);
   derive();
+  if(!/^(sum|log)\//.test(path+'/')) sumSoon();
 }
-let _flushing=false;
+// 扣掉／加回：d.n 負的＝扣（同效期同批號先扣，不夠再從最早到期的扣）、正的＝加回
+function applyDelta(cur,dl){
+  const rows=toArr(cur&&cur.r).map(r=>({m:r.m||'',e:r.e||'',l:r.l||'',n:+r.n||0}));
+  (dl||[]).forEach(d=>{ let n=+d.n||0;
+    if(n>0){ const r=rows.find(r=>r.e===(d.e||'')&&r.l===(d.l||'')); if(r) r.n+=n; else rows.push({m:d.m||'',e:d.e||'',l:d.l||'',n}); return; }
+    n=-n; const ord=rows.map((r,i)=>i).filter(i=>rows[i].n>0).sort((a,b)=>{ const A=rows[a],B=rows[b],ma=A.e===(d.e||'')&&A.l===(d.l||'')?0:1,mb=B.e===(d.e||'')&&B.l===(d.l||'')?0:1;
+      return ma-mb||((A.e||'9999')<(B.e||'9999')?-1:(A.e||'9999')>(B.e||'9999')?1:0); });
+    ord.forEach(i=>{ if(!n) return; const k=Math.min(n,rows[i].n); rows[i].n-=k; n-=k; }); });
+  return rows.filter(r=>r.n>0).sort((a,b)=>(a.e||'9')<(b.e||'9')?-1:(a.e||'9')>(b.e||'9')?1:0);
+}
+async function sendOne(o){
+  if(o.base===undefined||o.b==null) return fb(o.b==null?'DELETE':'PUT',o.p,o.b==null?undefined:o.b);
+  const cur=await fb('GET',o.p), cat=(cur&&cur.at)||0;
+  if(cur&&cur.op&&cur.op===o.b.op) return;          // 上次其實已經傳上去了（只是沒收到回應）
+  if(cat===o.base||(cur&&cur.dev===DEV&&!o.dl)) return fb('PUT',o.p,o.b);
+  // 中間別人改過這一項
+  if(o.dl){ const b={r:applyDelta(cur,o.dl),at:Date.now(),dev:DEV,by:o.b.by||ME,op:o.b.op}; await fb('PUT',o.p,b); if(!outbox.some(x=>x!==o&&x.p===o.p)) setAt(o.p,b); return; }
+  if(cat>(o.b.at||0)){   // 別人比較晚點：以雲端為準，這支手機離線時存的不蓋過去（記在異動紀錄）
+    const id=o.p.split('/')[1], t=Date.now(), k=t.toString(36)+Math.random().toString(36).slice(2,6);
+    const v={t,i:id,x:'沒有上傳：'+fmtT(o.b.at||o.t)+' 沒網路時存的數量（'+(cur.by||'別台手機')+' '+fmtT(cat)+' 之後又點過，以後面的為準）',dev:DEV,by:o.b.by||ME};
+    await fb('PUT','log/'+k,v); setAt('log/'+k,v);
+    if(!outbox.some(x=>x!==o&&x.p===o.p)) setAt(o.p,cur);
+    _lost++; return;
+  }
+  return fb('PUT',o.p,o.b);
+}
+let _flushing=false, _lost=0;
 async function flush(fromWrite){
-  if(_flushing||!outbox.length) return; _flushing=true;
+  if(_flushing||!outbox.length) return; _flushing=true; _lost=0;
   try{
-    while(outbox.length){ const o=outbox[0]; await fb(o.b==null?'DELETE':'PUT',o.p,o.b==null?undefined:o.b); outbox.shift(); lsSet(LS.out,outbox); }
+    while(outbox.length){
+      const o=outbox[0]; _inflight=o;
+      try{ await sendOne(o); }
+      catch(e){ if(e.status!==400&&e.status!==413) throw e; badKeep(o); }   // 雲端不收的那一筆（格式不對）：另外存起來，不要卡住後面的
+      _inflight=null;
+      const i=outbox.indexOf(o); if(i>=0) outbox.splice(i,1);   // 用「這一筆」刪（上傳中又改了同一個位置，新的那筆要留著）
+      lsSet(LS.out,outbox);
+    }
     cloud.st='ok'; cloud.at=Date.now();
+    if(_lost){ derive(); toast(_lost+' 筆沒網路時存的數量，別人之後又點過，以後面的為準'); }
   }catch(e){
     cloud.st=e.kind==='denied'?'denied':'off';
     if(fromWrite) toast(cloud.st==='denied'?'雲端還沒開通，先存在這支手機':'沒有網路，先存在這支手機，連上後自動上傳');
-  }finally{ _flushing=false; if(!typing()) render(); }
+  }finally{ _inflight=null; _flushing=false; lsSet(LS.cache,db); if(BG) bgReport(); else if(!typing()) render(); }
 }
+function badKeep(o){ const B=lsGet('erCart_bad',[]); B.push(Object.assign({},o,{err:Date.now()})); lsSet('erCart_bad',B.slice(-50)); toast('有 1 筆雲端不收（已另外存在這支手機）'); }
+// 點班首頁在背景開的：傳完就告訴點班可以關掉了
+function bgReport(){ try{ if(window.parent!==window) window.parent.postMessage({supbg:1,left:outbox.length},'*'); }catch(e){} }
 async function pullAll(){
   if(document.hidden) return;
+  if(BG){ await flush(); return; }
   const mk=todayStr().slice(0,7), pm=prevMk(mk);
   const r=await Promise.all([pull('items'),pull('stock'),pull('codes'),pull('ne'),pull('log','&orderBy=%22%24key%22&limitToLast='+(MANAGE?2000:200)),pull('hv'),
-    ...(MANAGE?[pull('use'),pull('udel')]:[pull('use/'+mk),pull('use/'+pm)])]);
+    ...(MANAGE?[pull('use'),pull('udel'),pull('chk')]:[pull('use/'+mk),pull('use/'+pm),pull('chk/'+mk),pull('chk/'+pm),pull('sum')])]);
   if(r.slice(0,5).every(Boolean)) migrateOld();
   derive();
+  if(r.every(Boolean)) sumSync();
   if(outbox.length) await flush(); else if(!typing()) render();
 }
+// 給點班首頁／管理頁分頁看的摘要：每一項最早的效期（到時候再算過期幾項）＋數量不足幾項
+function sumCalc(){ const e=[]; let low=0; DB.items.forEach(it=>{ const st=stat(it); if(st.first) e.push(st.first); if(st.low) low++; }); return {e:e.sort().join(','),low}; }
+function sumSync(){
+  if(MANAGE||BG||!ME||cloud.st!=='ok') return;
+  const s=sumCalc(), c=getAt('sum')||{};
+  if(c.e===s.e&&c.low===s.low) return;
+  write('sum',Object.assign(s,{at:Date.now(),dev:DEV,by:ME})); flush();
+}
+let _sumT=0; function sumSoon(){ clearTimeout(_sumT); _sumT=setTimeout(sumSync,1500); }
 const typing=()=>{ const a=document.activeElement; return !!(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.closest('#app')); };
 
 /* ---------- 畫面用的資料（由雲端副本算出來） ---------- */
@@ -409,6 +483,10 @@ function derive(){
   DB.codes={}; Object.keys(db.codes||{}).forEach(k=>{ const c=db.codes[k]; if(c&&c.k&&c.i) DB.codes[c.k]=c.i; });
   DB.stock={}; DB.smeta={}; Object.keys(db.stock||{}).forEach(id=>{ const s=db.stock[id]; if(s){ DB.stock[id]=toArr(s.r).map(r=>({m:r.m||'',e:r.e||'',l:r.l||'',n:+r.n||0})); DB.smeta[id]={at:s.at||0,by:s.by||''}; } });
   DB.log=Object.keys(db.log||{}).map(k=>db.log[k]).filter(x=>x&&x.t).sort((a,b)=>b.t-a.t);
+  // 點班：每個月每一項最後一次（DB.chkM[月][品項]）；DB.chk[品項]＝讀到的月份裡最近一次
+  DB.chkM={}; DB.chk={};
+  Object.keys(db.chk||{}).forEach(mk=>{ const M=db.chk[mk]; if(!/^\d{4}-\d{2}$/.test(mk)||!M||typeof M!=='object') return; DB.chkM[mk]={};
+    Object.keys(M).forEach(id=>{ const x=M[id]; if(!x||!x.at) return; DB.chkM[mk][id]=x; if(!DB.chk[id]||x.at>DB.chk[id].at) DB.chk[id]=x; }); });
   const bid=new Set(Object.keys(DB.codes).map(k=>DB.codes[k]));
   DB.coded=new Set(DB.items.filter(i=>bid.has(i.id)).map(normL));
 }
@@ -422,7 +500,7 @@ function migrateOld(){
   const old=lsGet(LS.old,null); lsSet(LS.mig,1);
   if(!old||typeof old!=='object') return;
   const at=Date.now(); let n=0;
-  Object.keys(old.codes||{}).forEach(k=>{ if(!getAt('codes/'+encKey(k))){ write('codes/'+encKey(k),{k,i:old.codes[k],at,dev:DEV}); n++; } });
+  Object.keys(old.codes||{}).forEach(k=>{ if(!getAt('codes/'+codeKey(k))){ write('codes/'+codeKey(k),{k,i:old.codes[k],at,dev:DEV}); n++; } });
   Object.keys(old.stock||{}).forEach(id=>{ if(!getAt('stock/'+id)){ write('stock/'+id,{r:(old.stock[id]||[]).map(r=>({e:r.e||'',l:r.l||'',n:+r.n||0})),at,dev:DEV}); n++; } });
   (old.items||[]).forEach(it=>{ const d=DEF_ITEMS.find(x=>x.id===it.id); if(d&&!!d.ne!==!!it.ne&&getAt('ne/'+it.id)===undefined){ write('ne/'+it.id,!!it.ne); n++; } });
   if(n) (old.log||[]).forEach((l,i)=>{ if(l&&l.t) write('log/'+l.t.toString(36)+'m'+i,{t:l.t,i:l.i,x:l.x,dev:DEV}); });
@@ -570,11 +648,21 @@ function fmtT(ts){ const d=new Date(ts); return pad(d.getMonth()+1)+'/'+pad(d.ge
 const isD=s=>/^\d{4}-\d{2}-\d{2}$/.test(s||'');
 const prevMk=mk=>{ const y=+mk.slice(0,4), m=+mk.slice(5,7); return m===1?(y-1)+'-12':y+'-'+pad(m-1); };
 const dayLb=ds=>{ const x=new Date(ds+'T00:00:00'); return isNaN(x)?ds:pad(x.getMonth()+1)+'/'+pad(x.getDate())+'（'+'日一二三四五六'[x.getDay()]+'）'; };
+const escD=ds=>esc(fmtD(ds));
+function addD(ds,n){ const d=new Date(ds+'T00:00:00'); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+const nextMk=k=>{ const y=+k.slice(0,4), m=+k.slice(5); return m===12?(y+1)+'-01':y+'-'+pad(m+1); };
+const USE_BACK=31;   // 高貴衛材使用最多補登幾天前的
+// 儲存、登記這類按鍵：還在處理（等雲端、確認框開著）時再按不會重複做
+let BUSY=false;
+function once(fn){ if(BUSY) return; BUSY=true; Promise.resolve().then(fn).catch(e=>{ console.error(e); toast('發生錯誤：'+(e&&e.message||e)); }).finally(()=>{ BUSY=false; }); }
+function lockActs(t){ document.querySelectorAll('#sheet .acts .btn, .mgfm .acts .btn').forEach(b=>{ b.disabled=true; if(t&&!b.classList.contains('ghost')) b.textContent=t; }); }
 let toastT=0;
 function toast(m,ms){
   if(MANAGE) try{ if(window.parent!==window&&window.parent.toast){ window.parent.toast(m); return; } }catch(e){}   // 後台的 iframe 很長，用管理頁的提示
   const t=$('#toast'); t.textContent=m; t.style.display='block'; clearTimeout(toastT); toastT=setTimeout(()=>t.style.display='none',ms||2600); }
-function mgConfirm(html){ const d=document.createElement('div'); d.innerHTML=String(html).replace(/<br\s*\/?>/g,'\n'); return Promise.resolve(confirm(d.textContent)); }
+function mgConfirm(html){ const d=document.createElement('template'); d.innerHTML=String(html).replace(/<br\s*\/?>/g,'\n'); return Promise.resolve(confirm(d.content.textContent)); }
+// 後台的操作要記是誰：用急診點班管理頁的「你是哪一位」（這次打開只問一次）
+async function mgWho(){ try{ if(window.parent!==window&&typeof window.parent.mgrName==='function') return (await window.parent.mgrName())||''; }catch(e){} return '管理頁'; }
 function ask(html,ok,cancel){
   return new Promise(res=>{
     const h=$('#dlgHost');
@@ -596,9 +684,9 @@ function stat(it){
   if(!it.ne){
     if(first&&dd<0) s='exp'; else if(first&&dd<=30) s='d30'; else if(first&&dd<=90) s='d90';
   }
-  const noExp=!it.ne&&(!rows.length||rows.some(r=>!isD(r.e)));
+  const noExp=!it.ne&&(!set||rows.some(r=>!isD(r.e)));   // 點過但用完（0 個）＝數量不足，不算「還沒填效期」
   const qn=qNum(it.q);
-  const low=set&&qn!=null&&total<qn;
+  const low=set&&(qn!=null?total<qn:String(it.q||'').trim()!==''&&total===0);   // 設定量不是數字（例如「1組」）：0 個也算不足
   return {rows,set,total,first,dd,s,noExp,low};
 }
 function expTag(st){
@@ -634,12 +722,15 @@ function render(){
     tile('low','數量不足',nLow,'項',nLow?'bad':'','sm')+
     tile('noexp','還沒填效期',nNo,'項','','sm')+
     tile('bound','已對應條碼',nBound,'／'+DB.items.length,'','sm')+'</div>';
+  const CK=DB.chkM[todayStr().slice(0,7)]||{};
   areaList().forEach(a=>{
     const xs=all.filter(x=>x.it.s===a); if(!xs.length) return;
-    const e=xs.filter(x=>x.st.s==='exp').length, w=xs.filter(x=>x.st.s==='d30').length, l=xs.filter(x=>x.st.low).length;
+    const e=xs.filter(x=>x.st.s==='exp').length, w=xs.filter(x=>x.st.s==='d30').length, l=xs.filter(x=>x.st.low).length, c=xs.filter(x=>CK[x.it.id]).length;
+    const left=xs.filter(x=>!CK[x.it.id]&&x.st.set).length;
     h+='<details class="sec" data-sec="'+esc(a)+'"'+(openSec.has(a)?' open':'')+'><summary>'+esc(a)+
       (e?' <span class="tag bad">過期 '+e+'</span>':'')+(w?' <span class="tag warn">30 天內 '+w+'</span>':'')+(l?' <span class="tag bad">不足 '+l+'</span>':'')+
-      '<span class="r">'+xs.length+' 項</span></summary><div class="body">'+xs.map(itemRow).join('')+'</div></details>';
+      '<span class="r">本月 '+c+'／'+xs.length+'</span></summary><div class="body">'+xs.map(x=>itemRow(x)).join('')+
+      (left?'<div class="achk"><button class="btn outline" data-act="areaChk" data-a="'+esc(a)+'">✓ 這一區都點過了</button></div>':'')+'</div></details>';
   });
   h+='<button class="btn outline wide addbtn" data-act="addItem">＋ 新增品項</button>';
   // 異動紀錄
@@ -653,7 +744,7 @@ function render(){
   // 已移除的品項
   const hid=DB.all.filter(i=>i.hide);
   if(hid.length) h+='<details class="sec" data-sec="_hid"'+(openSec.has('_hid')?' open':'')+'><summary>已移除的品項<span class="r">'+hid.length+' 項</span></summary><div class="body codes">'+
-    hid.map(it=>'<div><span class="n">'+esc(lbl(it))+'<br><code>'+esc(it.s)+'</code></span><button class="btn ghost mini" data-act="unhide" data-id="'+it.id+'">恢復</button></div>').join('')+'</div></details>';
+    hid.map(it=>'<div><span class="n">'+esc(lbl(it))+'<br><code>'+esc(it.s)+'</code></span><button class="btn ghost mini" data-act="unhide" data-id="'+esc(it.id)+'">恢復</button></div>').join('')+'</div></details>';
   h+='<footer>v'+VERSION+'・'+(cloud.st==='ok'?'雲端同步 '+fmtT(cloud.at).slice(6):cloud.st==='idle'?'連線中…':'未同步')+(outbox.length?'・'+outbox.length+' 筆待上傳':'')+'</footer>';
   $('#app').innerHTML=h;
   $('#app').querySelectorAll('details.sec').forEach(d=>d.addEventListener('toggle',()=>{ d.open?openSec.add(d.dataset.sec):openSec.delete(d.dataset.sec); }));
@@ -668,9 +759,26 @@ function itemRow(x,o){
   let sub='';
   if(!it.ne){ sub=st.first?expTag(st):(st.set&&!st.rows.length?'':'<span class="tag no">未填效期</span>'); }
   const nm=o.area?esc(it.s):esc(lbl(it))+(it.hv?'<span class="bc hv">高貴</span>':'')+(hasCode(it)?'<span class="bc">條碼</span>':'')+(o.where?'<div class="ar">'+esc(it.s)+'</div>':'');
-  return '<div class="it'+(st.s?' s-'+st.s:'')+'" data-act="'+(o.act||'item')+'" data-id="'+it.id+'"><div class="nm">'+nm+'</div>'+
-    '<div class="rt">'+qtxt+(sub?'<div>'+sub+'</div>':'')+'</div></div>';
+  const ck=(DB.chkM[todayStr().slice(0,7)]||{})[it.id];
+  return '<div class="it'+(st.s?' s-'+st.s:'')+'" data-act="'+(o.act||'item')+'" data-id="'+esc(it.id)+'"><div class="nm">'+nm+'</div>'+
+    '<div class="rt">'+(ck?'<span class="ck" title="'+esc((ck.by||'')+' '+fmtT(ck.at))+' 點過">✓</span>':'')+qtxt+(sub?'<div>'+sub+'</div>':'')+'</div></div>';
 }
+// 整區點過：數量、效期都對（還沒填過數量的要一項一項填，不算在裡面）
+async function areaChk(a){
+  const mk=todayStr().slice(0,7), CK=DB.chkM[mk]||{};
+  const xs=DB.items.filter(i=>i.s===a).map(it=>({it,st:stat(it)})), todo=xs.filter(x=>x.st.set&&!CK[x.it.id]), unset=xs.filter(x=>!x.st.set);
+  if(!todo.length){ toast('這一區本月都點過了'); return; }
+  const ex=todo.filter(x=>x.st.s==='exp').length, lo=todo.filter(x=>x.st.low).length, ne=todo.filter(x=>x.st.noExp).length;
+  const warn=[ex?'過期 '+ex:'',lo?'不足 '+lo:'',ne?'沒填效期 '+ne:''].filter(Boolean).join('・');
+  if(!await ask('<b>'+esc(a)+'</b><br>'+todo.length+' 項數量、效期都正確？'+(warn?'<br><span style="color:var(--bad);font-weight:700">其中 '+warn+' 項</span>':'')+
+    (unset.length?'<br><span class="mut">還沒填過數量的 '+unset.length+' 項要一項一項點</span>':''),'都點過了')) return;
+  const t=Date.now();
+  todo.forEach(x=>write('chk/'+mk+'/'+x.it.id,{at:t,by:ME,dev:DEV}));
+  const k=t.toString(36)+Math.random().toString(36).slice(2,6);
+  write('log/'+k,{t,i:'',x:a+' 整區點過（'+todo.length+' 項'+(warn?'，其中 '+warn:'')+'）',dev:DEV,by:ME});
+  flush(true); toast('已記錄 '+todo.length+' 項點過'); render();
+}
+function chkWrite(id){ write('chk/'+todayStr().slice(0,7)+'/'+id,{at:Date.now(),by:ME,dev:DEV}); }
 
 /* ---------- 衛材點班權限：管理頁勾選的人（erShiftCheckData/cfg/supAcc） ---------- */
 const canInv=()=>!!(ST.acc&&ME&&ST.acc.includes(ME));
@@ -685,15 +793,19 @@ function shiftPeople(d,k){
   const S=SCH[d], hd=new Set(ST.hide||[]); if(!S) return [];
   return [...new Set(toArr(S[k]).map(String).map(id=>{ const x=(ST.nurses||[]).find(n=>n.id===id); return x?x.name:''; }).filter(n=>n&&!hd.has(n)))];
 }
-const useTxt=x=>dayLb(x.d)+SHIFT_NAME[x.k]+'・'+x.u+' 使用・病歷號末 3 碼 '+x.p;
+const useTxt=x=>dayLb(x.d)+(SHIFT_NAME[x.k]||'')+'・'+x.u+' 使用・病歷號末 3 碼 '+x.p;
+let UE=null;   // 後台更正中的那一筆 {id,mk,d,k,u,uo,ut,p}
 function useRow(x,mg){
+  if(mg&&UE&&UE.id===x.id&&!x.cx) return useEditHtml(x);
   const canCx=!mg&&x.by===ME&&Date.now()-x.at<864e5&&!x.cx;
-  const bt=(x.tk||[]).map(t=>(t.e?'效期 '+fmtD(t.e):'未填效期')+(t.l?' 批號 '+esc(t.l):'')+(x.tk.length>1?' ×'+t.n:'')).join('、');
+  const bt=(x.tk||[]).map(t=>(t.e?'效期 '+escD(t.e):'未填效期')+(t.l?' 批號 '+esc(t.l):'')+(x.tk.length>1?' ×'+(+t.n||0):'')).join('、');
+  const ed=x.ed?'・'+esc(x.ed.by)+' '+fmtT(x.ed.at)+' 更正（原本 '+esc(x.ed.was)+'）':'';
   return '<div class="urow"><div class="w"><b>'+esc(x.nm)+' ×'+x.n+'</b>'+(mg?'<span class="mut" style="font-size:13px"> '+esc(x.s)+'</span>':'')+
-    (x.short?'<span class="tag warn">現有不夠扣 '+x.short+'</span>':'')+(x.cx?'<span class="tag no">已取消</span>':'')+
-    '<small>'+dayLb(x.d)+SHIFT_NAME[x.k]+'・<b>'+esc(x.u)+'</b> 使用・病歷號末 3 碼 <b>'+esc(x.p)+'</b></small>'+
-    '<small>'+esc(x.by)+' '+fmtT(x.at)+' 登記'+(bt?'・'+bt:'')+(x.cx?'・'+esc(x.cx.by)+' '+fmtT(x.cx.at)+' 取消':'')+'</small></div>'+
-    (canCx?'<button class="btn ghost mini" data-act="uCx" data-id="'+esc(x.id)+'">取消</button>':'')+'</div>';
+    (x.short?'<span class="tag warn">現有不夠扣 '+(+x.short||0)+'</span>':'')+(x.cx?'<span class="tag no">已取消</span>':'')+(x.ed?'<span class="tag yel">已更正</span>':'')+
+    '<small>'+esc(dayLb(x.d))+esc(SHIFT_NAME[x.k]||x.k)+'・<b>'+esc(x.u)+'</b> 使用・病歷號末 3 碼 <b>'+esc(x.p)+'</b></small>'+
+    '<small>'+esc(x.by)+' '+fmtT(x.at)+' 登記'+(bt?'・'+bt:'')+ed+(x.cx?'・'+esc(x.cx.by)+' '+fmtT(x.cx.at)+' 取消':'')+'</small></div>'+
+    (canCx?'<button class="btn ghost mini" data-act="uCx" data-id="'+esc(x.id)+'">取消</button>':'')+
+    (mg&&!x.cx?'<div class="ubt"><button class="btn ghost mini" data-act="mgUed" data-id="'+esc(x.id)+'">更正</button><button class="btn danger mini" data-act="mgUcx" data-id="'+esc(x.id)+'">取消</button></div>':'')+'</div>';
 }
 function renderUse(){
   const H=hvItems(), L=DB.use.filter(x=>Date.now()-x.at<3*864e5).sort((a,b)=>b.at-a.at);
@@ -713,11 +825,12 @@ function openUse(){
 function drawUse(){
   const F=UF, H=hvItems(), dupN=it=>H.filter(i=>normL(i)===normL(it)).length>1;
   const ppl=shiftPeople(F.d,F.k); if(ME&&!ppl.includes(ME)) ppl.unshift(ME);
+  if(!F.uo&&F.u&&!ppl.includes(F.u)) ppl.push(F.u);   // 換了日期／班別：已經選的人不在那一班也留著
   let h='<div class="fm"><h2>登記高貴衛材使用</h2>';
   if(F.sc) h+='<div class="found">掃到：'+(scanInfo(F.sc)||'條碼（沒有日期資料）')+'</div>';
-  h+='<div class="lb">品項</div><div class="picks">'+H.map(it=>'<button class="pick'+(F.i===it.id?' on':'')+'" data-act="uItem" data-id="'+it.id+'">'+esc(lbl(it))+(dupN(it)?'（'+esc(it.s)+'）':'')+'</button>').join('')+'</div>';
+  h+='<div class="lb">品項</div><div class="picks">'+H.map(it=>'<button class="pick'+(F.i===it.id?' on':'')+'" data-act="uItem" data-id="'+esc(it.id)+'">'+esc(lbl(it))+(dupN(it)?'（'+esc(it.s)+'）':'')+'</button>').join('')+'</div>';
   h+='<div style="margin-top:8px"><button class="btn outline mini" data-act="uScanPk">📷 掃包裝條碼</button></div>';
-  h+='<div class="lb">日期</div><input class="tx" type="date" data-uf="d" value="'+esc(F.d)+'" max="'+todayStr()+'">';
+  h+='<div class="lb">日期</div><input class="tx" type="date" data-uf="d" value="'+esc(F.d)+'" min="'+addD(todayStr(),-USE_BACK)+'" max="'+todayStr()+'">';
   h+='<div class="lb">班別</div><div class="picks">'+['D','E','N'].map(k=>'<button class="pick'+(F.k===k?' on':'')+'" data-act="uShift" data-k="'+k+'">'+SHIFT_NAME[k]+'</button>').join('')+'</div>';
   h+='<div class="lb">使用的護理師</div><div class="picks">'+ppl.map(n=>'<button class="pick'+(!F.uo&&F.u===n?' on':'')+'" data-act="uWho" data-n="'+esc(n)+'">'+esc(n)+'</button>').join('')+
     '<button class="pick'+(F.uo?' on':'')+'" data-act="uWho" data-n="">其他</button></div>';
@@ -747,11 +860,21 @@ async function saveUse(){
   if(!it){ toast('請選品項'); return; }
   if(!isD(F.d)){ toast('請選日期'); return; }
   if(F.d>todayStr()){ toast('日期不能晚於今天'); return; }
+  if(F.d<addD(todayStr(),-USE_BACK)){ toast('只能補登 '+USE_BACK+' 天內的'); return; }
   if(!u){ toast('請選使用的護理師'); return; }
   if(!/^\d{3}$/.test(F.p||'')){ toast('病歷號末 3 碼要填 3 個數字'); return; }
-  if(!await ask('登記高貴衛材使用<br><b>'+esc(lbl(it))+'</b> ×'+n+'<br>'+dayLb(F.d)+SHIFT_NAME[F.k]+'・<b>'+esc(u)+'</b> 使用<br>病歷號末 3 碼：<b>'+esc(F.p)+'</b><br>登記：'+esc(ME),'登記')) return;
-  await pull('stock/'+it.id); derive();
+  // 先讀最新的（別支手機剛登記的、現有數量），再問
+  lockActs('讀取中…');
+  await Promise.all([pull('use/'+F.d.slice(0,7)),pull('stock/'+it.id)]); derive();
+  if(UF!==F) return;
+  const dup=DB.use.filter(x=>x.i===it.id&&x.p===F.p&&x.d===F.d&&x.k===F.k).sort((a,b)=>b.at-a.at);
+  const dupH=dup.length?'<div style="color:var(--bad);font-weight:700;margin-bottom:6px">⚠ '+esc(dup[0].by)+' '+fmtT(dup[0].at)+' 已經登記過這一位病人的這一項（×'+dup.reduce((a,x)=>a+x.n,0)+(dup.length>1?'，共 '+dup.length+' 筆':'')+'）</div>':'';
+  const ok=await ask(dupH+'登記高貴衛材使用<br><b>'+esc(lbl(it))+'</b> ×'+n+'<br>'+esc(dayLb(F.d))+SHIFT_NAME[F.k]+'・<b>'+esc(u)+'</b> 使用<br>病歷號末 3 碼：<b>'+esc(F.p)+'</b><br>登記：'+esc(ME),dup.length?'還是要登記':'登記');
+  if(UF!==F) return;
+  if(!ok){ drawUse(); return; }
+  lockActs('登記中…');
   // 扣數量：掃到的那一批先扣，再從最早到期的扣
+  const base=(getAt('stock/'+it.id)||{}).at||0;
   const rows=(DB.stock[it.id]||[]).map(r=>Object.assign({},r)), sc=F.sc&&F.sc.exp?F.sc:null, tk=[];
   const ek=r=>r.e||'9999';
   const order=rows.map((r,i)=>i).filter(i=>rows[i].n>0).sort((a,b)=>{ const A=rows[a], B=rows[b], ma=sc&&sameBatch(A,sc)?0:1, mb=sc&&sameBatch(B,sc)?0:1;
@@ -762,20 +885,19 @@ async function saveUse(){
   const rec={i:it.id,nm:lbl(it),s:it.s,d:F.d,k:F.k,u,p:F.p,n,by:ME,at:t,dev:DEV};
   if(tk.length) rec.tk=tk; if(left) rec.short=left;
   write('use/'+F.d.slice(0,7)+'/'+id,rec);
-  if(tk.length) write('stock/'+it.id,{r:rows.filter(r=>r.n>0).map(r=>({m:r.m||'',e:r.e||'',l:r.l||'',n:r.n})),at:t,dev:DEV,by:ME});
+  if(tk.length) write('stock/'+it.id,{r:rows.filter(r=>r.n>0).map(r=>({m:r.m||'',e:r.e||'',l:r.l||'',n:r.n})),at:t,dev:DEV,by:ME},{base,dl:tk.map(b=>Object.assign({},b,{n:-b.n}))});
   addLog(it.id,'使用 ×'+n+'（'+useTxt(rec)+'）');
   flush(true); UF=null; closeSheet(); toast('已登記');
 }
 async function cancelUse(id){
   const x=DB.use.find(u=>u.id===id); if(!x) return;
   if(!await ask('取消這筆使用登記？<br><b>'+esc(x.nm)+'</b> ×'+x.n+'<br>'+esc(useTxt(x))+(x.tk.length?'<br>扣掉的 '+x.tk.reduce((a,b)=>a+(+b.n||0),0)+' 個加回現有數量':''),'取消這筆','不要')) return;
+  if(!DB.use.some(u=>u.id===id)) return;   // 別的地方已經取消了
   const t=Date.now();
   if(x.tk.length&&itemAny(x.i)){
     await pull('stock/'+x.i); derive();
-    const rows=(DB.stock[x.i]||[]).map(r=>Object.assign({},r));
-    x.tk.forEach(b=>{ const r=rows.find(r=>r.e===(b.e||'')&&r.l===(b.l||'')); if(r) r.n+=(+b.n||0); else rows.push({m:b.m||'',e:b.e||'',l:b.l||'',n:+b.n||0}); });
-    rows.sort((a,b)=>(a.e||'9')<(b.e||'9')?-1:(a.e||'9')>(b.e||'9')?1:0);
-    write('stock/'+x.i,{r:rows.filter(r=>r.n>0).map(r=>({m:r.m||'',e:r.e||'',l:r.l||'',n:r.n})),at:t,dev:DEV,by:ME});
+    const base=(getAt('stock/'+x.i)||{}).at||0, dl=x.tk.map(b=>({m:b.m||'',e:b.e||'',l:b.l||'',n:+b.n||0}));
+    write('stock/'+x.i,{r:applyDelta({r:DB.stock[x.i]||[]},dl),at:t,dev:DEV,by:ME},{base,dl});
   }
   const o=Object.assign({},x,{cx:{by:ME,at:t,dev:DEV}}); delete o.id; delete o.mk; if(!o.tk.length) delete o.tk;
   write('udel/'+x.mk+'/'+x.id,o); write('use/'+x.mk+'/'+x.id,null);
@@ -784,21 +906,95 @@ async function cancelUse(id){
 }
 // 點班那邊按返回時問：還有沒儲存的嗎
 window.supPending=()=>outbox.length;
-window.supDirty=()=>!!((ED&&ED.dirty)||(UF&&UF.dirty)||(FM&&SH&&SH.type==='form'));
+window.supDirty=()=>!!(BUSY||(ED&&ED.dirty)||(UF&&UF.dirty)||(FM&&SH&&SH.type==='form'));
+
+/* ---------- 後台：高貴衛材使用的取消、更正、下載明細（直接寫雲端，寫成功才算） ---------- */
+function useEditHtml(x){
+  const F=UE, names=[...new Set(staffNames().concat([x.u]))].sort((a,b)=>a.localeCompare(b,'zh-Hant'));
+  return '<div class="urow"><div class="w fm"><b>更正：'+esc(x.nm)+' ×'+x.n+'</b>'+
+    '<div class="lb">日期</div><input class="tx" type="date" data-ue="d" value="'+esc(F.d)+'" max="'+todayStr()+'" style="max-width:220px">'+
+    '<div class="lb">班別</div><div class="picks">'+['D','E','N'].map(k=>'<button class="pick'+(F.k===k?' on':'')+'" data-act="ueShift" data-k="'+k+'">'+SHIFT_NAME[k]+'</button>').join('')+'</div>'+
+    '<div class="lb">使用的護理師</div><div class="picks">'+names.map(n=>'<button class="pick'+(!F.uo&&F.u===n?' on':'')+'" data-act="ueWho" data-n="'+esc(n)+'">'+esc(n)+'</button>').join('')+
+    '<button class="pick'+(F.uo?' on':'')+'" data-act="ueWho" data-n="">其他</button></div>'+
+    (F.uo?'<input class="tx" data-ue="ut" value="'+esc(F.ut)+'" placeholder="名字" autocomplete="off" style="margin-top:6px;max-width:220px">':'')+
+    '<div class="lb">病人病歷號末 3 碼</div><input class="tx p3" data-ue="p" value="'+esc(F.p)+'" inputmode="numeric" maxlength="3" autocomplete="off">'+
+    '<div class="sact"><button class="btn ghost" data-act="mgUedX">取消更正</button><button class="btn" data-act="mgUedOk">儲存更正</button></div></div></div>';
+}
+function mgUseEdit(id){
+  const x=DB.use.find(u=>u.id===id); if(!x) return;
+  UE={id,mk:x.mk,d:x.d,k:x.k,u:x.u,uo:false,ut:'',p:x.p}; render();
+}
+async function mgUseEditSave(){
+  const F=UE, x=DB.use.find(u=>u.id===F.id); if(!x){ UE=null; render(); return; }
+  const u=F.uo?String(F.ut||'').trim():F.u, p=String(F.p||'').trim();
+  if(!isD(F.d)||F.d>todayStr()){ toast('日期不對'); return; }
+  if(!u){ toast('請選使用的護理師'); return; }
+  if(!/^\d{3}$/.test(p)){ toast('病歷號末 3 碼要填 3 個數字'); return; }
+  const ch=[]; if(F.d!==x.d) ch.push('日期 '+dayLb(x.d)+' → '+dayLb(F.d)); if(F.k!==x.k) ch.push('班別 '+SHIFT_NAME[x.k]+' → '+SHIFT_NAME[F.k]);
+  if(u!==x.u) ch.push('使用的護理師 '+x.u+' → '+u); if(p!==x.p) ch.push('末 3 碼 '+x.p+' → '+p);
+  if(!ch.length){ UE=null; render(); return; }
+  const who=await mgWho(); if(!who) return;
+  if(!await mgConfirm('更正這筆高貴衛材使用？<br>'+esc(x.nm)+' ×'+x.n+'<br>'+ch.map(esc).join('<br>')+'<br>更正：'+esc(who))) return;
+  const t=Date.now(), mk=F.d.slice(0,7), o=Object.assign({},x,{d:F.d,k:F.k,u,p,ed:{by:who,at:t,dev:DEV,was:useTxt(x)}});
+  delete o.id; delete o.mk; if(!o.tk.length) delete o.tk;
+  const k=t.toString(36)+Math.random().toString(36).slice(2,6), lg={t,i:x.i,x:'更正使用登記：'+ch.join('；'),dev:DEV,by:who};
+  try{
+    await fb('PUT','use/'+mk+'/'+x.id,o);
+    if(mk!==x.mk) await fb('DELETE','use/'+x.mk+'/'+x.id);
+    await fb('PUT','log/'+k,lg);
+  }catch(e){ toast(e.kind==='denied'?'雲端還沒開通':'存不進去，請確認網路'); return; }
+  if(mk!==x.mk) setAt('use/'+x.mk+'/'+x.id,null);
+  setAt('use/'+mk+'/'+x.id,o); setAt('log/'+k,lg); lsSet(LS.cache,db);
+  UE=null; derive(); render(); toast('已更正');
+}
+async function mgUseCancel(id){
+  const x=DB.use.find(u=>u.id===id); if(!x) return;
+  const who=await mgWho(); if(!who) return;
+  const back=x.tk.reduce((a,b)=>a+(+b.n||0),0);
+  if(!await mgConfirm('取消這筆使用登記？<br>'+esc(x.nm)+' ×'+x.n+'<br>'+esc(useTxt(x))+'<br>'+esc(x.by)+' '+fmtT(x.at)+' 登記'+(back?'<br>扣掉的 '+back+' 個加回現有數量':'')+'<br>取消：'+esc(who))) return;
+  const t=Date.now(), o=Object.assign({},x,{cx:{by:who,at:t,dev:DEV,mg:1}}); delete o.id; delete o.mk; if(!o.tk.length) delete o.tk;
+  const k=t.toString(36)+Math.random().toString(36).slice(2,6), lg={t,i:x.i,x:'取消使用登記 ×'+x.n+'（'+useTxt(x)+'）',dev:DEV,by:who};
+  let sb=null;
+  try{
+    if(back&&itemAny(x.i)){
+      const cur=await fb('GET','stock/'+x.i);
+      sb={r:applyDelta(cur,x.tk.map(b=>({m:b.m||'',e:b.e||'',l:b.l||'',n:+b.n||0}))),at:t,dev:DEV,by:who,op:newOp()};
+      await fb('PUT','stock/'+x.i,sb);
+    }
+    await fb('PUT','udel/'+x.mk+'/'+x.id,o); await fb('DELETE','use/'+x.mk+'/'+x.id); await fb('PUT','log/'+k,lg);
+  }catch(e){ toast(e.kind==='denied'?'雲端還沒開通':'存不進去，請確認網路'); pullAll(); return; }
+  if(sb) setAt('stock/'+x.i,sb);
+  setAt('udel/'+x.mk+'/'+x.id,o); setAt('use/'+x.mk+'/'+x.id,null); setAt('log/'+k,lg); lsSet(LS.cache,db);
+  derive(); render(); toast('已取消');
+}
+// 下載這個月的高貴衛材使用明細（Excel 打得開的 CSV）
+function useCsv(){
+  const U=DB.use.filter(x=>x.mk===MK).map(x=>Object.assign({st:x.ed?'已更正':''},x)), C=DB.udel.filter(x=>x.mk===MK).map(x=>Object.assign({st:'已取消'},x));
+  const L=U.concat(C).sort((a,b)=>a.d.localeCompare(b.d)||'DEN'.indexOf(a.k)-'DEN'.indexOf(b.k)||a.at-b.at);
+  if(!L.length){ toast('這個月沒有使用登記'); return; }
+  const q=v=>{ v=String(v==null?'':v); if(/^[=+\-@\t\r]/.test(v)) v="'"+v; return /[",\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const H=['日期','班別','品項','位置','數量','使用的護理師','病歷號末3碼','登記者','登記時間','扣的效期／批號','現有不夠扣','狀態','取消／更正'];
+  const rows=L.map(x=>[fmtD(x.d),SHIFT_NAME[x.k]||x.k,x.nm,x.s,x.n,x.u,x.p,x.by,fmtT(x.at),(x.tk||[]).map(t=>(t.e?fmtD(t.e):'未填效期')+(t.l?' 批號 '+t.l:'')+' ×'+t.n).join('、'),x.short||'',x.st,
+    x.cx?x.cx.by+' '+fmtT(x.cx.at)+' 取消':x.ed?x.ed.by+' '+fmtT(x.ed.at)+' 更正（原本 '+x.ed.was+'）':'']);
+  const csv='﻿'+[H].concat(rows).map(r=>r.map(q).join(',')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='高貴衛材使用_'+MK+'.csv';
+  document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500);
+}
 
 /* ---------- 後台：嵌在急診點班管理頁（manage.html），只看不改 ---------- */
 const mgOpen=new Set();
 const WHO_COLORS=['#9e2a2b','#2f6fb5','#1f8a4c','#c06a12','#7a4fb0','#13606e','#b5476b','#5f7180','#8a6d00','#3b8686'];
 function mgCard(id,title,right,body){
-  return '<details class="sec" data-sec="m_'+id+'"'+(mgOpen.has(id)?' open':'')+'><summary>'+title+'<span class="r">'+right+'</span></summary><div class="body">'+body+'</div></details>';
+  return '<details class="sec" data-sec="m_'+esc(id)+'"'+(mgOpen.has(id)?' open':'')+'><summary>'+title+'<span class="r">'+right+'</span></summary><div class="body">'+body+'</div></details>';
 }
 function mgRow(x,showArea){
   const it=x.it, st=x.st, sm=DB.smeta[it.id];
   const q='<span class="'+(st.low?'qn low':'qn')+'">'+(st.set?st.total:'—')+'</span><span class="mut">／'+esc(it.q||'—')+'</span>';
-  const tag=it.ne?'<span class="tag no">不用管效期</span>':st.first?expTag(st):'<span class="tag no">未填效期</span>';
-  const bs=it.ne?'':st.rows.map(r=>'<span>'+(r.e?fmtD(r.e):'未填效期')+(r.l?' <span class="mut">批號 '+esc(r.l)+'</span>':'')+' ×'+r.n+'</span>').join('');
+  const tag=it.ne?'<span class="tag no">不用管效期</span>':st.first?expTag(st):st.set&&!st.rows.length?'':'<span class="tag no">未填效期</span>';
+  const bs=it.ne?'':st.rows.map(r=>'<span>'+(r.e?escD(r.e):'未填效期')+(r.l?' <span class="mut">批號 '+esc(r.l)+'</span>':'')+' ×'+r.n+'</span>').join('');
+  const ck=DB.chk[it.id], last=ck?'最後點班：'+(ck.by?esc(ck.by)+' ':'')+fmtT(ck.at):sm&&sm.at?'最後登記：'+(sm.by?esc(sm.by)+' ':'')+fmtT(sm.at):'';
   return '<div class="mrow"><div class="h"><b>'+esc(lbl(it))+'</b>'+(showArea?'<span class="mut">'+esc(it.s)+'</span>':'')+tag+'<span class="r">'+q+'</span></div>'+
-    (bs?'<div class="bs">'+bs+'</div>':'')+(sm&&sm.at?'<div class="t">最後登記：'+(sm.by?esc(sm.by)+' ':'')+fmtT(sm.at)+'</div>':'')+'</div>';
+    (bs?'<div class="bs">'+bs+'</div>':'')+(last?'<div class="t">'+last+'</div>':'')+'</div>';
 }
 // 看哪個月：跟著管理頁最下面的月份列（setMK）
 let MK=/^\d{4}-\d{2}$/.test(QS.get('mk')||'')?QS.get('mk'):todayStr().slice(0,7);
@@ -821,8 +1017,10 @@ function trendSvg(P,cur){
 }
 function useCard(){
   const U=DB.use.filter(x=>x.mk===MK).sort((a,b)=>b.d.localeCompare(a.d)||b.at-a.at), C=DB.udel.filter(x=>x.mk===MK).sort((a,b)=>b.at-a.at);
-  const now=todayStr().slice(0,7), ks=DB.use.map(x=>x.mk).concat([now,MK]).sort(), P=[];
-  for(let k=ks[0];k<=now;k=(()=>{ const y=+k.slice(0,4), m=+k.slice(5); return m===12?(y+1)+'-01':y+'-'+pad(m+1); })()) P.push({k,v:DB.use.filter(x=>x.mk===k).length});
+  // 逐月折線：從有資料的第一個月畫到這個月（最多兩年；月份格式不對的不算）
+  const now=todayStr().slice(0,7); let lo=now; for(let i=0;i<23;i++) lo=prevMk(lo);
+  const ks=DB.use.map(x=>x.mk).concat([now,MK]).filter(k=>/^\d{4}-(0[1-9]|1[0-2])$/.test(k)&&k>=lo).sort(), P=[];
+  for(let k=ks[0];k<=now;k=nextMk(k)) P.push({k,v:DB.use.filter(x=>x.mk===k).length});
   let b=trendSvg(P,MK);
   // 各品項：分色橫條＋清單（由多到少）
   const g={}; U.forEach(x=>{ const o=g[x.i]||(g[x.i]={i:x.i,nm:x.nm,c:0,n:0}); o.c++; o.n+=x.n; });
@@ -832,14 +1030,15 @@ function useCard(){
       return '<i style="background:'+col(i)+'"></i><span>'+esc(o.nm)+(st?'<span class="mut" style="font-size:12.5px">　現有 '+(st.set?st.total:'—')+'／'+esc(it.q||'—')+'</span>':'')+'</span><b>'+o.n+' 個</b><span class="mut">'+o.c+' 筆・'+Math.round(o.n/tot*100)+'%</span>'; }).join('')+
     '<span></span><b>合計</b><b>'+tot+' 個</b><span class="mut">'+U.length+' 筆</span></div>';
   b+=U.length?U.map(x=>useRow(x,1)).join(''):'<div class="mut" style="padding:6px 0">這個月沒有使用登記</div>';
-  if(C.length) b+='<details style="margin-top:8px"><summary class="mut" style="cursor:pointer">已取消 '+C.length+' 筆</summary>'+C.map(x=>useRow(x,1)).join('')+'</details>';
+  if(C.length) b+='<details class="msub" data-sub="use_cx"'+(mgOpen.has('use_cx')?' open':'')+' style="margin-top:8px"><summary class="mut" style="cursor:pointer">已取消 '+C.length+' 筆</summary>'+C.map(x=>useRow(x,1)).join('')+'</details>';
+  if(U.length||C.length) b+='<div class="sact"><button class="btn outline" data-act="useCsv">下載明細（Excel）</button></div>';
   return mgCard('use','高貴衛材使用（'+mkLb(MK)+'）',U.length+' 筆'+(C.length?'・取消 '+C.length:''),b);
 }
 function hvCard(){
   const sel=it=>HVD?HVD.has(it.id):!!it.hv, n=DB.items.filter(sel).length;
   let b='<div class="hvl">';
   areaList().forEach(a=>{ const xs=DB.items.filter(i=>i.s===a); if(!xs.length) return;
-    b+='<div class="grp">'+esc(a)+'</div>'+xs.map(it=>'<label class="'+(sel(it)!==!!it.hv?'chg':'')+'"><input type="checkbox" data-hv="'+it.id+'"'+(sel(it)?' checked':'')+'>'+esc(lbl(it))+'</label>').join(''); });
+    b+='<div class="grp">'+esc(a)+'</div>'+xs.map(it=>'<label class="'+(sel(it)!==!!it.hv?'chg':'')+'"><input type="checkbox" data-hv="'+esc(it.id)+'"'+(sel(it)?' checked':'')+'>'+esc(lbl(it))+'</label>').join(''); });
   const dirty=HVD&&DB.items.some(it=>HVD.has(it.id)!==!!it.hv);
   b+='</div><div class="sact"><button class="btn ghost" data-act="hvUndo"'+(dirty?'':' disabled')+'>放棄修改</button><button class="btn" data-act="hvSave"'+(dirty?'':' disabled')+'>儲存</button></div>';
   return mgCard('hvset','設定：高貴衛材品項',n+' 項',b);
@@ -876,17 +1075,18 @@ function renderManage(){
   const E30=pick(x=>x.st.s==='exp'||x.st.s==='d30'), E90=pick(x=>x.st.s==='d90'), LOW=pick(x=>x.st.low), NO=pick(x=>x.st.noExp);
   const nExp=all.filter(x=>x.st.s==='exp').length, n30=all.filter(x=>x.st.s==='d30').length;
   const mk=MK, ML=DB.log.filter(x=>{ const d=new Date(x.t); return d.getFullYear()+'-'+pad(d.getMonth()+1)===mk; });
-  const nUse=DB.use.filter(x=>x.mk===MK).length;
+  const nUse=DB.use.filter(x=>x.mk===MK).length, CK=DB.chkM[MK]||{}, nCk=DB.items.filter(i=>CK[i.id]).length;
   let h=cloudNote();
   const tile2=(k,label,v,unit,cls)=>'<button class="tile '+(cls||'')+'" data-act="mjump" data-k="'+k+'"><div class="k">'+label+'</div><div class="v">'+v+'<small>'+unit+'</small></div></button>';
   h+='<div class="tiles">'+tile2('e30','已過期',nExp,'項',nExp?'bad':'')+tile2('e30','30 天內到期',n30,'項',n30?'warn':'')+tile2('use','高貴衛材使用',nUse,'筆','')+tile2('e90','90 天內到期',E90.length,'項',E90.length?'yel':'')+
-    tile2('low','數量不足',LOW.length,'項',LOW.length?'bad':'')+tile2('no','還沒填效期',NO.length,'項','')+tile2('who',mkLb(MK)+'登記',ML.length,'筆','')+'</div>';
+    tile2('low','數量不足',LOW.length,'項',LOW.length?'bad':'')+tile2('no','還沒填效期',NO.length,'項','')+tile2('chk',mkLb(MK)+'點過',nCk,'／'+DB.items.length,'')+tile2('who',mkLb(MK)+'登記',ML.length,'筆','')+'</div>';
   const list=(xs)=>xs.length?xs.map(x=>mgRow(x,true)).join(''):'<div class="mut" style="padding:6px 0">沒有</div>';
   h+=useCard();
   h+=mgCard('e30','已過期・30 天內到期',(nExp?'過期 '+nExp+'・':'')+'30 天內 '+n30,list(E30));
   h+=mgCard('e90','90 天內到期',E90.length+' 項',list(E90));
   h+=mgCard('low','數量不足',LOW.length+' 項',list(LOW));
   h+=mgCard('no','還沒填效期',NO.length+' 項',list(NO));
+  h+=chkCard(all);
   areaList().forEach(a=>{ const xs=all.filter(x=>x.it.s===a); if(!xs.length) return;
     const e=xs.filter(x=>x.st.s==='exp').length, w=xs.filter(x=>x.st.s==='d30').length, l=xs.filter(x=>x.st.low).length;
     h+=mgCard('a_'+a,esc(a)+(e?' <span class="tag bad">過期 '+e+'</span>':'')+(w?' <span class="tag warn">30 天內 '+w+'</span>':'')+(l?' <span class="tag bad">不足 '+l+'</span>':''),xs.length+' 項',xs.map(x=>mgRow(x,false)).join(''));
@@ -908,7 +1108,22 @@ function renderManage(){
   h+='<footer>衛材點班 v'+VERSION+'・'+(cloud.st==='ok'?'雲端同步 '+fmtT(cloud.at).slice(6):cloud.st==='idle'?'連線中…':'未同步')+'</footer>';
   $('#app').innerHTML=h;
   $('#app').querySelectorAll('details.sec').forEach(d=>d.addEventListener('toggle',()=>{ const k=d.dataset.sec.slice(2); d.open?mgOpen.add(k):mgOpen.delete(k); postH(); }));
+  $('#app').querySelectorAll('details[data-sub]').forEach(d=>d.addEventListener('toggle',()=>{ d.open?mgOpen.add(d.dataset.sub):mgOpen.delete(d.dataset.sub); postH(); }));
   postH();
+}
+// 點班進度：這個月每一區點過幾項、還沒點的是哪些、誰點的
+function chkCard(all){
+  const CK=DB.chkM[MK]||{}, n=all.filter(x=>CK[x.it.id]).length;
+  let b='';
+  areaList().forEach(a=>{ const xs=all.filter(x=>x.it.s===a); if(!xs.length) return;
+    const done=xs.filter(x=>CK[x.it.id]), left=xs.filter(x=>!CK[x.it.id]), pct=Math.round(done.length/xs.length*100);
+    b+='<div class="mrow"><div class="h"><b>'+esc(a)+'</b><span class="r"><b>'+done.length+'</b>／'+xs.length+'</span></div>'+
+      '<div class="pbar"><span style="width:'+pct+'%"></span></div>'+
+      (left.length?'<div class="t">還沒點：'+left.map(x=>esc(lbl(x.it))).join('、')+'</div>':'')+'</div>'; });
+  const by={}; Object.keys(CK).forEach(id=>{ if(!itemById(id)) return; const k=CK[id].by||'（沒記名字）'; by[k]=(by[k]||0)+1; });
+  const W=Object.keys(by).sort((a,b)=>by[b]-by[a]);
+  if(W.length) b+='<div class="t" style="margin-top:6px">'+W.map(k=>esc(k)+' '+by[k]+' 項').join('・')+'</div>';
+  return mgCard('chk','點班進度（'+mkLb(MK)+'）',n+'／'+all.length+' 項',b);
 }
 // 告訴急診點班管理頁：這一頁現在多高（iframe 跟著長高，不會有兩層捲軸）
 const mgH=()=>{ const m=document.querySelector('main'); return Math.ceil(m.offsetTop+m.offsetHeight); };   // 量內容本身（不能用 scrollHeight：iframe 被拉高後會跟著變高，越長越高）
@@ -924,25 +1139,29 @@ function showSheet(html){
 }
 
 // 數字磚點下去：列出那些品項
-function tileSheet(k){
+function tileSheet(k,sc){
   const T={exp:'已過期',d30:'30 天內到期',d90:'90 天內到期',low:'數量不足',noexp:'還沒填效期',bound:'已對應條碼'};
   const xs=DB.items.map(it=>({it,st:stat(it)})).filter(x=>
     k==='exp'?x.st.s==='exp':k==='d30'?x.st.s==='d30':k==='d90'?x.st.s==='d90':k==='low'?x.st.low:k==='noexp'?x.st.noExp:hasCode(x.it));
   xs.sort((a,b)=>(a.st.first||'9')<(b.st.first||'9')?-1:1);
-  SH={type:'list'};
+  SH={type:'list',k};
   $('#sheetHost').innerHTML='';
   showSheet('<h2>'+T[k]+'</h2><div class="sub">'+xs.length+' 項</div>'+
     (xs.length?xs.map(x=>itemRow(x,{where:1})).join(''):'<div class="mut" style="padding:10px 0">沒有</div>')+
     '<div class="acts"><button class="btn ghost" data-act="close">關閉</button></div>');
+  if(sc) $('#sheet').scrollTop=sc;
 }
+// 從清單點進品項：存完或關掉回到那個清單（不用每一項都回首頁再點數字磚）
+function listBack(){ return SH&&SH.type==='list'?{tile:SH.k,sc:$('#sheet')?$('#sheet').scrollTop:0}:null; }
+function closeItem(){ const bk=ED&&ED.back; closeSheet(); if(bk) tileSheet(bk.tile,bk.sc); }
 
 /* ---------- 品項：看效期／數量，改完按儲存 ---------- */
 let ED=null; // 編輯中的草稿
 function sameBatch(r,sc){ return r.e===sc.exp&&(!sc.lot||!r.l||r.l===sc.lot)&&(!sc.mfg||!r.m||r.m===sc.mfg); }
-function openItem(id,scan){
+function openItem(id,scan,back){
   const it=itemById(id); if(!it) return;
   const rows=(DB.stock[id]||[]).map(r=>({m:r.m||'',e:r.e||'',l:r.l||'',n:r.n||0}));
-  ED={id,rows,scan:scan||null,dirty:false,match:-1,base:(getAt('stock/'+id)||{}).at||0};
+  ED={id,rows,scan:scan||null,dirty:false,match:-1,base:(getAt('stock/'+id)||{}).at||0,back:back||null};
   if(scan&&(scan.exp||scan.mfg)){
     const i=scan.exp?rows.findIndex(r=>sameBatch(r,scan)):-1;
     if(i>=0){ ED.match=i; rows[i].hl=1; if(scan.mfg&&!rows[i].m){ rows[i].m=scan.mfg; ED.dirty=true; } }
@@ -954,22 +1173,24 @@ function openItem(id,scan){
   drawItem();
 }
 function scanInfo(sc){
-  return [sc.mfg?'製造 <b>'+fmtD(sc.mfg)+'</b>':'',sc.exp?'效期 <b>'+fmtD(sc.exp)+'</b>':'',sc.lot?'批號 <b>'+esc(sc.lot)+'</b>':''].filter(Boolean).join('・');
+  return [sc.mfg?'製造 <b>'+escD(sc.mfg)+'</b>':'',sc.exp?'效期 <b>'+escD(sc.exp)+'</b>':'',sc.lot?'批號 <b>'+esc(sc.lot)+'</b>':''].filter(Boolean).join('・');
 }
 function drawItem(){
   const it=itemById(ED.id), sc=ED.scan;
   let h='<h2>'+esc(lbl(it))+'</h2><div class="sub"><span>'+esc(it.s)+'・設定量 '+esc(it.q||'—')+'</span><button class="btn ghost mini" data-act="editItem">編輯品項</button></div>';
   if(sc) h+='<div class="found'+(ED.match>=0?' match':'')+'">'+(ED.match>=0?'✓ 這個效期已登記：':'掃到：')+(scanInfo(sc)||'條碼（沒有日期資料）')+'</div>';
   const tot=ED.rows.reduce((a,r)=>a+(+r.n||0),0);
-  const sm=DB.smeta[ED.id];
-  h+='<div class="qline">現有 <b>'+tot+'</b> <span class="mut">／ 設定量 '+esc(it.q||'—')+(sm&&sm.at?'・上次 '+(sm.by?esc(sm.by)+' ':'')+fmtT(sm.at):'')+'</span></div>';
+  const sm=DB.smeta[ED.id], ck=DB.chk[ED.id], last=ck?'・上次點 '+(ck.by?esc(ck.by)+' ':'')+fmtT(ck.at):sm&&sm.at?'・上次 '+(sm.by?esc(sm.by)+' ':'')+fmtT(sm.at):'';
+  h+='<div class="qline">現有 <b>'+tot+'</b> <span class="mut">／ 設定量 '+esc(it.q||'—')+last+'</span></div>';
   h+=ED.rows.map((r,i)=>batchRow(r,i,it.ne,ED.rows.length)).join('');
   if(!it.ne) h+='<button class="btn outline wide" data-act="addRow">＋ 加一個效期</button>';
   const cs=codesOf(ED.id);
   if(cs.length) h+='<div class="cbound">對應的條碼'+cs.map(c=>'<div><code>'+esc(c)+'</code><button class="btn ghost mini" data-act="unbind" data-code="'+esc(c)+'">解除</button></div>').join('')+'</div>';
-  h+='<div class="acts"><button class="btn ghost" data-act="close">關閉</button><button class="btn" data-act="saveItem"'+(ED.dirty?'':' disabled')+'>儲存</button></div>';
+  h+='<div class="acts"><button class="btn ghost" data-act="close">關閉</button><button class="btn" data-act="saveItem">'+saveLabel()+'</button></div>';
   showSheet(h);
 }
+// 沒改任何東西＝「✓ 數量正確」（記一筆點過）；改了＝「儲存」
+const saveLabel=()=>ED.dirty||DB.stock[ED.id]===undefined?'儲存':'✓ 數量正確';
 // 日期欄：可以直接打數字（自動變成 2027/03/11；民國 116/03/11、只有年月 2027/03＝月底也可以），旁邊日曆鈕照舊可以選
 const CAL_SVG='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16.5" rx="2.5"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/></svg>';
 function dateBox(lab,f,r,i){
@@ -989,6 +1210,7 @@ function parseDateIn(v){
     else return null;
   }
   if(p.length<2||p.length>3) return null;
+  if(p.length===2&&p[0].length<=2&&p[1].length===4) p=[p[1],p[0]];   // 包裝上常見的「月/西元年」：12/2027＝2027/12（月底）
   if(p[1].length===1&&p.length===2||p.length===3&&(+p[2]===0||p[1].length===2&&p[2].length===1)) return null;   // 沒打完（20251、2028050）不要猜成月底
   return ymdOk(rocY(p[0]),p[1],p[2])||null;
 }
@@ -1025,7 +1247,7 @@ function batchRow(r,i,ne,nRows){
     '<label>批號<input type="text" data-f="l" data-i="'+i+'" value="'+esc(r.l)+'" autocomplete="off"></label>'+stp+
     '<button class="del" data-act="delRow" data-i="'+i+'">移除這個效期</button></div>';
 }
-function markDirty(){ ED.dirty=true; const b=document.querySelector('[data-act=saveItem]'); if(b) b.disabled=false; }
+function markDirty(){ ED.dirty=true; const b=document.querySelector('[data-act=saveItem]'); if(b){ b.disabled=false; b.textContent='儲存'; } }
 function sumTxt(rows,ne){
   const tot=rows.reduce((a,r)=>a+r.n,0);
   if(ne||!rows.length) return '共 '+tot;
@@ -1033,6 +1255,7 @@ function sumTxt(rows,ne){
 }
 async function saveItem(){
   const it=itemById(ED.id), ne=!!it.ne;
+  if(!ED.dirty&&DB.stock[ED.id]!==undefined) return checkItem();
   if(!ne){
     let bad=false;
     ED.rows.forEach(r=>['m','e'].forEach(f=>{ if(r[f+'T']!=null){ const p=parseDateIn(r[f+'T']); if(p===null){ r[f+'X']=1; bad=true; } else { r[f]=p; delete r[f+'T']; delete r[f+'X']; } } }));
@@ -1044,19 +1267,32 @@ async function saveItem(){
   rows.sort((a,b)=>(a.e||'9')<(b.e||'9')?-1:(a.e||'9')>(b.e||'9')?1:0);
   const txt=sumTxt(rows,ne);
   if(!await ask('儲存「<b>'+esc(lbl(it))+'</b>」<br>'+esc(txt),'儲存')) return;
+  lockActs('儲存中…');
+  const E=ED;
   // 打開之後別台手機也改了這一項：先問要不要蓋過去
-  await pull('stock/'+ED.id);
-  const cur=getAt('stock/'+ED.id);
-  if(cur&&(cur.at||0)!==ED.base&&cur.dev!==DEV){
+  await pull('stock/'+E.id);
+  if(ED!==E) return;
+  const cur=getAt('stock/'+E.id);
+  if(cur&&(cur.at||0)!==E.base&&cur.dev!==DEV){
     derive();
-    const n=(DB.stock[ED.id]||[]).reduce((a,r)=>a+r.n,0);
+    const n=(DB.stock[E.id]||[]).reduce((a,r)=>a+r.n,0);
     if(!await ask((cur.by?'<b>'+esc(cur.by)+'</b> ':'別台手機')+'在 <b>'+fmtT(cur.at)+'</b> 改過這一項（現在共 '+n+'）。<br>要用你這次的內容<b>蓋過去</b>嗎？','蓋過去','先看最新的')){
-      const sc=ED.scan, id=ED.id; ED=null; openItem(id,sc); return;
+      ED=null; openItem(E.id,E.scan,E.back); return;
     }
   }
-  write('stock/'+ED.id,{r:rows,at:Date.now(),dev:DEV,by:ME});
-  addLog(ED.id,'儲存：'+txt);
-  toast('已儲存'); closeSheet(); flush(true);
+  write('stock/'+E.id,{r:rows,at:Date.now(),dev:DEV,by:ME},{base:(cur&&cur.at)||0});
+  chkWrite(E.id);
+  addLog(E.id,'儲存：'+txt);
+  toast('已儲存'); closeItem(); flush(true);
+}
+// 沒改任何東西直接按「✓ 數量正確」：記一筆點過（數量不動）
+async function checkItem(){
+  const it=itemById(ED.id), E=ED, txt=sumTxt((DB.stock[E.id]||[]).filter(r=>r.n>0),!!it.ne), st=stat(it);
+  const warn=[st.s==='exp'?'有已過期的':'',st.low?'數量不足':'',st.noExp?'有效期沒填':''].filter(Boolean).join('、');
+  if(!await ask('「<b>'+esc(lbl(it))+'</b>」數量、效期都正確？<br>'+esc(txt)+(warn?'<br><span style="color:var(--bad);font-weight:700">'+warn+'</span>':''),'點過了')) return;
+  if(ED!==E) return;
+  chkWrite(E.id); addLog(E.id,'點過：'+txt);
+  toast('已記錄點過'); closeItem(); flush(true);
 }
 
 /* ---------- 新增／編輯品項 ---------- */
@@ -1069,7 +1305,7 @@ function openAdd(){
 function openEdit(id){
   const it=itemById(id); if(!it) return;
   const inList=areaList(true).indexOf(it.s)>=0;
-  FM={mode:'edit',id,name:it.name,sz:it.sz||'',area:it.s,other:!inList,areaText:inList?'':it.s,q:String(it.q||''),ne:!!it.ne,back:ED&&ED.id===id?{scan:ED.scan}:null};
+  FM={mode:'edit',id,name:it.name,sz:it.sz||'',area:it.s,other:!inList,areaText:inList?'':it.s,q:String(it.q||''),ne:!!it.ne,back:ED&&ED.id===id?{scan:ED.scan,back:ED.back}:null};
   SH={type:'form'}; $('#sheetHost').innerHTML=''; drawForm();
 }
 function splitSizes(s){ return String(s||'').split(/[,，、;；\/／\n]+/).map(x=>x.trim()).filter(Boolean); }
@@ -1135,7 +1371,7 @@ async function saveNew(){
   if(!openSec.has(area)) openSec.add(area);
   const bind=F.bind;
   if(bind&&ids.length===1){
-    write('codes/'+encKey(bind.key),{k:bind.key,i:ids[0],at:Date.now(),dev:DEV,by:ME}); addLog(ids[0],'條碼 '+bind.key+' 對應到這一項');
+    write('codes/'+codeKey(bind.key),{k:bind.key,i:ids[0],at:Date.now(),dev:DEV,by:ME}); addLog(ids[0],'條碼 '+bind.key+' 對應到這一項');
     flush(true); toast('已新增'); openItem(ids[0],bind); return;
   }
   flush(true); toast('已新增 '+ids.length+' 項');
@@ -1163,7 +1399,8 @@ async function hideItem(){
   if(!await ask('移除「<b>'+esc(lbl(it))+'</b>」？<br><span class="mut">之前登記的效期、條碼都會留著，可以在「已移除的品項」恢復</span>','移除')) return;
   write('items/'+it.id,itemData(Object.assign({},it,{hide:true})));
   addLog(it.id,'移除品項');
-  flush(true); toast('已移除'); closeSheet();
+  const bk=FM.back&&FM.back.back;
+  flush(true); toast('已移除'); closeSheet(); if(bk) tileSheet(bk.tile,bk.sc);
 }
 async function unhide(id){
   const it=itemAny(id);
@@ -1174,7 +1411,7 @@ async function unhide(id){
 }
 function backFromForm(){
   const F=FM; FM=null;
-  if(F&&F.mode==='edit'&&F.back) openItem(F.id,F.back.scan);
+  if(F&&F.mode==='edit'&&F.back) openItem(F.id,F.back.scan,F.back.back);
   else if(F&&F.mode==='add'&&F.bind) openBind(F.bind);
   else closeSheet();
 }
@@ -1197,14 +1434,14 @@ function drawBindList(q){
   let h='';
   areaList().forEach(a=>{
     const xs=DB.items.filter(i=>i.s===a&&(!q||lbl(i).toLowerCase().indexOf(q)>=0)); if(!xs.length) return;
-    h+='<div class="grp">'+esc(a)+'</div>'+xs.map(it=>'<div class="it" data-act="bindTo" data-id="'+it.id+'"><div class="nm">'+esc(lbl(it))+(codesOf(it.id).length?'<span class="bc">條碼</span>':'')+'</div></div>').join('');
+    h+='<div class="grp">'+esc(a)+'</div>'+xs.map(it=>'<div class="it" data-act="bindTo" data-id="'+esc(it.id)+'"><div class="nm">'+esc(lbl(it))+(codesOf(it.id).length?'<span class="bc">條碼</span>':'')+'</div></div>').join('');
   });
   $('#blist').innerHTML=h||'<div class="mut" style="padding:10px 0">找不到</div>';
 }
 async function bindTo(id){
   const it=itemById(id), p=BIND;
   if(!await ask('把條碼 <b>'+esc(p.key)+'</b><br>設為「<b>'+esc(lbl(it))+'</b>」？','設定')) return;
-  write('codes/'+encKey(p.key),{k:p.key,i:id,at:Date.now(),dev:DEV,by:ME}); addLog(id,'條碼 '+p.key+' 對應到這一項');
+  write('codes/'+codeKey(p.key),{k:p.key,i:id,at:Date.now(),dev:DEV,by:ME}); addLog(id,'條碼 '+p.key+' 對應到這一項');
   flush(true);
   openItem(id,p);
 }
@@ -1212,7 +1449,7 @@ async function unbind(code){
   const it=itemById(DB.codes[code]);
   if(!await ask('解除條碼 <b>'+esc(code)+'</b>'+(it?'<br>（目前對應「'+esc(lbl(it))+'」）':'')+'？','解除')) return;
   const iid=DB.codes[code]||'';
-  write('codes/'+encKey(code),null); addLog(iid,'解除條碼 '+code);
+  write('codes/'+codeKey(code),null); addLog(iid,'解除條碼 '+code);
   flush(true); toast('已解除');
   if(SH&&SH.type==='item'&&ED) drawItem(); else render();
 }
@@ -1306,8 +1543,10 @@ function parseHIBC(s){
 function parseText(s){
   const o={}; let m, rest=s;
   const D='(\\d{4}|\\d{2})\\s*[.\\/\\-年]\\s*(\\d{1,2})(?:\\s*[.\\/\\-月]\\s*(\\d{1,2}))?日?';
-  if((m=s.match(new RegExp('(?:製造日期|製造|生產日期|MFG|MFD|Mfg\\.?\\s*Date)[^\\d]{0,6}'+D,'i')))){ o.mfg=ymdOk(m[1],m[2],m[3]); rest=rest.replace(m[0],' '); }
-  if((m=s.match(new RegExp('(?:有效日期|有效期限|效期|保存期限|到期日|使用期限|EXP|Expiry|Exp\\.?\\s*Date|Use\\s*by)[^\\d]{0,6}'+D,'i')))){ o.exp=ymdOk(m[1],m[2],m[3]); rest=rest.replace(m[0],' '); }
+  if((m=s.match(new RegExp('(?:製造日期|製造|生產日期|MFG|MFD|Mfg\\.?\\s*Date)[^\\d]{0,6}'+D,'i')))&&ymdOk(m[1],m[2],m[3])){ o.mfg=ymdOk(m[1],m[2],m[3]); rest=rest.replace(m[0],' '); }
+  else if((m=s.match(/(?:製造日期|製造|生產日期|MFG|MFD)[^\d]{0,6}(\d{1,2})\s*[.\/\-]\s*(\d{4})(?!\d)/i))&&ymdOk(m[2],m[1])){ o.mfg=ymdOk(m[2],m[1]); rest=rest.replace(m[0],' '); }   // MFG 01/2025（跟手打「2025/01」一樣算月底）
+  if((m=s.match(new RegExp('(?:有效日期|有效期限|效期|保存期限|到期日|使用期限|EXP|Expiry|Exp\\.?\\s*Date|Use\\s*by)[^\\d]{0,6}'+D,'i')))&&ymdOk(m[1],m[2],m[3])){ o.exp=ymdOk(m[1],m[2],m[3]); rest=rest.replace(m[0],' '); }
+  else if((m=s.match(/(?:有效日期|有效期限|效期|保存期限|到期日|使用期限|EXP|Expiry|Use\s*by)[^\d]{0,6}(\d{1,2})\s*[.\/\-]\s*(\d{4})(?!\d)/i))&&ymdOk(m[2],m[1])){ o.exp=ymdOk(m[2],m[1]); rest=rest.replace(m[0],' '); }   // EXP 12/2027（月/西元年）
   if((m=s.match(/(?:批號|LOT|Lot\s*No\.?)[\s:：#]*([A-Za-z0-9\-]+)/i))){ o.lot=m[1]; rest=rest.replace(m[0],' '); }
   if(!o.mfg&&!o.exp) return null;
   o.key=rest.replace(/[\s,，;；]+/g,' ').trim();   // 去掉日期和批號，同一種東西不同批才會對到同一項
@@ -1373,9 +1612,14 @@ async function getDetector(){
       if(sup.indexOf('data_matrix')>=0&&sup.indexOf('ean_13')>=0&&sup.indexOf('qr_code')>=0){ detector=new window.BarcodeDetector({formats:FORMATS.filter(f=>sup.indexOf(f)>=0)}); return detector; }
     }catch(e){}
   }
-  if(!window.BarcodeDetectionAPI) await loadScript(LIB_URL);
+  // 先用自己網站的 lib/（不用連外面的網站），載不到才用外面的
+  let local=true;
+  if(!window.BarcodeDetectionAPI){ try{ await loadScript(LIB_LOCAL); }catch(e){ local=false; await loadScript(LIB_URL); } }
   const API=window.BarcodeDetectionAPI;
-  try{ await API.prepareZXingModule({fireImmediately:true}); }catch(e){}
+  try{
+    if(local) await API.prepareZXingModule({overrides:{locateFile:(f,pre)=>/\.wasm$/.test(f)?new URL(LIB_WASM,location.href).href:pre+f},fireImmediately:true});
+    else await API.prepareZXingModule({fireImmediately:true});
+  }catch(e){ try{ if(API.purgeZXingModule) API.purgeZXingModule(); await API.prepareZXingModule({fireImmediately:true}); }catch(x){} }
   detector=new API.BarcodeDetector({formats:FORMATS});
   return detector;
 }
@@ -1492,24 +1736,26 @@ document.addEventListener('click',async e=>{
   else if(a==='setme') whoPick(el.dataset.n);
   else if(a==='whoth'){ authUI.other=!authUI.other; render(); const i=$('#who-in'); if(i) i.focus(); }
   else if(a==='setme-in'){ const v=($('#who-in').value||'').trim(); if(!v){ toast('請輸入名字'); return; }
+    if(staffNames().includes(v)||authOf(v)||(ST.acc||[]).includes(v)){ authUI.other=false; whoPick(v); return; }   // 名單上的人（或有衛材點班權限的人）打字也要密碼，跟點班一樣
     if(!await ask('你是<b>'+esc(v)+'</b>？','是我','選錯了')) return; authDone(v,null); }   // 支援人力（名單上沒有）：不用密碼，跟點班一樣
   else if(a==='authlist'){ authReset('list'); render(); window.scrollTo({top:0}); }
   else if(a==='authme'){ authReset(); render(); window.scrollTo({top:0}); }
   else if(a==='who'){ if(SH) closeSheet(); ME=''; authReset(); render(); window.scrollTo({top:0}); }
   else if(a==='mjump'){ const k=el.dataset.k; mgOpen.add(k); render(); const d=document.querySelector('[data-sec="m_'+k+'"]'); if(d){ d.open=true; postH();
       if(window.parent!==window) try{ parent.postMessage({sup:1,h:mgH(),y:d.getBoundingClientRect().top+window.scrollY},'*'); }catch(e){} else d.scrollIntoView({behavior:'smooth'}); } }
-  else if(a==='item'){ openItem(el.dataset.id); }
+  else if(a==='item'){ openItem(el.dataset.id,null,listBack()); }
   else if(a==='close'){
     if(SH&&SH.type==='item'&&ED&&ED.dirty&&!await ask('還沒儲存，<b>放棄修改</b>？','放棄修改','繼續編輯')) return;
-    closeSheet();
+    if(SH&&SH.type==='item') closeItem(); else closeSheet();
   }
   else if(a==='addRow'){ ED.rows.push({m:'',e:'',l:'',n:1,hl:1}); markDirty(); drawItem(); }
   else if(a==='delRow'){ ED.rows.splice(+el.dataset.i,1); markDirty(); drawItem(); }
   else if(a==='inc'||a==='dec'){ const r=ED.rows[+el.dataset.i]; r.n=Math.max(0,(parseInt(r.n,10)||0)+(a==='inc'?1:-1)); markDirty(); drawItem(); }
-  else if(a==='saveItem') saveItem();
-  else if(a==='bindTo') bindTo(el.dataset.id);
+  else if(a==='saveItem') once(saveItem);
+  else if(a==='bindTo') once(()=>bindTo(el.dataset.id));
   else if(a==='whereTo'){ const p=WH; WH=null; openItem(el.dataset.id,p); }
-  else if(a==='unbind') unbind(el.dataset.code);
+  else if(a==='unbind') once(()=>unbind(el.dataset.code));
+  else if(a==='areaChk') once(()=>areaChk(el.dataset.a));
   else if(a==='addItem') openAdd();
   else if(a==='editItem'){
     if(ED&&ED.dirty&&!await ask('效期／數量還沒儲存，<b>放棄修改</b>？','放棄修改','繼續編輯')) return;
@@ -1518,11 +1764,11 @@ document.addEventListener('click',async e=>{
   else if(a==='addSz'){ splitSizes(FM.szIn).forEach(z=>{ if(FM.sizes.indexOf(z)<0) FM.sizes.push(z); }); FM.szIn=''; drawForm(); const i=document.querySelector('[data-fm=szIn]'); if(i) i.focus(); }
   else if(a==='delSz'){ FM.sizes.splice(+el.dataset.i,1); drawForm(); }
   else if(a==='pickArea'){ if(el.dataset.a){ FM.area=el.dataset.a; FM.other=false; } else FM.other=true; drawForm(); if(FM.other){ const i=document.querySelector('[data-fm=areaText]'); if(i) i.focus(); } }
-  else if(a==='saveNew') saveNew();
-  else if(a==='saveEdit') saveEdit();
+  else if(a==='saveNew') once(saveNew);
+  else if(a==='saveEdit') once(saveEdit);
   else if(a==='formCancel') backFromForm();
-  else if(a==='hideItem') hideItem();
-  else if(a==='unhide') unhide(el.dataset.id);
+  else if(a==='hideItem') once(hideItem);
+  else if(a==='unhide') once(()=>unhide(el.dataset.id));
   // 高貴衛材使用登記
   else if(a==='uNew') openUse();
   else if(a==='uItem'){ UF.i=el.dataset.id; if(UF.sc&&DB.codes[UF.sc.key]!==UF.i) UF.sc=null; UF.dirty=true; drawUse(); }
@@ -1532,14 +1778,22 @@ document.addEventListener('click',async e=>{
   else if(a==='uScanPt'){ scanMode='pt'; openScan(); }
   else if(a==='uScanPk'){ scanMode='pk'; openScan(); }
   else if(a==='uClose'){ if(UF&&UF.dirty&&!await ask('還沒登記，<b>放棄</b>？','放棄','繼續填')) return; closeSheet(); }
-  else if(a==='uSave') saveUse();
-  else if(a==='uCx') cancelUse(el.dataset.id);
+  else if(a==='uSave') once(saveUse);
+  else if(a==='uCx') once(()=>cancelUse(el.dataset.id));
+  // 後台：高貴衛材使用的更正／取消／下載
+  else if(a==='mgUed'){ mgUseEdit(el.dataset.id); }
+  else if(a==='mgUedX'){ UE=null; render(); }
+  else if(a==='mgUedOk') once(mgUseEditSave);
+  else if(a==='mgUcx') once(()=>mgUseCancel(el.dataset.id));
+  else if(a==='ueShift'){ if(UE){ UE.k=el.dataset.k; render(); } }
+  else if(a==='ueWho'){ if(UE){ if(el.dataset.n){ UE.u=el.dataset.n; UE.uo=false; } else { UE.uo=true; UE.u=''; } render(); } }
+  else if(a==='useCsv') useCsv();
   // 後台設定
   else if(a==='hvUndo'){ HVD=null; render(); }
-  else if(a==='hvSave') hvSave();
+  else if(a==='hvSave') once(hvSave);
   else if(a==='accT'){ const n=el.dataset.n; ACD=(ACD||(ST.acc||[])).slice(); const i=ACD.indexOf(n); if(i>=0) ACD.splice(i,1); else ACD.push(n); render(); }
   else if(a==='accUndo'){ ACD=null; render(); }
-  else if(a==='accSave') accSave();
+  else if(a==='accSave') once(accSave);
 });
 $('#torch').addEventListener('click',toggleTorch);
 $('#photo').addEventListener('change',e=>scanFile(e.target.files&&e.target.files[0]));
@@ -1549,6 +1803,10 @@ document.addEventListener('input',e=>{
     if(t.dataset.uf==='p'){ const v=t.value.replace(/\D/g,'').slice(0,3); if(v!==t.value) t.value=v; }
     if(t.dataset.uf!=='d') UF[t.dataset.uf]=t.value;
     UF.dirty=true; return;
+  }
+  if(UE&&t.dataset.ue){
+    if(t.dataset.ue==='p'){ const v=t.value.replace(/\D/g,'').slice(0,3); if(v!==t.value) t.value=v; }
+    UE[t.dataset.ue]=t.value; return;
   }
   if(FM&&t.dataset.fm){ if(t.type==='checkbox') FM[t.dataset.fm]=t.checked; else FM[t.dataset.fm]=t.value; return; }
   if(ED&&t.dataset.cal){   // 日曆鈕選的日期
@@ -1584,6 +1842,11 @@ document.addEventListener('keydown',e=>{
 window.addEventListener('beforeunload',e=>{ if(ED&&ED.dirty){ e.preventDefault(); e.returnValue=''; } });
 
 if(EMBED) document.body.classList.add('emb');
+if(BG){   // 點班首頁在背景開的：只補傳，傳完告訴點班可以關掉
+  const bgTick=()=>{ if(outbox.length) flush(); else bgReport(); };
+  bgTick(); setInterval(bgTick,20000);
+  window.addEventListener('online',()=>flush());
+} else {
 derive(); render();
 pullAll(); setInterval(pullAll,20000);
 { // 名單、衛材點班權限：打開時讀，讀不到 3 秒後再試；回到 App、每 10 分鐘再讀一次
@@ -1595,6 +1858,7 @@ pullAll(); setInterval(pullAll,20000);
 if(MANAGE&&window.ResizeObserver) new ResizeObserver(postH).observe(document.querySelector('main'));
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) pullAll(); });
 window.addEventListener('online',pullAll);
+}
 </script>
 </body>
 </html>
