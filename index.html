@@ -186,6 +186,14 @@ input:focus,select:focus,textarea:focus{outline:2px solid #8fc4cb;outline-offset
 .chip.on{background:var(--navy);border-color:var(--navy);color:#fff}
 .chip.pm{border-color:#f0b98a;background:#fff4ea;color:#a85800;font-weight:700}
 .chip.pm.on{background:#e8912d;border-color:#e8912d;color:#fff}
+/* 使用滿意度問卷 */
+.svq{padding:12px;border-bottom:1px solid var(--line)}.svq:last-child{border-bottom:none}.svq p{margin:0 0 8px;line-height:1.55}.svq.miss{background:#fff4f2}
+.lik{display:flex;gap:6px}.lik button{flex:1;height:42px;border:1px solid #c4dade;background:#f2f8f9;color:var(--navy-dark);border-radius:9px;font-size:16px;font-weight:700;cursor:pointer}.lik button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.likl{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-top:4px}
+.svta{width:100%;min-height:72px;box-sizing:border-box;display:block}
+.svmin{display:flex;align-items:center;gap:8px;margin:4px 0}.svmin span{min-width:44px}.svmin input{width:90px}
+.svst{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:8px 0 12px}.svst div{background:#f2f8f9;border-radius:10px;padding:8px 10px}.svst b{display:block;font-size:22px;color:var(--navy-dark)}.svst span{font-size:12.5px;color:var(--mut)}
+.svc{padding:7px 0;border-bottom:1px solid #edf1f3;line-height:1.5}.svc:last-child{border-bottom:none}
 .rsrow{display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid #edf1f3}
 .rsrow:last-child{border-bottom:none}
 .rsrow .w{flex:1;min-width:0}
@@ -416,7 +424,7 @@ table.tt .l{text-align:left}
 // 急診點班：護理師用自己的手機點班，取代手寫點班單。
 // index.html＝護理師點班；manage.html 載入同一份程式並設 window.MANAGE＝管理頁（護理長／主任，不用密碼，網址不公開給護理師）。
 // 公開網頁檔：不放院名、不放人名。名單讀急診護理班表（唯讀），點班紀錄存在雲端節點 erShiftCheckData。
-const VERSION='3.14.1';
+const VERSION='3.15.0';
 const MANAGE=!!window.MANAGE;
 const $=id=>document.getElementById(id);
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -890,6 +898,7 @@ function renderNurse(){
   const VP=viewParts(d,s), st=shiftStat(d,s), P=curPos();
   let h=cloudAlert();
   h+=`<div class="prog"><div class="bar"><span style="width:${st.n?Math.round(st.done/st.n*100):0}%"></span></div><b>${st.done}／${st.n}</b> 張已點${st.bad?`・<span style="color:var(--warn);font-weight:700">${st.bad} 張有異常</span>`:''}</div>`;
+  h+=svBanner();
   const RS=restockList(), RSme=RS.filter(x=>x.who===name);
   const EX=expAlerts(new Set([...VP.mine,...VP.cover].map(x=>x.f.id)));
   if(EX.length){ const ex=EX.filter(x=>x.dd<0).length, soon=EX.length-ex;
@@ -1872,6 +1881,83 @@ function pushRow(){ const st=pushState(); if(st==='off2') return '';
   if(st!=='off') return '';
   return '<div class="flist"><button class="frow" data-act="pushon"><span class="dot"></span><span class="fn">🔔 開啟通知</span><span class="fs"></span><span class="chev">›</span></button></div>'; }
 
+// ---------- 使用滿意度問卷（匿名；主任 11/15：投稿前先做）----------
+// cfg/survey＝{on,id,at,by,endAt,endBy}；回答 survey/r/<id>/<亂數>＝{s:[10],x:[5],tp,tm,yrs,good,imp}（不存姓名、日期、裝置）
+// 誰填過 survey/done/<id>/<姓名>＝1（只用來不再跳出問卷、提醒還沒填的人；和回答分開存，對不起來）
+const SV_SUS=['我想我會願意經常使用這個系統','我覺得這個系統過於複雜','我認為這個系統很容易使用','我想我需要有技術人員的協助才能使用這個系統',
+  '我覺得這個系統的各項功能整合得很好','我覺得這個系統有太多不一致的地方','我想大部分的人都能很快學會使用這個系統','我覺得這個系統使用起來很麻煩',
+  '我對使用這個系統很有信心','在使用這個系統之前，我需要先學習很多東西'];
+const SV_X=['比紙本點班更節省時間','更容易知道哪些異常還沒處理、由誰補齊','到期提醒有助於減少過期品項','接班時更清楚上一班的點班情形','整體而言，我希望繼續使用手機點班，不要回到紙本'];
+const SV_YRS=['未滿 2 年','2–5 年','超過 5 年'];
+let svF=null;
+const svCfg=()=>getAt('cfg/survey')||{};
+const svOn=()=>!!svCfg().on&&!!svCfg().id;
+const svLs=()=>'erCheck_sv_'+svCfg().id+'_'+me();
+const svDoneMe=()=>!me()||!!getAt(`survey/done/${svCfg().id}/${seenEnc(me())}`)||!!lsGet(svLs(),0);
+function svBanner(){ return svOn()&&!svDoneMe()?'<button class="note info" data-act="sv" style="display:block;width:100%;text-align:left;font:inherit;font-size:14px;cursor:pointer">📝 <b>點班系統使用滿意度問卷</b>（匿名）›</button>':''; }
+function openSv(){ fvs={sv:1}; if(!svF) svF={s:Array(10).fill(0),x:Array(5).fill(0),tp:'',tm:'',yrs:'',good:'',imp:'',tried:0};
+  $('fv').classList.add('on'); document.body.style.overflow='hidden'; renderSv(); }
+function closeSv(){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); }
+function renderSv(keep){
+  const old=$('fv').querySelector('.fb'), sc=old?old.scrollTop:0, F=svF;
+  const q=(g,i,txt,no)=>{ const v=F[g][i]; return `<div class="svq${F.tried&&!v?' miss':''}" id="svq-${g}${i}"><p><b>${no}.</b> ${esc(txt)}</p>
+    <div class="lik">${[1,2,3,4,5].map(k=>`<button class="${v===k?'on':''}" data-act="sv-a" data-g="${g}" data-i="${i}" data-v="${k}">${k}</button>`).join('')}</div>
+    <div class="likl"><span>非常不同意</span><span>非常同意</span></div></div>`; };
+  let h=`<div class="fh"><button class="back" data-act="back" aria-label="返回">‹</button><div class="ft"><b>點班系統使用滿意度問卷</b></div></div><div class="fb"><div class="in">`;
+  h+=`<div class="note info">匿名填寫，不記錄姓名；結果以統計方式用於系統改善與發表。</div>`;
+  h+=`<div class="secb"><div class="sh2"><b>一、使用感受</b></div>${SV_SUS.map((t,i)=>q('s',i,t,i+1)).join('')}</div>`;
+  h+=`<div class="secb"><div class="sh2"><b>二、和紙本點班相比</b></div>${SV_X.map((t,i)=>q('x',i,t,i+11)).join('')}</div>`;
+  h+=`<div class="secb"><div class="sh2"><b>三、點完一張急救車點班大約幾分鐘</b></div><div class="svq">
+    <div class="svmin"><span>紙本</span><input type="number" inputmode="decimal" min="0" max="120" data-in="sv-tp" value="${esc(F.tp)}"> 分鐘</div>
+    <div class="svmin"><span>手機</span><input type="number" inputmode="decimal" min="0" max="120" data-in="sv-tm" value="${esc(F.tm)}"> 分鐘</div></div></div>`;
+  h+=`<div class="secb"><div class="sh2"><b>四、急診工作年資</b></div><div class="svq"><div class="chips">${SV_YRS.map(y=>`<button class="chip${F.yrs===y?' on':''}" data-act="sv-yrs" data-y="${esc(y)}">${esc(y)}</button>`).join('')}</div></div></div>`;
+  h+=`<div class="secb"><div class="sh2"><b>五、意見</b></div><div class="svq"><p>最有幫助的地方</p><textarea class="svta" data-in="sv-good">${esc(F.good)}</textarea></div>
+    <div class="svq"><p>希望改進的地方</p><textarea class="svta" data-in="sv-imp">${esc(F.imp)}</textarea></div></div>`;
+  const left=F.s.filter(v=>!v).length+F.x.filter(v=>!v).length;
+  h+=`<button class="btn" data-act="sv-send" style="width:100%;margin:4px 0 24px;padding:12px">送出問卷${left?`（還有 ${left} 題）`:''}</button>`;
+  h+=`</div></div>`;
+  $('fv').innerHTML=h;
+  const nb=$('fv').querySelector('.fb'); if(nb) nb.scrollTop=keep?sc:0;
+}
+function svSend(){
+  const F=svF, c=svCfg(); if(!F||!c.id) return;
+  const miss=[...F.s.map((v,i)=>v?'':'s'+i),...F.x.map((v,i)=>v?'':'x'+i)].filter(Boolean);
+  if(miss.length){ F.tried=1; renderSv(true); const el=$('svq-'+miss[0]); if(el) el.scrollIntoView({block:'center'}); toast(`還有 ${miss.length} 題沒填`); return; }
+  const num=v=>{ const n=parseFloat(v); return isFinite(n)&&n>=0&&n<=180?n:null; };
+  if(!confirm('送出問卷？\n匿名，不記錄姓名；送出後不能修改。')) return;
+  const rid=Array.from(crypto.getRandomValues(new Uint8Array(8)),b=>b.toString(36).padStart(2,'0')).join('');
+  write('PUT',`survey/r/${c.id}/${rid}`,{s:F.s,x:F.x,tp:num(F.tp),tm:num(F.tm),yrs:F.yrs||'',good:String(F.good||'').trim().slice(0,1000),imp:String(F.imp||'').trim().slice(0,1000)});
+  write('PUT',`survey/done/${c.id}/${seenEnc(me())}`,1); lsSet(svLs(),1);
+  svF=null; closeSv(); toast('已送出，謝謝！');
+}
+// SUS 分數：單數題（正向）分數−1、雙數題（反向）5−分數，加總 ×2.5（0–100）
+const svSus=r=>r.s.reduce((a,v,i)=>a+(i%2?5-v:v-1),0)*2.5;
+const svMean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+const svMed=a=>{ if(!a.length) return null; const b=[...a].sort((x,y)=>x-y), m=b.length>>1; return b.length%2?b[m]:(b[m-1]+b[m])/2; };
+const svSd=a=>{ if(a.length<2) return null; const m=svMean(a); return Math.sqrt(a.reduce((x,y)=>x+(y-m)*(y-m),0)/(a.length-1)); };
+const f1=v=>v==null?'—':(Math.round(v*10)/10).toFixed(1);
+function svCard(){
+  const c=svCfg(), id=c.id, R=id?Object.values(getAt(`survey/r/${id}`)||{}).filter(r=>r&&Array.isArray(r.s)&&r.s.length===10):[];
+  const done=new Set(id?Object.keys(getAt(`survey/done/${id}`)||{}):[]), not=staffNames().filter(n=>!done.has(seenEnc(n)));
+  const right=c.on?`進行中・${R.length} 份`:id?`已結束・${R.length} 份`:'未開始';
+  let b=`<div class="edrow">${c.on?'<button class="btn outline" data-act="sv-off">結束問卷</button>':`<button class="btn" data-act="sv-on">${id?'重新開放問卷':'開始問卷'}</button>`}</div>`;
+  if(id) b+=`<div class="mut" style="margin:6px 0">${esc(c.by||'')} ${c.at?whenLabel(c.at):''} 開始${c.endAt?`・${esc(c.endBy||'')} ${whenLabel(c.endAt)} 結束`:''}</div>`;
+  if(!R.length) return card('sv','使用滿意度問卷',right,b+(id?'<div class="mut">還沒有人填</div>':''));
+  const S=R.map(svSus), tp=R.map(r=>r.tp).filter(v=>v!=null), tm=R.map(r=>r.tm).filter(v=>v!=null);
+  b+=`<div class="svst"><div><span>填答</span><b>${R.length} 份</b><span>名單 ${staffNames().length} 人</span></div>
+    <div><span>SUS 平均（0–100）</span><b>${f1(svMean(S))}</b><span>標準差 ${f1(svSd(S))}・中位數 ${f1(svMed(S))}・${f1(Math.min(...S))}–${f1(Math.max(...S))}</span></div>
+    <div><span>急救車點班・紙本（中位數）</span><b>${f1(svMed(tp))} 分</b><span>${tp.length} 人填</span></div>
+    <div><span>急救車點班・手機（中位數）</span><b>${f1(svMed(tm))} 分</b><span>${tm.length} 人填</span></div></div>`;
+  const row=(txt,no,vals)=>{ const m=svMean(vals), ag=vals.filter(v=>v>=4).length; return `<tr><td class="l">${no}. ${esc(txt)}</td><td>${f1(m)}</td><td>${Math.round(ag/vals.length*100)}%</td></tr>`; };
+  b+=`<div class="tw"><table class="tt"><tr><th class="l">題目</th><th style="white-space:nowrap">平均</th><th style="white-space:nowrap">同意</th></tr>${SV_SUS.map((t,i)=>row(t,i+1,R.map(r=>r.s[i]))).join('')}${SV_X.map((t,i)=>row(t,i+11,R.map(r=>(r.x||[])[i]).filter(Boolean))).join('')}</table></div>`;
+  b+=`<div class="grp">急診工作年資</div><div>${SV_YRS.map(y=>`${esc(y)} ${R.filter(r=>r.yrs===y).length} 人`).join('・')}${R.some(r=>!r.yrs)?`・沒填 ${R.filter(r=>!r.yrs).length} 人`:''}</div>`;
+  const G=R.map(r=>r.good).filter(Boolean), I=R.map(r=>r.imp).filter(Boolean);
+  b+=`<div class="grp">最有幫助的地方（${G.length}）</div>${G.length?G.map(t=>`<div class="svc">${esc(t)}</div>`).join(''):'<div class="mut">沒有</div>'}`;
+  b+=`<div class="grp">希望改進的地方（${I.length}）</div>${I.length?I.map(t=>`<div class="svc">${esc(t)}</div>`).join(''):'<div class="mut">沒有</div>'}`;
+  if(c.on&&not.length) b+=`<details class="seenbox"><summary>名單上還沒填 ${not.length} 人</summary><div style="padding:6px 0">${not.map(esc).join('、')}</div></details>`;
+  return card('sv','使用滿意度問卷',right,b);
+}
+
 // ---------- 讀資料 ----------
 let _busy=false, _cfgAt=0;
 function applyWipe(){
@@ -1887,17 +1973,18 @@ async function refreshView(){
     const {d,s}=view, t=ymd(new Date());
     if(await pull('cfg/wipeAt')) applyWipe();
     if(Date.now()-_cfgAt>10*60e3||cloud.st!=='ok'){   // 點班單內容十分鐘讀一次就好
-      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),pull('cfg/supAcc'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null,authLoad()]); _cfgAt=Date.now(); }
+      if(await pull('cfg/fver')){ await Promise.all([pull('cfg/staff'),pull('cfg/staffHide'),pull('cfg/supAcc'),pull('cfg/survey'),(+getAt('cfg/fver')||0)!==fver||!_cfgAt?pull('cfg/forms'):null,authLoad()]); _cfgAt=Date.now(); }
       applyCfg();
     }
     const ps=prevShift(d,s);
     const rd=[...new Set([d,ps.d,t,addDays(t,-1)])];
     await Promise.all([...rd.map(x=>pull(`rec/${mkey(x)}/${dkey(x)}`)),...rd.map(x=>pull(`tk/${mkey(x)}/${dkey(x)}`)),...qMonthsTo(mkey(d)).map(m=>pull(`rec/${m}/_m`)),pull('virus'),pull('soak/'+mkey(t)),pull('soak/'+shiftMonth(mkey(t),-1)),pull('ster/'+mkey(t)),pull('ster/'+shiftMonth(mkey(t),-1)),pull('rep'),
-      loadSched([...new Set([d,ps.d,nowShift().d])])]);
+      loadSched([...new Set([d,ps.d,nowShift().d])]),svOn()&&me()&&!lsGet(svLs(),0)?pull(`survey/done/${svCfg().id}/${seenEnc(me())}`):null]);
     flush();
   } finally{ _busy=false; }
   if(typing()) return;   // 下一次（一分鐘後）再重畫
   if(fvs&&fvs.sup) return;   // 衛材那一頁自己會更新
+  if(fvs&&fvs.sv) return;    // 問卷填到一半不重畫
   if(fvs&&fvs.soak) renderSoak(true); else if(fvs&&fvs.ster) renderSter(true); else if(fvs&&fvs.rep) renderRep(true); else if(fvs&&fvs.restock) renderRestock(true); else if(fvs) renderForm(); else renderNurse();
 }
 
@@ -1940,7 +2027,7 @@ async function findStart(){
 const loading={}, mLoaded=new Set(), mTry={};   // 讀過的月份（空的月份在副本裡也是空的，所以另外記）
 async function loadMonth(mk,render){
   if(loading[mk]) return; loading[mk]=1; mTry[mk]=Date.now();
-  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk),pull('seen/'+mk),pull('virus')]);
+  const ok=await Promise.all([pull('rec/'+mk),pull('rev/'+mk),pull('soak/'+mk),pull('ster/'+mk),pull('rep'),pull('chg/'+mk),pull('tk/'+mk),pull('seen/'+mk),pull('virus'),pull('cfg/survey'),pull('survey')]);
   const qf=activeForms().filter(isQ), pm=qMonthsTo(mk).filter(m=>m!==mk);
   if(qf.length&&pm.length){ await Promise.all(pm.map(m=>getAt(`rec/${m}/_m`)===undefined?pull(`rec/${m}/_m`):null));
     const need=[]; pm.forEach(m=>{ const M=getAt(`rec/${m}/_m`)||{}; Object.keys(M).forEach(key=>{ const fid=key.split('~')[0], x=M[key];
@@ -2141,6 +2228,8 @@ function renderManage(){
   h+=card('days','每日紀錄與核簽',`已核簽 ${nrev}／${useDays.length} 天`,useDays.length?[...useDays].reverse().map(dayHtml).join(''):'<div class="mut">這個月還沒有點班紀錄</div>');
   // 月表
   h+=card('mt','點班單月表與列印','',monthTable(S));
+  // 使用滿意度問卷
+  h+=svCard();
   // 設定
   h+=card('staff','設定：名單','',staffEditor());
   // 點班分工（哪個位置點哪些項目）
@@ -2784,6 +2873,17 @@ document.addEventListener('click',async e=>{
   if(a==='pushon2'&&!confirm('開啟這支手機的點班通知？')) return;
   if(a==='pushon'||a==='pushon2'){ try{ const ok=await pushSub(true); if(ok){ toast('已開啟通知'); showNoti('急診點班','通知已開啟：這一班上班超過 1 小時還有單子沒點，會通知你'); } else toast('沒有允許通知'); }
     catch(e){ toast('開不了通知：'+(e&&e.message||e)); } renderNurse(); return; }
+  if(a==='back'&&fvs&&fvs.sv){ closeSv(); return; }
+  if(a==='sv'){ openSv(); return; }
+  if(a==='sv-a'&&svF){ svF[ds.g][+ds.i]=+ds.v; renderSv(true); return; }
+  if(a==='sv-yrs'&&svF){ svF.yrs=svF.yrs===ds.y?'':ds.y; renderSv(true); return; }
+  if(a==='sv-send'){ svSend(); return; }
+  if(a==='sv-on'){ const nm=await mgrName(); if(!nm) return; const c=svCfg();
+    if(!confirm(`${c.id?'重新開放':'開始'}「點班系統使用滿意度問卷」？\n護理師打開點班首頁就會看到問卷，填過的人不會再出現。\n${c.id?'重新開放':'開始'}者：${nm}`)) return;
+    write('PUT','cfg/survey',c.id?Object.assign({},c,{on:true,endAt:null,endBy:null}):{on:true,id:mkey(ymd(new Date())),at:Date.now(),by:nm}); renderManage(); toast('問卷已開始'); return; }
+  if(a==='sv-off'){ const nm=await mgrName(); if(!nm) return; const c=svCfg(), n=Object.keys(getAt(`survey/r/${c.id}`)||{}).length;
+    if(!confirm(`結束「點班系統使用滿意度問卷」？\n護理師首頁不再出現問卷；已收到的 ${n} 份會保留。\n結束者：${nm}`)) return;
+    write('PATCH','cfg/survey',{on:false,endAt:Date.now(),endBy:nm}); renderManage(); toast('問卷已結束'); return; }
   if(a==='back'&&fvs&&fvs.sup){ closeSup(); return; }
   if(a==='back'&&fvs&&fvs.rep){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
   if(a==='back'&&fvs&&fvs.ster){ fvs=null; $('fv').classList.remove('on'); $('fv').innerHTML=''; document.body.style.overflow=''; renderNurse(); return; }
@@ -3034,6 +3134,7 @@ function fixDone(t){ closeDlg(); const r=_fxRes; _fxRes=null; if(r) r(t||''); }
 function pickDone(n){ closeDlg(); const r=_pickRes; _pickRes=null; if(n&&!_pkT) ME=n; _pkT=null; if(r) r(n||''); }
 document.addEventListener('input',e=>{
   const t=e.target, ds=t.dataset;
+  if(ds.in&&ds.in.startsWith('sv-')&&svF){ svF[ds.in.slice(3)]=t.value; return; }
   if(ds.in&&fvs&&fvs.f){   // 點班單畫面的輸入（泡消、送消、待補畫面沒有 fvs.f）
     const dr=fvs.dr; let val=t.value;
     if((ds.in==='e'||ds.in==='op')&&(ds.dt||ds.cal)){ const k=ds.in+'|'+ds.id+'|'+ds.i; if(!fvs.et) fvs.et={}; if(!fvs.etX) fvs.etX={};
